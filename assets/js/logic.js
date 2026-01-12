@@ -491,7 +491,7 @@ function update() {
     }
 
     if (keys['KeyW']) {
-        console.log(player)
+        //console.log(player)
         const door = doors.top || { active: 0, locked: 0 };
         const doorX = door.x !== undefined ? door.x : canvas.width / 2;
         const inDoorRange = player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
