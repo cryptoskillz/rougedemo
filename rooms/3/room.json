@@ -1,9 +1,10 @@
 {
     "name": "Room 3",
+    "keyBonus": 1.0,
     "speedGoal": 5,
     "doors": {
         "top": {
-            "locked": 0,
+            "locked": 1,
             "active": 1,
             "x": 200
         },
@@ -24,5 +25,15 @@
         }
     },
     "width": 400,
-    "height": 600
+    "height": 600,
+    "enemies": [
+        {
+            "type": "grunt",
+            "count": 2
+        },
+        {
+            "type": "speedy",
+            "count": 1
+        }
+    ]
 }

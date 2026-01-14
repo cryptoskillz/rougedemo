@@ -51,7 +51,10 @@ let goldenPath = [];
 let roomTemplates = {};
 let levelMap = {}; // Pre-generated level structure
 let bossCoord = "";
+let enemyTemplates = {};
 let bossIntroEndTime = 0;
+let gameLoopStarted = false;
+let keyUsedForRoom = false;
 
 async function updateUI() {
     hpEl.innerText = player.hp;
@@ -160,16 +163,17 @@ function generateLevel(length) {
         if (data.isBoss) {
             // Find which neighbor is in goldenPath just before boss
             const bossIndex = goldenPath.indexOf(coord);
+            let entryDir = null;
             if (bossIndex > 0) {
                 const prevCoord = goldenPath[bossIndex - 1];
                 const [prx, pry] = prevCoord.split(',').map(Number);
-                const entryDir = prx < rx ? "left" : (prx > rx ? "right" : (pry < ry ? "top" : "bottom"));
-
-                // Close all doors except entry
-                ["top", "bottom", "left", "right"].forEach(dir => {
-                    if (data.doors[dir]) data.doors[dir].active = (dir === entryDir ? 1 : 0);
-                });
+                entryDir = prx < rx ? "left" : (prx > rx ? "right" : (pry < ry ? "top" : "bottom"));
             }
+
+            // Close all doors except entry
+            ["top", "bottom", "left", "right"].forEach(dir => {
+                if (data.doors[dir]) data.doors[dir].active = (dir === entryDir ? 1 : 0);
+            });
         }
     }
 
@@ -183,6 +187,7 @@ const DOOR_THICKNESS = 15;
 // Load configurations (Async)
 const DEBUG_START_BOSS = false; // TOGGLE THIS FOR DEBUGGING
 const DEBUG_PLAYER = true;
+const CHEATS_ENABLED = false;
 
 // configurations
 // configurations
@@ -219,6 +224,9 @@ async function initGame(isRestart = false) {
 
         gameData = gData;
         roomManifest = mData;
+
+        // Ensure player maintains inventory structure if not present in player.json
+        if (pData.inventory === undefined) pData.inventory = { keys: 0 };
         Object.assign(player, pData);
 
         // 2. Pre-load ALL room templates
@@ -237,7 +245,18 @@ async function initGame(isRestart = false) {
         await Promise.all(templatePromises);
         console.log("All room templates loaded:", Object.keys(roomTemplates));
 
-        // 3. Generate Level
+        // 3. Pre-load ALL enemy templates
+        enemyTemplates = {};
+        const enemyManifest = await fetch('enemies/manifest.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ enemies: [] }));
+        const ePromises = enemyManifest.enemies.map(id =>
+            fetch(`enemies/${id}.json?t=` + Date.now())
+                .then(res => res.json())
+                .then(data => enemyTemplates[id] = data)
+        );
+        await Promise.all(ePromises);
+        console.log("All enemy templates loaded:", Object.keys(enemyTemplates));
+
+        // 4. Generate Level
         if (DEBUG_START_BOSS) {
             console.log("DEBUG MODE: Starting in Boss Room");
             bossCoord = "0,0";
@@ -259,11 +278,17 @@ async function initGame(isRestart = false) {
 
         if (gameState === STATES.PLAY) spawnEnemies();
 
-        draw(); // Start loop
+        if (!gameLoopStarted) {
+            gameLoopStarted = true;
+            draw(); // Start loop only once
+        }
 
     } catch (err) {
         console.warn("Could not load configurations", err);
-        draw();
+        if (!gameLoopStarted) {
+            gameLoopStarted = true;
+            draw();
+        }
     }
 }
 
@@ -294,27 +319,40 @@ window.addEventListener('keyup', e => keys[e.code] = false);
 
 function spawnEnemies() {
     enemies = [];
-    if (enemies.length > 0) return; // Don't double spawn if not cleared logic fails
 
-    // Use roomData.enemyCount if defined (strict override), otherwise random calculation
-    let count;
-    if (roomData.enemyCount !== undefined) {
-        count = roomData.enemyCount;
-    } else {
-        count = 3 + Math.floor(Math.random() * 3);
-        if (gameData.difficulty) count += gameData.difficulty;
-    }
-    const freezeUntil = Date.now() + 1000; // Freeze for 1s
-    player.invulnUntil = freezeUntil; // Player also safe for 1s
-    for (let i = 0; i < count; i++) {
-        enemies.push({
-            x: Math.random() * (canvas.width - 60) + 30,
-            y: Math.random() * (canvas.height - 60) + 30,
-            size: roomData.isBoss ? 40 : 25,
-            hp: roomData.isBoss ? 5 : 2,
-            speed: (1 + Math.random()) * (roomData.isBoss ? 0.5 : 1),
-            freezeUntil: freezeUntil
+    const freezeUntil = Date.now() + 1000;
+    player.invulnUntil = freezeUntil;
+
+    // Skip if explicitly set to 0 enemies
+    if (roomData.enemyCount === 0) return;
+
+    // Use roomData.enemies if defined (array of {type, count}), otherwise fallback
+    if (roomData.enemies && Array.isArray(roomData.enemies)) {
+        roomData.enemies.forEach(group => {
+            const template = enemyTemplates[group.type];
+            if (template) {
+                for (let i = 0; i < group.count; i++) {
+                    const inst = JSON.parse(JSON.stringify(template));
+                    inst.x = Math.random() * (canvas.width - 60) + 30;
+                    inst.y = Math.random() * (canvas.height - 60) + 30;
+                    inst.freezeUntil = freezeUntil;
+                    enemies.push(inst);
+                }
+            }
         });
+    } else {
+        // Fallback: Random Grunts
+        let count = 3 + Math.floor(Math.random() * 3);
+        if (gameData.difficulty) count += gameData.difficulty;
+        const template = enemyTemplates["grunt"] || { hp: 2, speed: 1, size: 25 };
+
+        for (let i = 0; i < count; i++) {
+            const inst = JSON.parse(JSON.stringify(template));
+            inst.x = Math.random() * (canvas.width - 60) + 30;
+            inst.y = Math.random() * (canvas.height - 60) + 30;
+            inst.freezeUntil = freezeUntil;
+            enemies.push(inst);
+        }
     }
 }
 
@@ -355,17 +393,18 @@ function changeRoom(dx, dy) {
         levelMap[currentCoord].cleared = (enemies.length === 0);
     }
 
-    // Check if door was locked and consume a key
+    // Check if door was locked or recently unlocked by a key
     let doorUsed = null;
     if (dx === 1) doorUsed = "right";
     if (dx === -1) doorUsed = "left";
     if (dy === 1) doorUsed = "bottom";
     if (dy === -1) doorUsed = "top";
 
-    if (doorUsed && roomData.doors && roomData.doors[doorUsed].locked && player.inventory.keys > 0) {
-        player.inventory.keys--;
-        keysEl.innerText = player.inventory.keys;
-        roomData.doors[doorUsed].locked = 0; // Unlock permanently in this level instance
+    let keyWasUsedForThisRoom = false;
+    if (doorUsed && roomData.doors && roomData.doors[doorUsed]) {
+        if (roomData.doors[doorUsed].unlockedByKey) {
+            keyWasUsedForThisRoom = true;
+        }
     }
 
     player.roomX += dx;
@@ -388,7 +427,31 @@ function changeRoom(dx, dy) {
         canvas.height = roomData.height || 600;
 
         spawnPlayer(dx, dy, roomData);
-        roomStartTime = Date.now();
+        roomStartTime = Date.now() + (roomData.isBoss ? 2000 : 1000); // Start timer after freeze
+        keyUsedForRoom = keyWasUsedForThisRoom; // Apply key usage penalty to next room
+
+        // Immediate Room Bonus if key used
+        if (keyUsedForRoom) {
+            const baseChance = roomData.keyBonus !== undefined ? roomData.keyBonus : 1.0;
+            const finalChance = baseChance + (player.luck || 0);
+            console.log(`Bonus Roll - Base: ${baseChance}, Luck: ${player.luck}, Final: ${finalChance}`);
+            if (Math.random() < finalChance) {
+                perfectEl.innerText = "ROOM BONUS!";
+                perfectEl.style.display = 'block';
+                perfectEl.style.animation = 'none';
+                perfectEl.offsetHeight; /* trigger reflow */
+                perfectEl.style.animation = null;
+                setTimeout(() => perfectEl.style.display = 'none', 2000);
+            }
+        }
+
+        // If you enter a room through a door, it must be open (unlocked)
+        if (roomData.doors) {
+            const entryDoor = dx === 1 ? "left" : (dx === -1 ? "right" : (dy === 1 ? "top" : "bottom"));
+            if (roomData.doors[entryDoor]) {
+                roomData.doors[entryDoor].locked = 0;
+            }
+        }
 
         if (roomData.isBoss) {
             bossIntroEndTime = Date.now() + 2000;
@@ -431,11 +494,21 @@ function update() {
     }
 
     if (keys['KeyW']) {
-        //console.log(player)
         const door = doors.top || { active: 0, locked: 0 };
         const doorX = door.x !== undefined ? door.x : canvas.width / 2;
         const inDoorRange = player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
-        const canPass = door.active && (!door.locked || player.inventory.keys > 0) && !roomLocked;
+        const canPass = door.active && !door.locked && !roomLocked;
+
+        // Unlocking on touch with K key
+        if (!roomLocked && door.active && door.locked && player.inventory && player.inventory.keys > 0 && player.y <= BOUNDARY + 5 && inDoorRange && keys['KeyK']) {
+            player.inventory.keys--;
+            keysEl.innerText = player.inventory.keys;
+            door.locked = 0;
+            door.unlockedByKey = true;
+            console.log("Top door unlocked via K key");
+            keys['KeyK'] = false;
+        }
+
         if (player.y > BOUNDARY || (inDoorRange && canPass)) {
             player.y -= player.speed;
         }
@@ -444,7 +517,18 @@ function update() {
         const door = doors.bottom || { active: 0, locked: 0 };
         const doorX = door.x !== undefined ? door.x : canvas.width / 2;
         const inDoorRange = player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
-        const canPass = door.active && (!door.locked || player.inventory.keys > 0) && !roomLocked;
+        const canPass = door.active && !door.locked && !roomLocked;
+
+        // Unlocking on touch with K key
+        if (!roomLocked && door.active && door.locked && player.inventory && player.inventory.keys > 0 && player.y >= canvas.height - BOUNDARY - 5 && inDoorRange && keys['KeyK']) {
+            player.inventory.keys--;
+            keysEl.innerText = player.inventory.keys;
+            door.locked = 0;
+            door.unlockedByKey = true;
+            console.log("Bottom door unlocked via K key");
+            keys['KeyK'] = false;
+        }
+
         if (player.y < canvas.height - BOUNDARY || (inDoorRange && canPass)) {
             player.y += player.speed;
         }
@@ -453,7 +537,18 @@ function update() {
         const door = doors.left || { active: 0, locked: 0 };
         const doorY = door.y !== undefined ? door.y : canvas.height / 2;
         const inDoorRange = player.y > doorY - DOOR_SIZE && player.y < doorY + DOOR_SIZE;
-        const canPass = door.active && (!door.locked || player.inventory.keys > 0) && !roomLocked;
+        const canPass = door.active && !door.locked && !roomLocked;
+
+        // Unlocking on touch with K key
+        if (!roomLocked && door.active && door.locked && player.inventory && player.inventory.keys > 0 && player.x <= BOUNDARY + 5 && inDoorRange && keys['KeyK']) {
+            player.inventory.keys--;
+            keysEl.innerText = player.inventory.keys;
+            door.locked = 0;
+            door.unlockedByKey = true;
+            console.log("Left door unlocked via K key");
+            keys['KeyK'] = false;
+        }
+
         if (player.x > BOUNDARY || (inDoorRange && canPass)) {
             player.x -= player.speed;
         }
@@ -462,17 +557,28 @@ function update() {
         const door = doors.right || { active: 0, locked: 0 };
         const doorY = door.y !== undefined ? door.y : canvas.height / 2;
         const inDoorRange = player.y > doorY - DOOR_SIZE && player.y < doorY + DOOR_SIZE;
-        const canPass = door.active && (!door.locked || player.inventory.keys > 0) && !roomLocked;
+        const canPass = door.active && !door.locked && !roomLocked;
+
+        // Unlocking on touch with K key
+        if (!roomLocked && door.active && door.locked && player.inventory && player.inventory.keys > 0 && player.x >= canvas.width - BOUNDARY - 5 && inDoorRange && keys['KeyK']) {
+            player.inventory.keys--;
+            keysEl.innerText = player.inventory.keys;
+            door.locked = 0;
+            door.unlockedByKey = true;
+            console.log("Right door unlocked via K key");
+            keys['KeyK'] = false;
+        }
+
         if (player.x < canvas.width - BOUNDARY || (inDoorRange && canPass)) {
             player.x += player.speed;
         }
     }
 
     // Cheat Keys
-    if (keys['KeyK']) {
+    if (CHEATS_ENABLED && keys['KeyL']) {
         player.inventory.keys++;
         keysEl.innerText = player.inventory.keys;
-        keys['KeyK'] = false; // Prevents spam
+        keys['KeyL'] = false; // Prevents spam
     }
 
     if (keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight']) {
@@ -537,30 +643,34 @@ function update() {
                             const isSpeedy = (roomData.speedGoal > 0) && (elapsed <= roomData.speedGoal);
 
                             let msg = "";
-                            if (isPerfect) {
-                                perfectStreak++;
+                            if (!keyUsedForRoom) {
+                                if (isPerfect) {
+                                    perfectStreak++;
 
-                                if (perfectStreak >= (gameData.perfectGoal || 3)) {
-                                    player.perfectCount++;
-                                    player.perfectTotalCount++;
-                                    player.perfectCount = 0;
-                                    msg = "PERFECT BONUS!"; // Bonus takes priority over combo text
-                                } else {
-                                    player.perfectCount++;
-                                    player.perfectTotalCount++;
+                                    if (perfectStreak >= (gameData.perfectGoal || 3)) {
+                                        player.perfectCount++;
+                                        player.perfectTotalCount++;
+                                        player.perfectCount = 0;
+                                        msg = "PERFECT BONUS!"; // Bonus takes priority over combo text
+                                    } else {
+                                        player.perfectCount++;
+                                        player.perfectTotalCount++;
+                                        player.speedCount++;
+                                        player.speedTotalCount++;
+                                        msg = isSpeedy ? "SPEEDY PERFECT!" : "PERFECT!";
+                                    }
+                                } else if (isSpeedy) {
+                                    msg = "SPEEDY!";
+                                    perfectStreak = 0;
                                     player.speedCount++;
                                     player.speedTotalCount++;
-                                    msg = isSpeedy ? "SPEEDY PERFECT!" : "PERFECT!";
+                                } else {
+                                    perfectStreak = 0;
+                                    player.speedCount = 0;
+                                    player.perfectCount = 0;
                                 }
-                            } else if (isSpeedy) {
-                                msg = "SPEEDY!";
-                                perfectStreak = 0;
-                                player.speedCount++;
-                                player.speedTotalCount++;
                             } else {
-                                perfectStreak = 0; // Reset streak if neither
-                                player.speedCount = 0;
-                                player.perfectCount = 0;
+                                // Room bonus now awarded on entry
                             }
 
                             if (msg) {
@@ -657,9 +767,9 @@ async function draw() {
     const roomLocked = enemies.length > 0;
     const doors = roomData.doors || {};
     const getDoorColor = (direction) => {
-        if (roomLocked) return "#c0392b"; // Red if locked
+        if (roomLocked) return "#c0392b"; // Red if enemy-locked
         const door = doors[direction] || { locked: 0 };
-        return door.locked ? "#c0392b" : "#222"; // Red for key-locked, Dark for open
+        return door.locked ? "#f1c40f" : "#222"; // Yellow for key-locked, Dark for open
     };
 
     if (doors.top && doors.top.active) {
@@ -809,6 +919,13 @@ async function draw() {
             drawKey("←", rx - 45, ly);
             drawKey("→", rx + 45, ly);
             drawKey("↓", rx, ly + 45);
+
+            // Unlock (Bottom center)
+            const mx = canvas.width / 2;
+            const my = canvas.height - 80;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillText("UNLOCK", mx, my - 45);
+            drawKey("K", mx, my);
         }
     }
 

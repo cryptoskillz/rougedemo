@@ -1,9 +1,10 @@
 {
     "name": "Room 2",
+    "keyBonus": 1.0,
     "speedGoal": 5,
     "doors": {
         "top": {
-            "locked": 0,
+            "locked": 1,
             "active": 0,
             "x": 250
         },
@@ -24,5 +25,11 @@
         }
     },
     "width": 500,
-    "height": 600
+    "height": 600,
+    "enemies": [
+        {
+            "type": "tank",
+            "count": 2
+        }
+    ]
 }
