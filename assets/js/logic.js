@@ -429,6 +429,21 @@ function changeRoom(dx, dy) {
         roomStartTime = Date.now();
         keyUsedForRoom = keyWasUsedForThisRoom; // Apply key usage penalty to next room
 
+        // Immediate Room Bonus if key used
+        if (keyUsedForRoom) {
+            const baseChance = roomData.keyBonus !== undefined ? roomData.keyBonus : 1.0;
+            const finalChance = baseChance + (player.luck || 0);
+            console.log(`Bonus Roll - Base: ${baseChance}, Luck: ${player.luck}, Final: ${finalChance}`);
+            if (Math.random() < finalChance) {
+                perfectEl.innerText = "ROOM BONUS!";
+                perfectEl.style.display = 'block';
+                perfectEl.style.animation = 'none';
+                perfectEl.offsetHeight; /* trigger reflow */
+                perfectEl.style.animation = null;
+                setTimeout(() => perfectEl.style.display = 'none', 2000);
+            }
+        }
+
         // If you enter a room through a door, it must be open (unlocked)
         if (roomData.doors) {
             const entryDoor = dx === 1 ? "left" : (dx === -1 ? "right" : (dy === 1 ? "top" : "bottom"));
@@ -654,9 +669,7 @@ function update() {
                                     player.perfectCount = 0;
                                 }
                             } else {
-                                if (Math.random() < 0.1) {
-                                    msg = "ROOM BONUS!";
-                                }
+                                // Room bonus now awarded on entry
                             }
 
                             if (msg) {
