@@ -163,16 +163,17 @@ function generateLevel(length) {
         if (data.isBoss) {
             // Find which neighbor is in goldenPath just before boss
             const bossIndex = goldenPath.indexOf(coord);
+            let entryDir = null;
             if (bossIndex > 0) {
                 const prevCoord = goldenPath[bossIndex - 1];
                 const [prx, pry] = prevCoord.split(',').map(Number);
-                const entryDir = prx < rx ? "left" : (prx > rx ? "right" : (pry < ry ? "top" : "bottom"));
-
-                // Close all doors except entry
-                ["top", "bottom", "left", "right"].forEach(dir => {
-                    if (data.doors[dir]) data.doors[dir].active = (dir === entryDir ? 1 : 0);
-                });
+                entryDir = prx < rx ? "left" : (prx > rx ? "right" : (pry < ry ? "top" : "bottom"));
             }
+
+            // Close all doors except entry
+            ["top", "bottom", "left", "right"].forEach(dir => {
+                if (data.doors[dir]) data.doors[dir].active = (dir === entryDir ? 1 : 0);
+            });
         }
     }
 
