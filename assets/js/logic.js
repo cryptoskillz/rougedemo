@@ -261,7 +261,7 @@ const BOUNDARY = 20;
 const DOOR_SIZE = 50;
 const DOOR_THICKNESS = 15;
 // Load configurations (Async)
-const DEBUG_START_BOSS = false; // TOGGLE THIS FOR DEBUGGING
+const DEBUG_START_BOSS = true; // TOGGLE THIS FOR DEBUGGING
 const DEBUG_PLAYER = true;
 const CHEATS_ENABLED = false;
 const DEBUG_WINDOW_ENABLED = true;
@@ -1007,7 +1007,8 @@ async function draw() {
             ctx.font = "bold 50px 'Courier New'"; // Matched Font
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText(roomData.bossName || "BOSS", canvas.width / 2, canvas.height / 2);
+            const currentBossName = (enemyTemplates["boss"] && enemyTemplates["boss"].name) || "BOSS";
+            ctx.fillText(currentBossName, canvas.width / 2, canvas.height / 2);
 
             // Don't draw enemies yet
         } else {
