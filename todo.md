@@ -5,14 +5,13 @@ start room
     each time you finish the game you will unlock more stuff
 
 bugs
-    remove bossname from room.json and use the boss name from enemie.json
     when you enter a room you sometimes see bullets from previous room 
-    boss name should not show if hes dead just the portal
     you should only get a room bonus once
     if you increase the size the player hit box should also increase
     restart should reset the player stats including debug (maybe not)
-    there can only be one adjacent room with a door leading boss otherwise it will delete one of the doors
-     if you increase the size the enemie hit box should also increase
+    if you increase the size the enemie hit box should also increase
+    bullets should not go through invlu enemies
+    ibvul perido not required ons tart room
 
 bullets
     ricochet
