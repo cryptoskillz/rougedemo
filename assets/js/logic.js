@@ -834,6 +834,10 @@ function update() {
                     b.hitEnemies.push(ei);
                     // Halve damage after each pierce
                     b.damage = (b.damage || 1) / 2;
+                    // Destroy bullet if damage is too low
+                    if (b.damage <= 0) {
+                        bullets.splice(bi, 1);
+                    }
                 }
 
                 const isFrozen = Date.now() < en.freezeUntil;
