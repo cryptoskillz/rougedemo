@@ -5,11 +5,24 @@ start room
     each time you finish the game you will unlock more stuff
 
 bugs
+    homing missles should start at the side of the key that was pressde
+    if you get hit perfect bonus will reset 
 
 bullets  
-    topandbotton
-    leftandright
-    all
+    Multiirectional Bullets if any key is pressed it fires the others that are linked ie if top is pressed and left is active it fires left, if left is presses it fires left only,  If top and left is active when you press right top, left and right are fired
+        left x
+        top x
+        let x
+        bottom x
+
+TopAndBottom
+    if top or bottom is pressed it fires top and bottom
+LeftAndRight
+    if left or right is pressed it fires left and right
+All
+    if any key is pressed it fires all
+
+frontLocked it only fires forward the way you are moving
 
 bombs
 bombs are dropped with space bar 
@@ -36,12 +49,9 @@ key binding
     m = shows full map
     s = stats
     p = perfect
-    q = quit game
-    r = reset game
     
 
 next up 
-    add a quit game option
     enemies become twice as hard if you kill the boss and back track
     
 mini map

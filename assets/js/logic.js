@@ -31,7 +31,7 @@ let hitsInRoom = 0;
 let perfectStreak = 0;
 let gameData = { perfectGoal: 3 };
 
-const STATES = { START: 0, PLAY: 1, GAMEOVER: 2 };
+const STATES = { START: 0, PLAY: 1, GAMEOVER: 2, GAMEPAUSE: 3 };
 let gameState = STATES.START;
 
 let visitedRooms = {}; // Track state of each coordinate
@@ -581,6 +581,10 @@ function update() {
         }
     }
 
+    if (keys['KeyP']) {
+        gamePause();
+    }
+
     if (keys['KeyW']) {
         const door = doors.top || { active: 0, locked: 0 };
         const doorX = door.x !== undefined ? door.x : canvas.width / 2;
@@ -985,6 +989,7 @@ function gameOver() {
     overlayEl.style.display = 'flex';
     statsEl.innerText = "Rooms cleared: " + (Math.abs(player.roomX) + Math.abs(player.roomY));
     document.querySelector('#overlay h1').innerText = "Game Over";
+    overlayEl.querySelector('#cancelBtn').style.display = 'none';
 }
 
 function gameWon() {
@@ -995,12 +1000,24 @@ function gameWon() {
     document.querySelector('#overlay h1').style.color = "#f1c40f"; // Gold for victory
 }
 
+function gamePause() {
+    gameState = STATES.GAMEPAUSE;
+    overlay.style.display = 'flex';
+    overlayTitle.innerText = "Pause";
+    overlayEl.querySelector('#continueBtn').style.display = '';
+}
+
 function restartGame() {
     initGame(true);
 }
 
 function goToWelcome() {
     initGame(false);
+}
+
+function goContinue() {
+    overlay.style.display = 'none';
+    gameState = STATES.PLAY
 }
 
 async function draw() {
@@ -1187,11 +1204,16 @@ async function draw() {
             drawKey("↓", rx, ly + 45);
 
             // Unlock (Bottom center)
-            const mx = canvas.width / 2;
-            const my = canvas.height - 80;
+            let mx = canvas.width / 6;
+            let my = canvas.height - 80;
             ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
             ctx.fillText("UNLOCK", mx, my - 45);
             drawKey("K", mx, my);
+
+            mx = mx + 100
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.fillText("RESTART", mx, my - 45);
+            drawKey("P", mx, my);
         }
     }
 
@@ -1239,6 +1261,8 @@ async function draw() {
         statsEl.innerText = "VICTORY! You cleared the dungeon!";
         document.querySelector('#overlay h1').innerText = "You Won!";
     }
+
+
 
     function drawMinimap() {
         const mapSize = 100;

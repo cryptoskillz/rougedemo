@@ -32,11 +32,12 @@
     </div>
     <div id="perfect">Perfect!</div>
     <div id="overlay">
-        <h1>Game Over</h1>
+        <h1 id="overlayTitle">Game Over</h1>
         <p id="stats">Rooms Cleared: 0</p>
         <div class="btn-container">
-            <button id="restartBtn" onclick="restartGame()">Restart Exploration</button>
+            <button id="restartBtn" onclick="restartGame()">Restart</button>
             <button id="menuBtn" onclick="goToWelcome()">Main Menu</button>
+            <button id="continueBtn" onclick="goContinue()">Continue</button>
         </div>
     </div>
     <canvas id="gameCanvas" width="600" height="400"></canvas>

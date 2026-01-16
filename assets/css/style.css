@@ -177,6 +177,7 @@ canvas {
 }
 
 #restartBtn,
+#continueBtn,
 #menuBtn {
     padding: 12px 30px;
     font-size: 1.1rem;
@@ -188,6 +189,8 @@ canvas {
     margin: 10px;
     width: 220px;
 }
+
+
 
 #restartBtn {
     background: #5dade2;
@@ -206,6 +209,17 @@ canvas {
     background: #777;
     transform: scale(1.05);
 }
+
+#continueBtn {
+    background: #16827a;
+}
+
+#continueBtn:hover {
+    background: #16829a;
+    transform: scale(1.05);
+}
+
+
 
 .btn-container {
     display: flex;
