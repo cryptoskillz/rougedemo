@@ -832,6 +832,8 @@ function update() {
                     // Track that this bullet hit this enemy
                     if (!b.hitEnemies) b.hitEnemies = [];
                     b.hitEnemies.push(ei);
+                    // Halve damage after each pierce
+                    b.damage = (b.damage || 1) / 2;
                 }
 
                 const isFrozen = Date.now() < en.freezeUntil;

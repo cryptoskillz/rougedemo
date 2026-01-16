@@ -5,13 +5,8 @@ start room
     each time you finish the game you will unlock more stuff
 
 bugs
-    bullets should not go through invlu enemies
-    ibvul perido not required ons start room
 
-bullets
-    ricochet
-    explode
-    pierce     
+bullets  
     topandbotton
     leftandright
     all
