@@ -483,6 +483,7 @@ function changeRoom(dx, dy) {
     const nextCoord = `${player.roomX},${player.roomY}`;
     roomEl.innerText = nextCoord;
 
+    bullets = []; // Clear bullets on room entry
     bulletsInRoom = 0;
     hitsInRoom = 0;
     perfectEl.style.display = 'none';
