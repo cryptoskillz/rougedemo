@@ -27,6 +27,7 @@ let bullets = [];
 let enemies = [];
 let keys = {};
 let bomb = { bombType: "" }
+let activeBomb = null;
 
 let bulletsInRoom = 0;
 let hitsInRoom = 0;
@@ -577,7 +578,7 @@ function changeRoom(dx, dy) {
     }
 }
 
-async function drawBomb() {
+async function updateBomb() {
     //get the bombtyoe from player.json
     const bombType = player.bombType || "normal";
     //check if the bomb type has changed
@@ -588,12 +589,13 @@ async function drawBomb() {
         bomb = bombJson[0];
         console.log(bomb)
     }
+    activeBomb = {
+        x: player.x,
+        y: player.y,
+        r: bomb.size || 20,
+        colour: bomb.colour || "white",
+    };
 
-    //draw the bomb
-    ctx.fillStyle = bomb.colour;
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, bomb.size, 0, Math.PI * 2);
-    ctx.fill();
 }
 
 function fireBullet(direction, speed, vx, vy, angle) {
@@ -819,7 +821,7 @@ function update() {
             //bombsInRoom++;
             console.log("Bombs used, bombs left: " + player.inventory.bombs);
             keys['KeyB'] = false;
-            drawBomb();
+            updateBomb();
         }
         updateUI();
     }
@@ -1234,6 +1236,19 @@ function goContinue() {
 async function draw() {
     await updateUI();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Bomb (if active)
+
+    if (activeBomb) {
+        console.log(activeBomb);
+        ctx.save();
+        ctx.fillStyle = activeBomb.colour;
+        ctx.beginPath();
+        ctx.arc(activeBomb.x, activeBomb.y, activeBomb.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+    }
 
     // Draw Doors
     const roomLocked = enemies.length > 0;
