@@ -575,6 +575,26 @@ function changeRoom(dx, dy) {
         player.roomY -= dy;
     }
 }
+let bomb
+async function drawBomb() {
+    //get the bombtyoe from player.json and get the correct colour from the mathing bomb json in the bombs folder
+    const bombType = player.bombType || "normal";
+    //check if bomb.bombType is undefined
+    if (typeof bomb === 'undefined' || !bomb[0].bombType) {
+        console.log("Bomb not found, loading...")
+        bomb = await Promise.all([
+            fetch(`/bombs/${bombType}.json?t=` + Date.now()).then(res => res.json())
+        ])
+        console.log(bomb[0])
+
+    }
+
+    //draw the bomb
+    ctx.fillStyle = bomb[0].colour;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, bomb[0].size, 0, Math.PI * 2);
+    ctx.fill();
+}
 
 function fireBullet(direction, speed, vx, vy, angle) {
     /*
@@ -695,7 +715,7 @@ function update() {
 
     // Auto-clear current room in cache if empty
     if (!roomLocked) {
-        const currentCoord = `${player.roomX},${player.roomY}`;
+        const currentCoord = `${player.roomX}, ${player.roomY}`;
         if (visitedRooms[currentCoord] && !visitedRooms[currentCoord].cleared) {
             visitedRooms[currentCoord].cleared = true;
             if (roomData.isBoss) {
@@ -799,6 +819,7 @@ function update() {
             //bombsInRoom++;
             console.log("Bombs used, bombs left: " + player.inventory.bombs);
             keys['KeyB'] = false;
+            drawBomb();
         }
         updateUI();
     }
@@ -1073,7 +1094,7 @@ function update() {
                     if (en.hp <= 0) {
                         enemies.splice(ei, 1);
                         if (enemies.length === 0) {
-                            const currentCoord = `${player.roomX},${player.roomY}`;
+                            const currentCoord = `${player.roomX}, ${player.roomY}`;
                             if (visitedRooms[currentCoord]) visitedRooms[currentCoord].cleared = true;
 
                             const isPerfect = bulletsInRoom === hitsInRoom && bulletsInRoom > 0;
@@ -1128,13 +1149,13 @@ function update() {
 
         // Portal Collision (Boss Room Victory)
         if (roomData.isBoss) {
-            const currentCoord = `${player.roomX},${player.roomY}`;
+            const currentCoord = `${player.roomX}, ${player.roomY}`;
             if (visitedRooms[currentCoord] && visitedRooms[currentCoord].cleared) {
                 const cx = canvas.width / 2;
                 const cy = canvas.height / 2;
                 const distToPortal = Math.hypot(player.x - cx, player.y - cy);
 
-                // console.log(`Portal Check - Dist: ${distToPortal.toFixed(2)} | Player: ${player.x.toFixed(0)},${player.y.toFixed(0)} | Center: ${cx},${cy}`);
+                // console.log(`Portal Check - Dist: ${ distToPortal.toFixed(2) } | Player: ${ player.x.toFixed(0) }, ${ player.y.toFixed(0) } | Center: ${ cx }, ${ cy }`);
 
                 if (distToPortal < 50) {
                     console.log("VICTORY TRIGGERED!");
@@ -1415,14 +1436,14 @@ async function draw() {
 
     // Draw Portal (only if cleared and NOT in intro)
     if (roomData.isBoss && (!bossIntroEndTime || Date.now() > bossIntroEndTime)) {
-        const currentCoord = `${player.roomX},${player.roomY}`;
+        const currentCoord = `${player.roomX}, ${player.roomY}`;
         if (visitedRooms[currentCoord] && visitedRooms[currentCoord].cleared) {
             const cx = canvas.width / 2;
             const cy = canvas.height / 2;
             const time = Date.now() / 200;
             const distToPortal = Math.hypot(player.x - cx, player.y - cy);
 
-            console.log(`Portal Check - Dist: ${distToPortal.toFixed(2)} | Player: ${player.x.toFixed(0)},${player.y.toFixed(0)} | Center: ${cx},${cy}`);
+            console.log(`Portal Check - Dist: ${distToPortal.toFixed(2)} | Player: ${player.x.toFixed(0)}, ${player.y.toFixed(0)} | Center: ${cx}, ${cy}`);
 
             if (distToPortal < 50) {
                 console.log("VICTORY TRIGGERED!");

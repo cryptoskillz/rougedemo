@@ -22,6 +22,11 @@ bombs
 bombs can get be dropped, thrown and kicked with items you pick as well as default settings
 bombs are in the invetroy and can be picked up, when you press the space bar they can be dropped normal bombs can blow open doors and secret doors (in walls etc)golden bombs can blow open red doors with enemies still in the room 
 
+bombs check should relaod the bombs.json file if the bomb type is changed
+bombs are not drawing
+start a bomb timer when dropped 
+
+
 
 enemies
     have enemies be able to use bullets
@@ -39,6 +44,7 @@ key binding
 
 next up 
     enemies become twice as hard if you kill the boss and back track
+    restart / continue / main menu should have hot keys on the main menu
     
 mini map
     item should show the whole mini map
@@ -54,6 +60,7 @@ debug window
     when you click off of it it should focus back on the game
     add a export json option
     move the cords into this 
+    go to room (renders it in)
 
 
 
