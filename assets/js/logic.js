@@ -26,6 +26,7 @@ let player = {
 let bullets = [];
 let enemies = [];
 let keys = {};
+let bomb = { bombType: "" }
 
 let bulletsInRoom = 0;
 let hitsInRoom = 0;
@@ -575,24 +576,23 @@ function changeRoom(dx, dy) {
         player.roomY -= dy;
     }
 }
-let bomb
+
 async function drawBomb() {
-    //get the bombtyoe from player.json and get the correct colour from the mathing bomb json in the bombs folder
+    //get the bombtyoe from player.json
     const bombType = player.bombType || "normal";
-    //check if bomb.bombType is undefined
-    if (typeof bomb === 'undefined' || !bomb[0].bombType) {
-        console.log("Bomb not found, loading...")
-        bomb = await Promise.all([
+    //check if the bomb type has changed
+    if (bomb.bombType !== bombType) {
+        const bombJson = await Promise.all([
             fetch(`/bombs/${bombType}.json?t=` + Date.now()).then(res => res.json())
         ])
-        console.log(bomb[0])
-
+        bomb = bombJson[0];
+        console.log(bomb)
     }
 
     //draw the bomb
-    ctx.fillStyle = bomb[0].colour;
+    ctx.fillStyle = bomb.colour;
     ctx.beginPath();
-    ctx.arc(player.x, player.y, bomb[0].size, 0, Math.PI * 2);
+    ctx.arc(player.x, player.y, bomb.size, 0, Math.PI * 2);
     ctx.fill();
 }
 
