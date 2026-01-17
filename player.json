@@ -23,7 +23,15 @@
         "fireRate": 0.5,
         "wallBounce": false,
         "pierce": false,
-        "topAndBottom": false,
+        "backfire": false,
+        "multiDirectional": {
+            "active": false,
+            "fireNorth": true,
+            "fireEast": true,
+            "fireSouth": true,
+            "fireWest": true,
+            "fire360": true
+        },
         "Explode": {
             "active": false,
             "shards": 8,

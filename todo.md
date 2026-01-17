@@ -1,12 +1,16 @@
+bugs
+    homing missles should start at the side of the key that was pressde
+    if you get hit perfect bonus will reset 
+    360 bullet mode the right bullet is a little slow
+    do we require active for multi directional bullets we should be able to do in a more upkeeping way
+
 start room
     if its first time it should just say game complete and unlock door and take you back to the menu
     implemebt new and save game (use sqllite to store the game data)
     the second time you will have doors
     each time you finish the game you will unlock more stuff
 
-bugs
-    homing missles should start at the side of the key that was pressde
-    if you get hit perfect bonus will reset 
+
 
 bullets  
     Multiirectional Bullets if any key is pressed it fires the others that are linked ie if top is pressed and left is active it fires left, if left is presses it fires left only,  If top and left is active when you press right top, left and right are fired
@@ -120,18 +124,11 @@ if it is done in under 10 show speedy.
 
 
 player.json
-   
-    bullet spped
-    bullet size
-    bullet damage
-    bullet range
-    bullet curve
-    bullet spread
     unvuk period
-implemment key pick up 
-implement bomb item
-implement bomb pick up
-implement bomb place
+    implemment key pick up 
+    implement bomb item
+    implement bomb pick up
+    implement bomb place
 
 add a timer
 add a heatlh bar

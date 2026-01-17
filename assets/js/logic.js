@@ -558,7 +558,109 @@ function changeRoom(dx, dy) {
     }
 }
 
+function fireBullet(direction, speed, vx, vy, angle) {
+    /*
+    0 = normal
+    1= north
+    2 = east
+    3 = south
+    4 = west
+    360 = 360 degres
+    */
+    if (direction === 0) {
+        bullets.push({
+            x: player.x,
+            y: player.y,
+            vx,
+            vy,
+            life: player.Bullet?.range || 60,
+            damage: player.Bullet?.damage || 1,
+            size: player.Bullet?.size || 5,
+            curve: player.Bullet?.curve || 0,
+            homing: player.Bullet?.homming,
+            hitEnemies: []
+        });
+    }
 
+    //360 degrees
+    if (direction === 360) {
+        for (let i = 0; i < 360; i++) {
+            bullets.push({
+                x: player.x,
+                y: player.y,
+                vx: Math.cos(i * Math.PI / 180) * speed,
+                vy: Math.sin(i * Math.PI / 180) * speed,
+                life: player.Bullet?.range || 60,
+                damage: player.Bullet?.damage || 1,
+                size: player.Bullet?.size || 5,
+                curve: player.Bullet?.curve || 0,
+                homing: player.Bullet?.homming,
+                hitEnemies: []
+            });
+        }
+    }
+
+    //up
+    if (direction === 1) {
+        bullets.push({
+            x: player.x,
+            y: player.y,
+            vx: 0,
+            vy: -speed,
+            life: player.Bullet?.range || 60,
+            damage: player.Bullet?.damage || 1,
+            size: player.Bullet?.size || 5,
+            curve: player.Bullet?.curve || 0,
+            homing: player.Bullet?.homming,
+            hitEnemies: []
+        });
+    }
+    //right
+    if (direction === 2) {
+        bullets.push({
+            x: player.x,
+            y: player.y,
+            vx: speed,
+            vy: 0,
+            life: player.Bullet?.range || 60,
+            damage: player.Bullet?.damage || 1,
+            size: player.Bullet?.size || 5,
+            curve: player.Bullet?.curve || 0,
+            homing: player.Bullet?.homming,
+            hitEnemies: []
+        });
+    }
+
+    //down
+    if (direction === 3) {
+        bullets.push({
+            x: player.x,
+            y: player.y,
+            vx: 0,
+            vy: speed,
+            life: player.Bullet?.range || 60,
+            damage: player.Bullet?.damage || 1,
+            size: player.Bullet?.size || 5,
+            curve: player.Bullet?.curve || 0,
+            homing: player.Bullet?.homming,
+            hitEnemies: []
+        });
+    }
+    if (direction === 4) {
+        bullets.push({
+            x: player.x,
+            y: player.y,
+            vx: -speed,
+            vy: 0,
+            life: player.Bullet?.range || 60,
+            damage: player.Bullet?.damage || 1,
+            size: player.Bullet?.size || 5,
+            curve: player.Bullet?.curve || 0,
+            homing: player.Bullet?.homming,
+            hitEnemies: []
+        });
+    }
+}
 
 function update() {
 
@@ -719,48 +821,63 @@ function update() {
                 const vy = Math.sin(angle) * speed;
 
                 // topAndBottom mode: fire one bullet north and one south
-                if (player.Bullet?.topAndBottom) {
-                    // North bullet (up)
-                    bullets.push({
-                        x: player.x,
-                        y: player.y,
-                        vx: 0,
-                        vy: -speed,
-                        life: player.Bullet?.range || 60,
-                        damage: player.Bullet?.damage || 1,
-                        size: player.Bullet?.size || 5,
-                        curve: player.Bullet?.curve || 0,
-                        homing: player.Bullet?.homming,
-                        hitEnemies: []
-                    });
-                    // South bullet (down)
-                    bullets.push({
-                        x: player.x,
-                        y: player.y,
-                        vx: 0,
-                        vy: speed,
-                        life: player.Bullet?.range || 60,
-                        damage: player.Bullet?.damage || 1,
-                        size: player.Bullet?.size || 5,
-                        curve: player.Bullet?.curve || 0,
-                        homing: player.Bullet?.homming,
-                        hitEnemies: []
-                    });
-                } else {
-                    // Normal mode: fire in aimed direction
-                    bullets.push({
-                        x: player.x,
-                        y: player.y,
-                        vx,
-                        vy,
-                        life: player.Bullet?.range || 60,
-                        damage: player.Bullet?.damage || 1,
-                        size: player.Bullet?.size || 5,
-                        curve: player.Bullet?.curve || 0,
-                        homing: player.Bullet?.homming,
-                        hitEnemies: []
-                    });
+                if (player.Bullet?.multiDirectional.active) {
+                    if (player.Bullet?.multiDirectional.fire360) {
+                        // All Directional mode: fire in all directions
+                        fireBullet(360, speed, vx, vy, angle)
+                    }
+
+                    else {
+                        if (player.Bullet?.multiDirectional.fireNorth) {
+                            // North bullet (up)
+                            fireBullet(1, speed, vx, vy, angle);
+                        }
+                        if (player.Bullet?.multiDirectional.fireEast) {
+                            // East bullet (right)
+                            fireBullet(2, speed, vx, vy, angle);
+                        }
+                        if (player.Bullet?.multiDirectional.fireSouth) {
+                            // South bullet (down)
+                            fireBullet(3, speed, vx, vy, angle);
+                        }
+                        if (player.Bullet?.multiDirectional.fireWest) {
+                            // West bullet (left)
+                            fireBullet(4, speed, vx, vy, angle);
+                        }
+                    }
                 }
+                else {
+                    // Normal mode: fire in aimed direction
+                    fireBullet(0)
+                    //check if backFire is active and if it is then fire the opposite arrow key
+                    if (player.Bullet?.backfire) {
+                        if (keys['ArrowUp']) {
+                            // South bullet (down)
+                            fireBullet(3, speed, vx, vy, angle);
+                        }
+
+                        if (keys['ArrowDown']) {
+                            // North bullet (up)
+                            fireBullet(1, speed, vx, vy, angle);
+
+                        }
+                        if (keys['ArrowLeft']) {
+
+                            // East bullet (right)
+                            fireBullet(2, speed, vx, vy, angle);
+
+                        }
+                        if (keys['ArrowRight']) {
+                            // West bullet (left)
+                            fireBullet(4, speed, vx, vy, angle);
+                        }
+
+
+                    }
+                    fireBullet(0, speed, vx, vy, angle);
+
+                }
+
             }
             player.lastShot = Date.now();
         }
