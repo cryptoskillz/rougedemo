@@ -871,10 +871,51 @@ function update() {
                             // West bullet (left)
                             fireBullet(4, speed, vx, vy, angle);
                         }
-
-
                     }
-                    fireBullet(0, speed, vx, vy, angle);
+                    else if (player.Bullet?.frontLocked) {
+                        //fire the bullet in the direction the player is moving, if the player is not moving then fire the bullet in the direction the player is looking
+                        //looking should only work if the player is not moving ie no wasd key is pressed
+                        if (!keys['KeyS'] && !keys['KeyW'] && !keys['KeyA'] && !keys['KeyD']) {
+                            if (keys['ArrowUp']) {
+                                // North bullet (up)
+                                fireBullet(1, speed, vx, vy, angle);
+                            }
+                            if (keys['ArrowDown']) {
+                                // South bullet (down)
+                                fireBullet(3, speed, vx, vy, angle);
+                            }
+                            if (keys['ArrowLeft']) {
+                                // West bullet (left)
+                                fireBullet(4, speed, vx, vy, angle);
+                            }
+                            if (keys['ArrowRight']) {
+                                // East bullet (right)
+                                fireBullet(2, speed, vx, vy, angle);
+                            }
+                        }
+                        else {
+                            //if the player is moving then fire the bullet in the direction the player is moving
+                            if (keys['KeyS']) {
+                                fireBullet(3, speed, vx, vy, angle);
+                            }
+                            if (keys['KeyW']) {
+                                fireBullet(1, speed, vx, vy, angle);
+                            }
+                            if (keys['KeyA']) {
+                                fireBullet(4, speed, vx, vy, angle);
+                            }
+                            if (keys['KeyD']) {
+                                fireBullet(2, speed, vx, vy, angle);
+                            }
+
+                        }
+                    }
+                    else {
+                        //fire in the direction the player is looking, default fire 
+                        fireBullet(0, speed, vx, vy, angle);
+                    }
+
+
 
                 }
 

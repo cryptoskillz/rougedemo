@@ -24,13 +24,15 @@
         "wallBounce": false,
         "pierce": false,
         "backfire": false,
+        "frontLocked": true,
+        "NoBullets": false,
         "multiDirectional": {
             "active": false,
-            "fireNorth": true,
-            "fireEast": true,
-            "fireSouth": true,
-            "fireWest": true,
-            "fire360": true
+            "fireNorth": false,
+            "fireEast": false,
+            "fireSouth": false,
+            "fireWest": false,
+            "fire360": false
         },
         "Explode": {
             "active": false,

@@ -2,7 +2,6 @@ bugs
     homing missles should start at the side of the key that was pressde
     if you get hit perfect bonus will reset 
     360 bullet mode the right bullet is a little slow
-    do we require active for multi directional bullets we should be able to do in a more upkeeping way
 
 start room
     if its first time it should just say game complete and unlock door and take you back to the menu
@@ -13,20 +12,8 @@ start room
 
 
 bullets  
-    Multiirectional Bullets if any key is pressed it fires the others that are linked ie if top is pressed and left is active it fires left, if left is presses it fires left only,  If top and left is active when you press right top, left and right are fired
-        left x
-        top x
-        let x
-        bottom x
-
-TopAndBottom
-    if top or bottom is pressed it fires top and bottom
-LeftAndRight
-    if left or right is pressed it fires left and right
-All
-    if any key is pressed it fires all
-
-frontLocked it only fires forward the way you are moving
+    no bullets
+    frontLocked it only fires forward the way you are moving
 
 bombs
 bombs are dropped with space bar 
