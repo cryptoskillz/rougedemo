@@ -3,6 +3,16 @@ bugs
     if you get hit perfect bonus will reset 
     360 bullet mode the right bullet is a little slow
 
+bombs
+    bombs can get be dropped, thrown and kicked with items you pick as well as default settings
+    bombs are in the invetroy and can be picked up, when you press the space bar they can be dropped normal bombs can blow open doors and secret doors (in walls etc)golden bombs can blow open red doors with enemies still in the room 
+
+    start a bomb timer when dropped 
+    use a bomb array to show multipile bombs
+    make the bombs drop to the to the right of the player if they are not moving if they are moving make it drop behind them
+    add collision to bombs
+    restart clear the bombs
+
 start room
     if its first time it should just say game complete and unlock door and take you back to the menu
     implemebt new and save game (use sqllite to store the game data)
@@ -18,15 +28,7 @@ bullets
    if a bullet hits you it will cause no damage but disapear
    there will be a mr glass item where your own bullets hurt you 
 
-bombs
-    bombs can get be dropped, thrown and kicked with items you pick as well as default settings
-    bombs are in the invetroy and can be picked up, when you press the space bar they can be dropped normal bombs can blow open doors and secret doors (in walls etc)golden bombs can blow open red doors with enemies still in the room 
 
-    start a bomb timer when dropped 
-    use a bomb array to show multipile bombs
-    make the bombs drop to the to the right of the player if they are not moving if they are moving make it drop behind them
-    add collision to bombs
-    restart clear the bombs
 
 
 enemies

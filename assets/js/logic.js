@@ -25,9 +25,11 @@ let player = {
 };
 let bullets = [];
 let enemies = [];
+let bombs = [];
 let keys = {};
+
 let bomb = { bombType: "" }
-let activeBomb = null;
+let bombsInRoom = 0;
 
 let bulletsInRoom = 0;
 let hitsInRoom = 0;
@@ -578,7 +580,7 @@ function changeRoom(dx, dy) {
     }
 }
 
-async function updateBomb() {
+async function dropBomb() {
     //get the bombtyoe from player.json
     const bombType = player.bombType || "normal";
     //check if the bomb type has changed
@@ -589,12 +591,12 @@ async function updateBomb() {
         bomb = bombJson[0];
         console.log(bomb)
     }
-    activeBomb = {
+    bombs.push({
         x: player.x,
         y: player.y,
         r: bomb.size || 20,
         colour: bomb.colour || "white",
-    };
+    });
 
 }
 
@@ -821,7 +823,7 @@ function update() {
             //bombsInRoom++;
             console.log("Bombs used, bombs left: " + player.inventory.bombs);
             keys['KeyB'] = false;
-            updateBomb();
+            dropBomb();
         }
         updateUI();
     }
@@ -1237,18 +1239,7 @@ async function draw() {
     await updateUI();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Bomb (if active)
 
-    if (activeBomb) {
-        console.log(activeBomb);
-        ctx.save();
-        ctx.fillStyle = activeBomb.colour;
-        ctx.beginPath();
-        ctx.arc(activeBomb.x, activeBomb.y, activeBomb.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-    }
 
     // Draw Doors
     const roomLocked = enemies.length > 0;
@@ -1317,6 +1308,18 @@ async function draw() {
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.size || 5, 0, Math.PI * 2);
         ctx.fill();
+    });
+
+
+    // Draw Bomb (if active)
+
+    bombs.forEach(b => {
+        ctx.save();
+        ctx.fillStyle = b.colour;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     });
 
     // Boss Intro Sequence
