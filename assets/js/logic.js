@@ -278,6 +278,7 @@ async function initGame(isRestart = false) {
     welcomeEl.style.display = isRestart ? 'none' : 'flex';
     if (uiEl) uiEl.style.display = isRestart ? 'block' : 'none';
     bullets = [];
+    bombs = [];
 
     //check if debug mode is enabled and if so show the room cords
     if (DEBUG_WINDOW_ENABLED) {
