@@ -585,37 +585,39 @@ async function dropBomb() {
     const bombType = player.bombType || "normal";
 
     if (bomb.bombType !== bombType) {
-        const bombJson = await fetch(`/bombs/${bombType}.json?t=${Date.now()}`).then(res => res.json());
-        bomb = bombJson;
+        bomb = await fetch(`/bombs/${bombType}.json?t=${Date.now()}`).then(r => r.json());
+        bomb.bombType = bombType;
     }
 
-    const r = bomb.size || 20;
+    const baseR = bomb.size || 20;         // visible bomb radius
+    const maxR = bomb.radius || 120;      // explosion max radius
+    const timer = bomb.timer || 1000;
 
-    // default facing if never moved yet
-    let dirX = player.lastMoveX ?? 0;
-    let dirY = player.lastMoveY ?? 1;
-
-    // if both are 0, default down
-    if (dirX === 0 && dirY === 0) dirY = 1;
-
+    // direction behind player (use your lastMoveX/lastMoveY logic)
+    const dirX = player.lastMoveX ?? 0;
+    const dirY = player.lastMoveY ?? 1;
     const gap = 6;
-    const backDist = player.size + r + gap;
+    const backDist = player.size + baseR + gap;
 
-    const b = {
+    bombs.push({
         x: player.x - dirX * backDist,
         y: player.y - dirY * backDist,
-        r,
+
+        baseR,
+        maxR,
+
         colour: bomb.colour || "white",
         damage: bomb.damage || 1,
-        expiresAt: Date.now() + (bomb.timer || 1000)
-    };
 
-    // optional: clamp to room bounds so it doesn't spawn outside
-    b.x = Math.max(BOUNDARY + b.r, Math.min(canvas.width - BOUNDARY - b.r, b.x));
-    b.y = Math.max(BOUNDARY + b.r, Math.min(canvas.height - BOUNDARY - b.r, b.y));
-
-    bombs.push(b);
+        explodeAt: Date.now() + timer,
+        exploding: false,
+        explosionStartAt: 0,
+        explosionDuration: bomb.explosionDuration || 300,
+        explosionColour: bomb.explosionColour || bomb.colour || "white",
+        didDamage: false
+    });
 }
+
 
 function fireBullet(direction, speed, vx, vy, angle) {
     /*
@@ -1342,33 +1344,66 @@ async function draw() {
     // Draw Bomb (if active)
     const now = Date.now();
     bombs.forEach(b => {
-        if (b.expiresAt < now) {
-            //check if enemy is in the bomb and reduce their health
-            enemies.forEach(e => {
-                if (e.x < b.x + b.r && e.x + e.size > b.x && e.y < b.y + b.r && e.y + e.size > b.y) {
-                    console.log("Enemy hit by bomb");
-                    //check if enemy is in the bomb and reduce their health if less than 0 despawn check it does not set to NaN
-                    e.hp -= b.damage;
-                    if (isNaN(e.hp)) {
-                        e.hp = 0;
-                    }
-                    if (e.hp <= 0) {
-                        enemies.splice(enemies.indexOf(e), 1);
-                        console.log(e.hp);
+        const now = Date.now();
+
+        for (let i = bombs.length - 1; i >= 0; i--) {
+            const b = bombs[i];
+
+            // Start exploding when timer runs out
+            if (!b.exploding && now >= b.explodeAt) {
+                b.exploding = true;
+                b.explosionStartAt = now;
+            }
+
+            // EXPLOSION ANIMATION (from bomb edge outward)
+            if (b.exploding) {
+                const t = (now - b.explosionStartAt) / b.explosionDuration; // 0..1
+                const p = Math.max(0, Math.min(1, t));
+
+                // 🔥 key line: starts at baseR (bomb perimeter), grows to maxR
+                const r = b.baseR + (b.maxR - b.baseR) * p;
+
+                // optional: draw as a ring shockwave (feels more "explosion")
+                ctx.save();
+                ctx.fillStyle = b.explosionColour;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1 - p;
+                ctx.strokeStyle = b.explosionColour;
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+
+                // Damage once (using maxR so it matches full blast)
+                if (!b.didDamage) {
+                    b.didDamage = true;
+                    for (let ei = enemies.length - 1; ei >= 0; ei--) {
+                        const e = enemies[ei];
+                        const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                        if (dist <= b.maxR + e.size) {
+                            e.hp = (e.hp ?? 0) - b.damage;
+                            if (e.hp <= 0) enemies.splice(ei, 1);
+                        }
                     }
                 }
-            });
-            bombs.splice(bombs.indexOf(b), 1);
-            return;
+
+                // Remove after animation finishes
+                if (p >= 1) bombs.splice(i, 1);
+                continue;
+            }
+
+            // Waiting bomb (static)
+            ctx.save();
+            ctx.fillStyle = b.colour;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.baseR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
 
-
-        ctx.save();
-        ctx.fillStyle = b.colour;
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
     });
 
     // Boss Intro Sequence
