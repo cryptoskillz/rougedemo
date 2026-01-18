@@ -614,7 +614,9 @@ async function dropBomb() {
         explosionStartAt: 0,
         explosionDuration: bomb.explosionDuration || 300,
         explosionColour: bomb.explosionColour || bomb.colour || "white",
-        didDamage: false
+        didDamage: false,
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+        triggeredBy: null, // optional debug
     });
 }
 
@@ -1362,6 +1364,26 @@ async function draw() {
 
                 // 🔥 key line: starts at baseR (bomb perimeter), grows to maxR
                 const r = b.baseR + (b.maxR - b.baseR) * p;
+
+                // Chain reaction: trigger other bombs inside current explosion radius
+                for (let j = 0; j < bombs.length; j++) {
+                    if (j === i) continue;
+                    const other = bombs[j];
+
+                    if (other.exploding) continue;           // already going
+                    if (now < other.explodeAt) {             // still waiting (normal)
+                        const dist = Math.hypot(other.x - b.x, other.y - b.y);
+
+                        // if the other bomb's CENTER is inside this explosion radius (+ its base radius feels nicer)
+                        if (dist <= r + (other.baseR || 0)) {
+                            other.exploding = true;
+                            other.explosionStartAt = now;
+                            other.didDamage = false;             // ensure it deals damage
+                            other.triggeredBy = b.id;            // optional debug
+                        }
+                    }
+                }
+
 
                 // optional: draw as a ring shockwave (feels more "explosion")
                 ctx.save();
