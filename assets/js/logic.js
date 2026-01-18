@@ -36,7 +36,7 @@ let hitsInRoom = 0;
 let perfectStreak = 0;
 let gameData = { perfectGoal: 3 };
 
-const STATES = { START: 0, PLAY: 1, GAMEOVER: 2, GAMEPAUSE: 3 };
+const STATES = { START: 0, PLAY: 1, GAMEOVER: 2, GAMEMENU: 3 };
 let gameState = STATES.START;
 
 let visitedRooms = {}; // Track state of each coordinate
@@ -731,8 +731,8 @@ function update() {
         }
     }
 
-    if (keys['KeyP']) {
-        gamePause();
+    if (keys['KeyM']) {
+        gameMenu();
     }
 
     if (keys['KeyR'] && DEBUG_WINDOW_ENABLED) {
@@ -1220,8 +1220,8 @@ function gameWon() {
     document.querySelector('#overlay h1').style.color = "#f1c40f"; // Gold for victory
 }
 
-function gamePause() {
-    gameState = STATES.GAMEPAUSE;
+function gameMenu() {
+    gameState = STATES.gameMenu;
     overlay.style.display = 'flex';
     overlayTitle.innerText = "Pause";
     overlayEl.querySelector('#continueBtn').style.display = '';
@@ -1446,13 +1446,19 @@ async function draw() {
             //restart
             mx = mx + 100
             ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-            ctx.fillText("RESTART", mx, my - 45);
-            drawKey("P", mx, my);
+            ctx.fillText("MENU", mx, my - 45);
+            drawKey("M", mx, my);
             //bomb
             mx = mx + 100
             ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
             ctx.fillText("BOMB", mx, my - 45);
             drawKey("B", mx, my);
+            if (DEBUG_WINDOW_ENABLED) {
+                mx = mx + 100
+                ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                ctx.fillText("RESTART", mx, my - 45);
+                drawKey("R", mx, my);
+            }
         }
     }
 
