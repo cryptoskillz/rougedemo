@@ -1,6 +1,6 @@
 {
     "bombType": "golden",
-    "size": 10,
+    "size": 50,
     "openDoors": true,
     "openSecretRooms": true,
     "explodeOnImpact": false,
@@ -12,7 +12,7 @@
     "explodeOnImpactPerfectCount": 0,
     "explodeOnImpactPerfectTotalCount": 0,
     "range": 70,
-    "damage": 1,
+    "damage": 6,
     "active": true,
     "timer": 0,
     "max": 100,

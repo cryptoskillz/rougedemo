@@ -592,11 +592,13 @@ async function dropBomb() {
         bomb = bombJson[0];
         console.log(bomb)
     }
+
     bombs.push({
         x: player.x,
         y: player.y,
         r: bomb.size || 20,
         colour: bomb.colour || "white",
+        expiresAt: Date.now() + (bomb.timer || 1000)
     });
 
 }
@@ -826,7 +828,6 @@ function update() {
         if (player.inventory && player.inventory.bombs > 0) {
             player.inventory.bombs--;
             //bombsInRoom++;
-            console.log("Bombs used, bombs left: " + player.inventory.bombs);
             keys['KeyB'] = false;
             dropBomb();
         }
@@ -1317,8 +1318,27 @@ async function draw() {
 
 
     // Draw Bomb (if active)
-
+    const now = Date.now();
     bombs.forEach(b => {
+        if (b.expiresAt < now) {
+            //check if enemy is in the bomb and reduce their health
+            enemies.forEach(e => {
+                if (e.x < b.x + b.r && e.x + e.size > b.x && e.y < b.y + b.r && e.y + e.size > b.y) {
+                    console.log("Enemy hit by bomb");
+                    //check if enemy is in the bomb and reduce their health if less than 0 despawn check it does not set to NaN
+                    e.hp -= b.damage;
+                    if (isNaN(e.hp)) {
+                        e.hp = 0;
+                    }
+                    if (e.hp <= 0) {
+                        enemies.splice(enemies.indexOf(e), 1);
+                        console.log(e.hp);
+                    }
+                }
+            });
+            bombs.splice(bombs.indexOf(b), 1);
+            return;
+        }
         ctx.save();
         ctx.fillStyle = b.colour;
         ctx.beginPath();
