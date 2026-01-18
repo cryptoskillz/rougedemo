@@ -1381,7 +1381,7 @@ async function draw() {
                 const t = (now - b.explosionStartAt) / b.explosionDuration; // 0..1
                 const p = Math.max(0, Math.min(1, t));
 
-                // 🔥 key line: starts at baseR (bomb perimeter), grows to maxR
+                // ey line: starts at baseR (bomb perimeter), grows to maxR
                 const r = b.baseR + (b.maxR - b.baseR) * p;
 
                 // --- Player damage + knockback + shake (once per bomb) ---
@@ -1399,7 +1399,7 @@ async function draw() {
                         player.invuln = true;
                         setTimeout(() => player.invuln = false, 1000);
 
-                        // Knockback (push away from blast)
+                        // --- Knockback: push player OUTSIDE the blast radius ---
                         const dx = player.x - b.x;
                         const dy = player.y - b.y;
                         const len = Math.hypot(dx, dy) || 1;
@@ -1407,21 +1407,33 @@ async function draw() {
                         const nx = dx / len;
                         const ny = dy / len;
 
-                        // strength scales with how close you are (closer = stronger)
-                        const closeness = 1 - Math.min(1, dist / (b.maxR + player.size));
-                        const push = (b.push || 18) + closeness * 20; // tune numbers
+                        // Push player to just outside the blast radius
+                        const padding = 6;
+                        const targetDist = b.maxR + player.size + padding;
+                        const needed = targetDist - len;
 
-                        player.x += nx * push;
-                        player.y += ny * push;
+                        if (needed > 0) {
+                            player.x += nx * needed;
+                            player.y += ny * needed;
+                        }
 
-                        // clamp so player doesn't get pushed out of room
-                        player.x = Math.max(BOUNDARY + player.size, Math.min(canvas.width - BOUNDARY - player.size, player.x));
-                        player.y = Math.max(BOUNDARY + player.size, Math.min(canvas.height - BOUNDARY - player.size, player.y));
+                        // Clamp to room bounds
+                        player.x = Math.max(
+                            BOUNDARY + player.size,
+                            Math.min(canvas.width - BOUNDARY - player.size, player.x)
+                        );
+                        player.y = Math.max(
+                            BOUNDARY + player.size,
+                            Math.min(canvas.height - BOUNDARY - player.size, player.y)
+                        );
 
-                        // Screen shake
-                        const shakePower = (b.shake || 8) + closeness * 10;
+                        // --- Screen shake (DO NOT depend on closeness anymore) ---
+                        const explosionStrength = b.maxR / 40; // scale with explosion size
+                        const shakePower = (b.shake || 8) * explosionStrength;
+
                         screenShake.power = Math.max(screenShake.power, shakePower);
-                        screenShake.endAt = Date.now() + (b.shakeDuration || 180);
+                        screenShake.endAt = Date.now() + (b.shakeDuration || 200);
+
                     }
                 }
 
