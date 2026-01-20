@@ -1,0 +1,7 @@
+{
+    "name": "peashooter",
+    "drawType": "arc",
+    "playerDraw": "arc",
+    "location": "weapons/guns/peashooter.json",
+    "type": "gun"
+}

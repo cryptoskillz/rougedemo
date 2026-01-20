@@ -354,9 +354,9 @@ async function initGame(isRestart = false) {
 
         // 3. Pre-load ALL enemy templates
         enemyTemplates = {};
-        const enemyManifest = await fetch('enemies/manifest.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ enemies: [] }));
+        const enemyManifest = await fetch('json/enemies/manifest.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ enemies: [] }));
         const ePromises = enemyManifest.enemies.map(id =>
-            fetch(`enemies/${id}.json?t=` + Date.now())
+            fetch(`json/enemies/${id}.json?t=` + Date.now())
                 .then(res => res.json())
                 .then(data => enemyTemplates[id] = data)
         );

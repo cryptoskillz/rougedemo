@@ -9,6 +9,12 @@ bugs
     shake room is causing a little bleed and moving doors
     move bomb to player hit
     check that nothing can be done, dropping bombs etc when you the player is dead
+    room count at the end is off (maybe same room type in generation)
+
+items folder
+    move all items to a items folder
+    create items json
+    store lcation etc in json and the draw cords
 
 
 logic
@@ -16,6 +22,7 @@ logic
     when bomb hits you you shoudl go white with invul, the same as happens when you get shot
     reload gun / bomb when they pick up a new item
     add a debug log so we can clean up console
+    get the drawr cordes for bomnbs, player, items, guns and bombs from the json files
 
 bombs
     bombs can get be dropped, thrown and kicked with items you pick as well as default settings
@@ -36,6 +43,7 @@ player
     if speed is over 2 x starting speed show a blur effect
     if you stay in a room for too long show a ghost demon
     animaton when you die
+    draw the weapon in the player draw
 
 
 bullets  
