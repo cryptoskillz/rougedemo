@@ -17,16 +17,16 @@
                 "circle"
             ],
             "animated": true,
-            "filled": false
+            "filled": true
         },
         "speed": 5,
-        "size": 24,
+        "size": 10,
         "damage": 1,
         "range": 70,
         "curve": 0,
         "spread": 0,
         "spreadRate": 0,
-        "number": 5,
+        "number": 1,
         "homming": true,
         "fireRate": 0.5,
         "wallBounce": true,
