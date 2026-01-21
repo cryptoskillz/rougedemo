@@ -1219,9 +1219,23 @@ async function draw() {
         if (!b.exploding && now >= b.explodeAt) { b.exploding = true; b.explosionStartAt = now; }
         if (b.exploding) {
             const p = Math.min(1, (now - b.explosionStartAt) / b.explosionDuration), r = b.baseR + (b.maxR - b.baseR) * p;
+            // --- Inside Section 6: BOMBS ---
             if (b.canDamagePlayer && !b.didPlayerDamage && !isInv && Math.hypot(player.x - b.x, player.y - b.y) < r + player.size) {
-                player.hp -= b.damage; b.didPlayerDamage = true; player.invulnUntil = now + 1000;
-                screenShake.power = 10; screenShake.endAt = now + 200;
+                player.hp -= b.damage;
+                b.didPlayerDamage = true;
+                player.invulnUntil = now + 1000;
+                screenShake.power = 10;
+                screenShake.endAt = now + 200;
+
+                // --- RESTORE KNOCKBACK ---
+                const angle = Math.atan2(player.y - b.y, player.x - b.x);
+                const pushForce = 40; // Strength of the blast push
+                player.x += Math.cos(angle) * pushForce;
+                player.y += Math.sin(angle) * pushForce;
+
+                // Boundary Check: Ensure the bomb doesn't push you outside the walls
+                player.x = Math.max(BOUNDARY, Math.min(canvas.width - BOUNDARY, player.x));
+                player.y = Math.max(BOUNDARY, Math.min(canvas.height - BOUNDARY, player.y));
             }
             if (!b.didDamage) {
                 b.didDamage = true;
