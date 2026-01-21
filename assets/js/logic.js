@@ -24,6 +24,7 @@ let player = {
     size: 20
 };
 let bullets = [];
+let particles = [];
 let enemies = [];
 let bombs = [];
 let keys = {};
@@ -838,7 +839,7 @@ function update() {
         }
     }
 
-    // --- 4. SHOOTING LOGIC (All Modes Restored) ---
+    // --- 4. SHOOTING LOGIC ---
     const shootingKeys = keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
     if (shootingKeys) {
         const fireDelay = (gun.Bullet?.fireRate ?? 0.3) * 1000;
@@ -850,6 +851,8 @@ function update() {
             else if (keys['ArrowLeft']) baseAngle = Math.PI;
             else if (keys['ArrowRight']) baseAngle = 0;
 
+            // Initial Homing Aim
+            console.log(gun.Bullet.homing)
             if (gun.Bullet?.homing && enemies.length > 0) {
                 let nearest = enemies.reduce((a, b) => Math.hypot(player.x - a.x, player.y - a.y) < Math.hypot(player.x - b.x, player.y - b.y) ? a : b);
                 baseAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
@@ -897,9 +900,47 @@ function update() {
         }
     }
 
-    // --- 5. BULLETS, ENEMIES, TRANSITIONS ---
+    // --- 5. BULLETS, PARTICLES, & ENEMIES ---
+    // Update Particles (Trails)
+    if (typeof particles !== 'undefined') {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].life -= 0.05;
+            if (particles[i].life <= 0) particles.splice(i, 1);
+        }
+    }
+
     bullets.forEach((b, i) => {
+        // Active Homing Steering
+        if (gun.Bullet?.homing && enemies.length > 0) {
+            let nearest = enemies.reduce((a, b_en) => Math.hypot(b.x - a.x, b.y - a.y) < Math.hypot(b.x - b_en.x, b.y - b_en.y) ? a : b_en);
+            let desiredAngle = Math.atan2(nearest.y - b.y, nearest.x - b.x);
+            let currentAngle = Math.atan2(b.vy, b.vx);
+            let speed = Math.hypot(b.vx, b.vy);
+
+            let diff = desiredAngle - currentAngle;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+
+            let steerAmount = 0.12;
+            if (Math.abs(diff) < steerAmount) currentAngle = desiredAngle;
+            else currentAngle += Math.sign(diff) * steerAmount;
+
+            b.vx = Math.cos(currentAngle) * speed;
+            b.vy = Math.sin(currentAngle) * speed;
+        }
+
+        // Trail Effect (Particle spawning)
+        if (typeof particles !== 'undefined' && Math.random() > 0.3) {
+            particles.push({
+                x: b.x, y: b.y,
+                color: b.colour || 'yellow',
+                life: 0.5,
+                size: (b.size || 5) * 0.6
+            });
+        }
+
         b.x += b.vx; b.y += b.vy;
+
         if (gun.Bullet?.wallBounce) {
             if (b.x < 0 || b.x > canvas.width) b.vx *= -1;
             if (b.y < 0 || b.y > canvas.height) b.vy *= -1;
@@ -922,6 +963,7 @@ function update() {
         if (Math.hypot(player.x - en.x, player.y - en.y) < player.size + en.size) playerHit(en, true, true, true);
     });
 
+    // --- 6. TRANSITIONS ---
     if (!roomLocked) {
         if (player.x < 10 && doors.left?.active) changeRoom(-1, 0);
         if (player.x > canvas.width - 10 && doors.right?.active) changeRoom(1, 0);
@@ -1134,6 +1176,7 @@ async function draw() {
         ctx.rotate(-Date.now() / 100); ctx.strokeStyle = "#8e44ad"; ctx.lineWidth = 3;
         ctx.strokeRect(-25, -25, 50, 50);
         ctx.restore();
+        ctx.globalAlpha = 1.0; // Reset alpha
         if (Math.hypot(player.x - canvas.width / 2, player.y - canvas.height / 2) < 40) gameWon();
     }
 
@@ -1141,6 +1184,19 @@ async function draw() {
     const isInv = player.invuln || Date.now() < (player.invulnUntil || 0);
     ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
     ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
+
+    // 4.5 --- PARTICLE TRAILS ---
+    // Drawing trails before bullets so they appear underneath
+    if (typeof particles !== 'undefined') {
+        particles.forEach(p => {
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1.0; // Reset alpha
+    }
 
     // 5. --- GEOMETRY BULLETS ---
     bullets.forEach(b => {
@@ -1180,7 +1236,6 @@ async function draw() {
     // 7. --- BOSS/ENEMIES ---
     if (roomData.isBoss && !roomData.cleared && Date.now() < (bossIntroEndTime || 0)) {
         ctx.fillStyle = "#e74c3c"; ctx.font = "bold 50px 'Courier New'"; ctx.textAlign = "center";
-        // --- Updated Boss Intro Text ---
         const bossName = (enemyTemplates["boss"]?.name || "BOSS").toUpperCase();
         ctx.fillText(bossName, canvas.width / 2, canvas.height / 2);
     } else {
@@ -1195,7 +1250,6 @@ async function draw() {
     drawMinimap(); drawTutorial();
     requestAnimationFrame(() => { update(); draw(); });
 }
-
 
 function drawMinimap() {
     const mapSize = 100;
@@ -1247,6 +1301,20 @@ function drawMinimap() {
             }
         }
     }
+
+    // Inside draw()
+    if (typeof particles !== 'undefined') {
+        particles.forEach(p => {
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1.0;
+    }
+
+
     mctx.restore();
 }
 function gameWon() {
