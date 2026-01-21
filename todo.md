@@ -1,4 +1,7 @@
 bugs
+    when you have homing missies activated and the enemies die and there still bulletd they freeze when you press the 
+    arrow keys.  Maybe when all enemies are dead the bullets should stop homing or just be deleted from the screen.  We could also have the arrow ignore the key press so the bullets are still animated.
+    
     homing missles should start at the side of the key that was pressed
     if you get hit perfect bonus will reset 
     360 bullet mode the right bullet is a little slow

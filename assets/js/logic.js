@@ -651,6 +651,7 @@ function fireBullet(direction, speed, vx, vy, angle) {
     360 = 360 degres
     */
     //check if the have bullets, they are in a mode where no bullets should be fired
+
     if (gun.Bullet?.NoBullets) {
         return;
     }
@@ -667,6 +668,7 @@ function fireBullet(direction, speed, vx, vy, angle) {
             homing: gun.Bullet?.homming,
             shape: gun.Bullet?.geometry?.shape || "circle",
             animated: gun.Bullet?.geometry?.animated || false,
+            filled: gun.Bullet?.geometry?.filled || true,
             colour: gun.Bullet?.colour || "yellow",
             hitEnemies: []
         });
@@ -688,6 +690,7 @@ function fireBullet(direction, speed, vx, vy, angle) {
                 homing: gun.Bullet?.homming,
                 shape: gun.Bullet?.geometry?.shape || "circle",
                 animated: gun.Bullet?.geometry?.animated || false,
+                filled: gun.Bullet?.geometry?.filled || true,
                 colour: gun.Bullet?.colour || "yellow",
 
                 hitEnemies: []
@@ -709,6 +712,7 @@ function fireBullet(direction, speed, vx, vy, angle) {
             homing: gun.Bullet?.homming,
             shape: gun.Bullet?.geometry?.shape || "circle",
             animated: gun.Bullet?.geometry?.animated || false,
+            filled: gun.Bullet?.geometry?.filled || true,
             colour: gun.Bullet?.colour || "yellow",
 
             hitEnemies: []
@@ -728,6 +732,7 @@ function fireBullet(direction, speed, vx, vy, angle) {
             homing: gun.Bullet?.homming,
             shape: gun.Bullet?.geometry?.shape || "circle",
             animated: gun.Bullet?.geometry?.animated || false,
+            filled: gun.Bullet?.geometry?.filled || true,
             colour: gun.Bullet?.colour || "yellow",
             hitEnemies: []
         });
@@ -747,9 +752,11 @@ function fireBullet(direction, speed, vx, vy, angle) {
             homing: gun.Bullet?.homming,
             shape: gun.Bullet?.geometry?.shape || "circle",
             animated: gun.Bullet?.geometry?.animated || false,
+            filled: gun.Bullet?.geometry?.filled || true,
             colour: gun.Bullet?.colour || "yellow",
             hitEnemies: []
         });
+
     }
     if (direction === 4) {
         bullets.push({
@@ -764,10 +771,15 @@ function fireBullet(direction, speed, vx, vy, angle) {
             homing: gun.Bullet?.homming,
             shape: gun.Bullet?.geometry?.shape || "circle",
             animated: gun.Bullet?.geometry?.animated || false,
+            filled: gun.Bullet?.geometry?.filled || true,
             colour: gun.Bullet?.colour || "yellow",
             hitEnemies: []
         });
+
+
     }
+    console.log(gun.Bullet?.geometry?.filled)
+    console.log(bullets[bullets.length - 1])
 
 }
 
@@ -1515,13 +1527,13 @@ async function draw() {
                     ctx.save();
                     ctx.translate(b.x, b.y);
                     ctx.rotate(b.spinAngle);
-
                     ctx.beginPath();
-                    ctx.moveTo(0, -size);    // Tip (Points Up)
-                    ctx.lineTo(size, size);  // Bottom Right
-                    ctx.lineTo(-size, size); // Bottom Left
+                    ctx.moveTo(0, -size);
+                    ctx.lineTo(size, size);
+                    ctx.lineTo(-size, size);
                     ctx.closePath();
-                    ctx.fill();
+                    // Toggle Fill or Stroke
+                    b.filled ? ctx.fill() : ctx.stroke();
                     ctx.restore();
                 } else {
                     ctx.beginPath();
@@ -1529,26 +1541,46 @@ async function draw() {
                     ctx.lineTo(b.x + size, b.y + size);
                     ctx.lineTo(b.x - size, b.y + size);
                     ctx.closePath();
-                    ctx.fill();
+                    b.filled ? ctx.fill() : ctx.stroke();
                 }
                 break;
 
             case 'square':
-                ctx.beginPath();
-                ctx.rect(b.x - size, b.y - size, size * 2, size * 2);
-                ctx.fill();
+                if (b.animated) {
+                    ctx.save();
+                    ctx.translate(b.x, b.y);
+                    ctx.rotate(b.spinAngle);
+                    ctx.beginPath();
+                    ctx.rect(-size, -size, size * 2, size * 2);
+                    b.filled ? ctx.fill() : ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.beginPath();
+                    ctx.rect(b.x - size, b.y - size, size * 2, size * 2);
+                    b.filled ? ctx.fill() : ctx.stroke();
+                }
                 break;
 
             case 'rectangle':
-                ctx.beginPath();
-                ctx.rect(b.x - size * 1.5, b.y - size, size * 3, size * 2);
-                ctx.fill();
+                if (b.animated) {
+                    ctx.save();
+                    ctx.translate(b.x, b.y);
+                    ctx.rotate(b.spinAngle);
+                    ctx.beginPath();
+                    ctx.rect(-size * 1.5, -size, size * 3, size * 2);
+                    b.filled ? ctx.fill() : ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.beginPath();
+                    ctx.rect(b.x - size * 1.5, b.y - size, size * 3, size * 2);
+                    b.filled ? ctx.fill() : ctx.stroke();
+                }
                 break;
 
             default: // Circle
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, size, 0, Math.PI * 2);
-                ctx.fill();
+                b.filled ? ctx.fill() : ctx.stroke();
                 break;
         }
     });
