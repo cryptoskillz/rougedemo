@@ -26,12 +26,12 @@
         "curve": 0,
         "spread": 0,
         "spreadRate": 0,
-        "number": 5,
+        "number": 1,
         "homing": true,
         "fireRate": 0.5,
         "wallBounce": true,
-        "pierce": false,
-        "backfire": false,
+        "pierce": true,
+        "backfire": true,
         "frontLocked": false,
         "NoBullets": false,
         "multiDirectional": {
@@ -43,7 +43,7 @@
             "fire360": false
         },
         "Explode": {
-            "active": true,
+            "active": false,
             "shards": 8,
             "size": 2,
             "damage": 0.1,
