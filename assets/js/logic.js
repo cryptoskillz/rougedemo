@@ -786,110 +786,19 @@ function fireBullet(direction, speed, vx, vy, angle) {
     bulletsInRoom++;
 }
 
-// --- Generic "Use" action (SPACE) ---
-// Call this once per frame near the top of update(), BEFORE the WASD blocks.
-function updateUse() {
-    if (!keys["Space"]) return;
-
-
-
-    // consume input so it fires once
-    keys["Space"] = false;
-
-    if (gameState !== STATES.PLAY) return;
-
-    // Start the Tron music if it hasn't started yet
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-    // Handle Audio Context
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-
-    const roomLocked = enemies.length > 0;
-    const doors = roomData.doors || {};
-    if (roomLocked) return; // keep your existing rule: can't unlock while enemies alive
-
-    // Helper: are we close enough to a door?
-    const inRangeTop = (door) => {
-        const doorX = door.x !== undefined ? door.x : canvas.width / 2;
-        return player.y <= BOUNDARY + 5 && player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
-    };
-    const inRangeBottom = (door) => {
-        const doorX = door.x !== undefined ? door.x : canvas.width / 2;
-        return player.y >= canvas.height - BOUNDARY - 5 && player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
-    };
-    const inRangeLeft = (door) => {
-        const doorY = door.y !== undefined ? door.y : canvas.height / 2;
-        return player.x <= BOUNDARY + 5 && player.y > doorY - DOOR_SIZE && player.y < doorY + DOOR_SIZE;
-    };
-    const inRangeRight = (door) => {
-        const doorY = door.y !== undefined ? door.y : canvas.height / 2;
-        return player.x >= canvas.width - BOUNDARY - 5 && player.y > doorY - DOOR_SIZE && player.y < doorY + DOOR_SIZE;
-    };
-
-    // Prefer the door the player is "facing" (lastMoveX/lastMoveY), fall back to any nearby door.
-    const candidates = [];
-    if (doors.top?.active) candidates.push({ dir: "top", door: doors.top, inRange: inRangeTop });
-    if (doors.bottom?.active) candidates.push({ dir: "bottom", door: doors.bottom, inRange: inRangeBottom });
-    if (doors.left?.active) candidates.push({ dir: "left", door: doors.left, inRange: inRangeLeft });
-    if (doors.right?.active) candidates.push({ dir: "right", door: doors.right, inRange: inRangeRight });
-
-    const facingDir =
-        player.lastMoveY === -1 ? "top" :
-            player.lastMoveY === 1 ? "bottom" :
-                player.lastMoveX === -1 ? "left" :
-                    player.lastMoveX === 1 ? "right" : null;
-
-    let target = null;
-
-    // 1) facing door if in range
-    if (facingDir) {
-        const c = candidates.find(x => x.dir === facingDir);
-        if (c && c.inRange(c.door)) target = c;
-    }
-
-    // 2) otherwise first door in range
-    if (!target) {
-        target = candidates.find(c => c.inRange(c.door)) || null;
-    }
-
-    if (!target) return; // nothing to use right now
-
-    // --- "Use" behavior for doors (for now) ---
-    const d = target.door;
-
-    // unlock if locked and player has keys
-    if (d.locked) {
-        if (player.inventory?.keys > 0) {
-            player.inventory.keys--;
-            keysEl.innerText = player.inventory.keys;
-            d.locked = 0;
-            d.unlockedByKey = true;
-            console.log(`${target.dir} door unlocked via USE (Space)`);
-        } else {
-            console.log("Door is locked - no keys");
-        }
-        return;
-    }
-
-    // (optional) if you ever add "open but interact" doors, handle here
-    console.log(`${target.dir} door used (already unlocked)`);
-}
-
-function updateRestart() {
-    // --- 1. RESTART & UI CHECKS ---
-    if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
-
-    // Check for Space Bar interaction (Key Unlock)
-    if (keys["Space"]) {
-        updateUse();
-    } if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
-}
-
 // update loop
 function update() {
+    // 1. If already dead, stop all logic
+    if (gameState === STATES.GAMEOVER) return;
+
+    // 2. TRIGGER GAME OVER
+    if (player.hp <= 0) {
+
+        player.hp = 0; // Prevent negative health
+        updateUI();    // Final UI refresh
+        gameOver();    // Trigger your overlay function
+        return;        // Exit loop
+    }
     if (gameState !== STATES.PLAY) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
@@ -911,8 +820,7 @@ function update() {
     // 3. Combat Logic
     updateShooting();
     updateBulletsAndShards(aliveEnemies); // Pass enemies for homing check
-    updateEnemies();
-    playerHit(aliveEnemies); // Check if enemies hit player
+    updateEnemies(); // Enemy movement + player collision handled inside
 
     // 4. Transitions
     updateRoomTransitions(doors, roomLocked);
@@ -939,351 +847,6 @@ async function draw() {
     drawTutorial();
     requestAnimationFrame(() => { update(); draw(); });
 }
-
-function updateMusicToggle() {
-    if (keys['KeyM']) {
-        const now = Date.now();
-        // 300ms cooldown so it doesn't toggle every frame
-        if (now - lastMusicToggle > 300) {
-            if (audio.music.paused) {
-                audio.music.play();
-                console.log("Music Playing");
-            } else {
-                audio.music.pause();
-                console.log("Music Paused");
-            }
-            lastMusicToggle = now;
-        }
-    }
-}
-
-function updateRoomTransitions(doors, roomLocked) {
-
-    // --- 8. ROOM TRANSITIONS ---
-    if (!roomLocked) {
-        const t = 15;
-        if (player.x < t && doors.left?.active && !doors.left?.locked) changeRoom(-1, 0);
-        else if (player.x > canvas.width - t && doors.right?.active && !doors.right?.locked) changeRoom(1, 0);
-        else if (player.y < t && doors.top?.active && !doors.top?.locked) changeRoom(0, -1);
-        else if (player.y > canvas.height - t && doors.bottom?.active && !doors.bottom?.locked) changeRoom(0, 1);
-    }
-}
-
-function updateRoomLock() {
-    // --- 2. ROOM & LOCK STATUS ---
-    const aliveEnemies = enemies.filter(en => !en.isDead);
-    const roomLocked = aliveEnemies.length > 0;
-    const doors = roomData.doors || {};
-
-    if (!roomLocked && !roomData.cleared) {
-        roomData.cleared = true;
-        const currentCoord = `${player.roomX}, ${player.roomY}`;
-        if (visitedRooms[currentCoord]) visitedRooms[currentCoord].cleared = true;
-    }
-}
-
-function drawShake() {
-    const now = Date.now();
-    // 1. --- SHAKE ---
-    if (screenShake.power > 0 && now < screenShake.endAt) {
-        ctx.save();
-        const s = screenShake.power * ((screenShake.endAt - now) / 180);
-        ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
-    }
-}
-
-function drawDoors() {
-    const roomLocked = enemies.filter(en => !en.isDead).length > 0;
-    const doors = roomData.doors || {};
-    Object.entries(doors).forEach(([dir, door]) => {
-        if (!door.active || door.hidden) return;
-        ctx.fillStyle = roomLocked ? "#c0392b" : (door.locked ? "#f1c40f" : "#222");
-        const dx = door.x ?? canvas.width / 2, dy = door.y ?? canvas.height / 2;
-        if (dir === 'top') ctx.fillRect(dx - DOOR_SIZE / 2, 0, DOOR_SIZE, DOOR_THICKNESS);
-        if (dir === 'bottom') ctx.fillRect(dx - DOOR_SIZE / 2, canvas.height - DOOR_THICKNESS, DOOR_SIZE, DOOR_THICKNESS);
-        if (dir === 'left') ctx.fillRect(0, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
-        if (dir === 'right') ctx.fillRect(canvas.width - DOOR_THICKNESS, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
-    });
-}
-
-function drawPlayer() {
-    const now = Date.now();
-    // 4. --- PLAYER ---
-    const isInv = player.invuln || now < (player.invulnUntil || 0);
-    ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
-    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
-
-}
-
-function drawBulletsAndShards() {
-    // 5. --- BULLETS & ENEMIES ---
-    bullets.forEach(b => {
-        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
-        ctx.fillStyle = b.colour || 'yellow';
-        const s = b.size || 5;
-        ctx.beginPath();
-        if (b.shape === 'triangle') { ctx.moveTo(s, 0); ctx.lineTo(-s, s); ctx.lineTo(-s, -s); ctx.closePath(); }
-        else if (b.shape === 'square') ctx.rect(-s, -s, s * 2, s * 2);
-        else ctx.arc(0, 0, s, 0, Math.PI * 2);
-        ctx.fill(); ctx.restore();
-    });
-}
-
-function updateBulletsAndShards() {
-    // --- 6. BULLETS & SHARDS ---
-    bullets.forEach((b, i) => {
-        b.x += b.vx; b.y += b.vy;
-        if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
-            if (gun.Bullet?.wallBounce) {
-                if (b.x < 0 || b.x > canvas.width) b.vx *= -1; if (b.y < 0 || b.y > canvas.height) b.vy *= -1;
-            } else {
-                if (gun.Bullet?.Explode?.active && !b.isShard) {
-                    const ex = gun.Bullet.Explode;
-                    for (let j = 0; j < ex.shards; j++) {
-                        const angle = (Math.PI * 2 / ex.shards) * j;
-                        bullets.push({ x: b.x, y: b.y, vx: Math.cos(angle) * 5, vy: Math.sin(angle) * 5, life: ex.shardRange, damage: ex.damage, size: ex.size, isShard: true, colour: b.colour });
-                    }
-                }
-                bullets.splice(i, 1);
-            }
-        }
-        b.life--; if (b.life <= 0) bullets.splice(i, 1);
-    });
-}
-
-function updateShooting() {
-    // --- 5. SHOOTING ---
-    const shootingKeys = keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
-    if (shootingKeys) {
-        const fireDelay = (gun.Bullet?.fireRate ?? 0.3) * 1000;
-        if (Date.now() - (player.lastShot || 0) > fireDelay) {
-            SFX.shoot(0.05);
-            let centerAngle = 0;
-            if (gun.frontLocked) centerAngle = Math.atan2(player.lastMoveY || 0, player.lastMoveX || 1);
-            else {
-                if (keys['ArrowUp']) centerAngle = -Math.PI / 2; else if (keys['ArrowDown']) centerAngle = Math.PI / 2;
-                else if (keys['ArrowLeft']) centerAngle = Math.PI; else if (keys['ArrowRight']) centerAngle = 0;
-            }
-            const count = gun.Bullet?.number || 1;
-            for (let i = 0; i < count; i++) {
-                let fanAngle = centerAngle + (count > 1 ? (i - (count - 1) / 2) * (gun.Bullet?.spreadRate || 0.2) : 0);
-                const speed = gun.Bullet?.speed || 7;
-                fireBullet(0, speed, Math.cos(fanAngle) * speed, Math.sin(fanAngle) * speed, fanAngle);
-            }
-            player.lastShot = Date.now();
-        }
-    }
-
-}
-
-function fireBullet(direction, speed, vx, vy, angle) {
-    // 1. Safety check
-    if (gun.Bullet?.NoBullets) {
-        return;
-    }
-
-    // Helper to create the base bullet object
-    const createBullet = (velX, velY) => {
-        // Determine the shape ONCE at creation
-        let bulletShape = gun.Bullet?.geometry?.shape || "circle";
-
-        // If shape is 'random', pick one from the shapes array immediately
-        if (bulletShape === 'random' && gun.Bullet?.geometry?.shapes?.length > 0) {
-            const possibleShapes = gun.Bullet.geometry.shapes;
-            bulletShape = possibleShapes[Math.floor(Math.random() * possibleShapes.length)];
-        }
-
-        return {
-            x: player.x,
-            y: player.y,
-            vx: velX,
-            vy: velY,
-            life: gun.Bullet?.range || 60,
-            damage: gun.Bullet?.damage || 1,
-            size: gun.Bullet?.size || 5,
-            curve: gun.Bullet?.curve || 0,
-            homing: gun.Bullet?.homing,
-            shape: bulletShape, // This is now a fixed shape (triangle, square, etc.)
-            animated: gun.Bullet?.geometry?.animated || false,
-            filled: gun.Bullet?.geometry?.filled !== undefined ? gun.Bullet.geometry.filled : true,
-            colour: gun.Bullet?.colour || "yellow",
-            spinAngle: 0,
-            hitEnemies: []
-        };
-    };
-
-    // 2. Spawning Logic (using else-if to prevent duplicate logic execution)
-    if (direction === 0) {
-        bullets.push(createBullet(vx, vy));
-    }
-    else if (direction === 360) {
-        for (let i = 0; i < 360; i += 10) {
-            const rad = i * Math.PI / 180;
-            bullets.push(createBullet(Math.cos(rad) * speed, Math.sin(rad) * speed));
-        }
-    }
-    else if (direction === 1) { // North
-        bullets.push(createBullet(0, -speed));
-    }
-    else if (direction === 2) { // East
-        bullets.push(createBullet(speed, 0));
-    }
-    else if (direction === 3) { // South
-        bullets.push(createBullet(0, speed));
-    }
-    else if (direction === 4) { // West
-        bullets.push(createBullet(-speed, 0));
-    }
-
-    bulletsInRoom++;
-}
-
-
-async function dropBomb() {
-    //check the bomb interval and see if enough time has passed before we can drop another
-
-    const baseR = bomb.size || 20;         // visible bomb radius
-    const maxR = bomb.radius || 120;      // explosion max radius
-    const timer = bomb.timer || 1000;
-
-    // direction behind player (use your lastMoveX/lastMoveY logic)
-    const dirX = player.lastMoveX ?? 0;
-    const dirY = player.lastMoveY ?? 1;
-    const gap = 6;
-    const backDist = player.size + baseR + gap;
-
-    const bombDelay = (bomb?.fireRate !== undefined ? bomb?.fireRate : 0.3) * 1000;
-    if (Date.now() - (player.lastBomb || 0) > bombDelay) {
-        bombsInRoom++; // for perfecr calcs later
-        bombs.push({
-            x: player.x - dirX * backDist,
-            y: player.y - dirY * backDist,
-
-            baseR,
-            maxR,
-
-            colour: bomb.colour || "white",
-            damage: bomb.damage || 1,
-            canDamagePlayer: !!bomb.canDamagePlayer,
-
-
-            explodeAt: Date.now() + timer,
-            exploding: false,
-            explosionStartAt: 0,
-            explosionDuration: bomb.explosionDuration || 300,
-            explosionColour: bomb.explosionColour || bomb.colour || "white",
-            didDamage: false,
-            id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-            triggeredBy: null, // optional debug
-        });
-        player.lastBomb = Date.now();
-
-    }
-}
-
-
-// --- Generic "Use" action (SPACE) ---
-// Call this once per frame near the top of update(), BEFORE the WASD blocks.
-function updateUse() {
-    if (!keys["Space"]) return;
-
-
-
-    // consume input so it fires once
-    keys["Space"] = false;
-
-    if (gameState !== STATES.PLAY) return;
-
-    // Start the Tron music if it hasn't started yet
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-    // Handle Audio Context
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-
-    const roomLocked = enemies.length > 0;
-    const doors = roomData.doors || {};
-    if (roomLocked) return; // keep your existing rule: can't unlock while enemies alive
-
-    // Helper: are we close enough to a door?
-    const inRangeTop = (door) => {
-        const doorX = door.x !== undefined ? door.x : canvas.width / 2;
-        return player.y <= BOUNDARY + 5 && player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
-    };
-    const inRangeBottom = (door) => {
-        const doorX = door.x !== undefined ? door.x : canvas.width / 2;
-        return player.y >= canvas.height - BOUNDARY - 5 && player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
-    };
-    const inRangeLeft = (door) => {
-        const doorY = door.y !== undefined ? door.y : canvas.height / 2;
-        return player.x <= BOUNDARY + 5 && player.y > doorY - DOOR_SIZE && player.y < doorY + DOOR_SIZE;
-    };
-    const inRangeRight = (door) => {
-        const doorY = door.y !== undefined ? door.y : canvas.height / 2;
-        return player.x >= canvas.width - BOUNDARY - 5 && player.y > doorY - DOOR_SIZE && player.y < doorY + DOOR_SIZE;
-    };
-
-    // Prefer the door the player is "facing" (lastMoveX/lastMoveY), fall back to any nearby door.
-    const candidates = [];
-    if (doors.top?.active) candidates.push({ dir: "top", door: doors.top, inRange: inRangeTop });
-    if (doors.bottom?.active) candidates.push({ dir: "bottom", door: doors.bottom, inRange: inRangeBottom });
-    if (doors.left?.active) candidates.push({ dir: "left", door: doors.left, inRange: inRangeLeft });
-    if (doors.right?.active) candidates.push({ dir: "right", door: doors.right, inRange: inRangeRight });
-
-    const facingDir =
-        player.lastMoveY === -1 ? "top" :
-            player.lastMoveY === 1 ? "bottom" :
-                player.lastMoveX === -1 ? "left" :
-                    player.lastMoveX === 1 ? "right" : null;
-
-    let target = null;
-
-    // 1) facing door if in range
-    if (facingDir) {
-        const c = candidates.find(x => x.dir === facingDir);
-        if (c && c.inRange(c.door)) target = c;
-    }
-
-    // 2) otherwise first door in range
-    if (!target) {
-        target = candidates.find(c => c.inRange(c.door)) || null;
-    }
-
-    if (!target) return; // nothing to use right now
-
-    // --- "Use" behavior for doors (for now) ---
-    const d = target.door;
-
-    // unlock if locked and player has keys
-    if (d.locked) {
-        if (player.inventory?.keys > 0) {
-            player.inventory.keys--;
-            keysEl.innerText = player.inventory.keys;
-            d.locked = 0;
-            d.unlockedByKey = true;
-            console.log(`${target.dir} door unlocked via USE (Space)`);
-        } else {
-            console.log("Door is locked - no keys");
-        }
-        return;
-    }
-
-    // (optional) if you ever add "open but interact" doors, handle here
-    console.log(`${target.dir} door used (already unlocked)`);
-}
-
-function updateRestart() {
-    // --- 1. RESTART & UI CHECKS ---
-    if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
-
-    // Check for Space Bar interaction (Key Unlock)
-    if (keys["Space"]) {
-        updateUse();
-    } if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
-}
-
 
 function updateMusicToggle() {
     if (keys['KeyM']) {
@@ -1464,6 +1027,109 @@ function updateShooting() {
 
 }
 
+
+
+function updateUse() {
+    if (!keys["Space"]) return;
+
+
+
+    // consume input so it fires once
+    keys["Space"] = false;
+
+    if (gameState !== STATES.PLAY) return;
+
+    // Start the Tron music if it hasn't started yet
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    // Handle Audio Context
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+
+    const roomLocked = enemies.length > 0;
+    const doors = roomData.doors || {};
+    if (roomLocked) return; // keep your existing rule: can't unlock while enemies alive
+
+    // Helper: are we close enough to a door?
+    const inRangeTop = (door) => {
+        const doorX = door.x !== undefined ? door.x : canvas.width / 2;
+        return player.y <= BOUNDARY + 5 && player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
+    };
+    const inRangeBottom = (door) => {
+        const doorX = door.x !== undefined ? door.x : canvas.width / 2;
+        return player.y >= canvas.height - BOUNDARY - 5 && player.x > doorX - DOOR_SIZE && player.x < doorX + DOOR_SIZE;
+    };
+    const inRangeLeft = (door) => {
+        const doorY = door.y !== undefined ? door.y : canvas.height / 2;
+        return player.x <= BOUNDARY + 5 && player.y > doorY - DOOR_SIZE && player.y < doorY + DOOR_SIZE;
+    };
+    const inRangeRight = (door) => {
+        const doorY = door.y !== undefined ? door.y : canvas.height / 2;
+        return player.x >= canvas.width - BOUNDARY - 5 && player.y > doorY - DOOR_SIZE && player.y < doorY + DOOR_SIZE;
+    };
+
+    // Prefer the door the player is "facing" (lastMoveX/lastMoveY), fall back to any nearby door.
+    const candidates = [];
+    if (doors.top?.active) candidates.push({ dir: "top", door: doors.top, inRange: inRangeTop });
+    if (doors.bottom?.active) candidates.push({ dir: "bottom", door: doors.bottom, inRange: inRangeBottom });
+    if (doors.left?.active) candidates.push({ dir: "left", door: doors.left, inRange: inRangeLeft });
+    if (doors.right?.active) candidates.push({ dir: "right", door: doors.right, inRange: inRangeRight });
+
+    const facingDir =
+        player.lastMoveY === -1 ? "top" :
+            player.lastMoveY === 1 ? "bottom" :
+                player.lastMoveX === -1 ? "left" :
+                    player.lastMoveX === 1 ? "right" : null;
+
+    let target = null;
+
+    // 1) facing door if in range
+    if (facingDir) {
+        const c = candidates.find(x => x.dir === facingDir);
+        if (c && c.inRange(c.door)) target = c;
+    }
+
+    // 2) otherwise first door in range
+    if (!target) {
+        target = candidates.find(c => c.inRange(c.door)) || null;
+    }
+
+    if (!target) return; // nothing to use right now
+
+    // --- "Use" behavior for doors (for now) ---
+    const d = target.door;
+
+    // unlock if locked and player has keys
+    if (d.locked) {
+        if (player.inventory?.keys > 0) {
+            player.inventory.keys--;
+            keysEl.innerText = player.inventory.keys;
+            d.locked = 0;
+            d.unlockedByKey = true;
+            console.log(`${target.dir} door unlocked via USE (Space)`);
+        } else {
+            console.log("Door is locked - no keys");
+        }
+        return;
+    }
+
+    // (optional) if you ever add "open but interact" doors, handle here
+    console.log(`${target.dir} door used (already unlocked)`);
+}
+
+function updateRestart() {
+    // --- 1. RESTART & UI CHECKS ---
+    if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
+
+    // Check for Space Bar interaction (Key Unlock)
+    if (keys["Space"]) {
+        updateUse();
+    } if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
+}
+
+
 function updateEnemies() {
     const now = Date.now();
     enemies.forEach((en, ei) => {
@@ -1564,8 +1230,10 @@ function playerHit(en, invuln = false, knockback = false, shakescreen = false) {
 
         if (!isInvuln) {
             player.hp -= en.damage || 1;
-            player.invulnUntil = now + 1000; // Use a timestamp instead of setTimeout for better sync
-            updateUI(); // Refresh the whole HUD
+            player.invulnUntil = now + 1000;
+
+            // If the player dies from this hit, the next update() call will catch it
+            if (typeof updateUI === "function") updateUI();
         }
     }
 
@@ -1668,163 +1336,8 @@ function updateBombDropping() {
     }
 }
 
-function updateMovementAndDoors(doors, roomLocked) {
-    // --- 4. MOVEMENT & DOOR COLLISION ---
-    const moveKeys = { "KeyW": [0, -1, 'top'], "KeyS": [0, 1, 'bottom'], "KeyA": [-1, 0, 'left'], "KeyD": [1, 0, 'right'] };
-    for (let [key, [dx, dy, dir]] of Object.entries(moveKeys)) {
-        if (keys[key]) {
-            player.lastMoveX = dx; player.lastMoveY = dy;
-            const door = doors[dir] || { active: 0, locked: 0, hidden: 0 };
-
-            // Reference center for alignment
-            let doorRef = (dir === 'top' || dir === 'bottom') ? (door.x ?? canvas.width / 2) : (door.y ?? canvas.height / 2);
-            let playerPos = (dir === 'top' || dir === 'bottom') ? player.x : player.y;
-
-            const inDoorRange = playerPos > doorRef - (DOOR_SIZE / 2) && playerPos < doorRef + (DOOR_SIZE / 2);
-            // canPass checks if bomb or key removed the 'locked' status
-            const canPass = door.active && !door.locked && !door.hidden && !roomLocked;
-
-            if (dx !== 0) {
-                const limit = dx < 0 ? BOUNDARY : canvas.width - BOUNDARY;
-                if ((dx < 0 ? player.x > limit : player.x < limit) || (inDoorRange && canPass)) player.x += dx * player.speed;
-            } else {
-                const limit = dy < 0 ? BOUNDARY : canvas.height - BOUNDARY;
-                if ((dy < 0 ? player.y > limit : player.y < limit) || (inDoorRange && canPass)) player.y += dy * player.speed;
-            }
-        }
-    }
-
-}
 
 
-function drawEnemies() {
-
-    enemies.forEach(en => {
-
-        ctx.save();
-
-        if (en.isDead) ctx.globalAlpha = en.deathTimer / 30;
-
-        ctx.fillStyle = en.hitTimer > 0 ? "white" : (en.color || "#e74c3c");
-
-        ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI * 2); ctx.fill();
-
-        ctx.restore();
-
-    });
-
-}
-
-function playerHit(en, invuln = false, knockback = false, shakescreen = false) {
-    if (invuln) {
-        const now = Date.now();
-        const isInvuln = player.invuln || now < (player.invulnUntil || 0);
-
-        if (!isInvuln) {
-            player.hp -= en.damage || 1;
-            player.invulnUntil = now + 1000; // Use a timestamp instead of setTimeout for better sync
-            updateUI(); // Refresh the whole HUD
-        }
-    }
-
-    if (knockback) {
-        const dx = player.x - en.x;
-        const dy = player.y - en.y;
-        const len = Math.hypot(dx, dy) || 1;
-        const nx = dx / len;
-        const ny = dy / len;
-        const padding = 6;
-        const targetDist = en.size + player.size + padding;
-        const needed = targetDist - len;
-
-        if (needed > 0) {
-            player.x += nx * needed;
-            player.y += ny * needed;
-        }
-
-        player.x = Math.max(BOUNDARY + player.size, Math.min(canvas.width - BOUNDARY - player.size, player.x));
-        player.y = Math.max(BOUNDARY + player.size, Math.min(canvas.height - BOUNDARY - player.size, player.y));
-    }
-
-    if (shakescreen) {
-        const shakePower = (en.shake || 8) * (120 / 40);
-        screenShake.power = Math.max(screenShake.power, shakePower);
-        screenShake.endAt = Date.now() + (en.shakeDuration || 200);
-    }
-}
-
-function drawBombs(doors) {
-    const now = Date.now();
-
-    // 3. --- BOMBS (Explosion & Door Logic) ---
-    for (let i = bombs.length - 1; i >= 0; i--) {
-        const b = bombs[i];
-        if (!b.exploding && now >= b.explodeAt) {
-            b.exploding = true;
-            b.explosionStartAt = now;
-            SFX.explode(0.3);
-        }
-
-        if (b.exploding) {
-            const p = Math.min(1, (now - b.explosionStartAt) / b.explosionDuration);
-            const r = b.baseR + (b.maxR - b.baseR) * p;
-
-            if (!b.didDoorCheck) {
-                b.didDoorCheck = true;
-                Object.entries(doors).forEach(([dir, door]) => {
-                    let dX = door.x ?? canvas.width / 2, dY = door.y ?? canvas.height / 2;
-                    if (dir === 'top') dY = 0; if (dir === 'bottom') dY = canvas.height;
-                    if (dir === 'left') dX = 0; if (dir === 'right') dX = canvas.width;
-
-                    // If bomb blast hits the door
-                    if (Math.hypot(b.x - dX, b.y - dY) < b.maxR + 30) {
-                        if (b.openDoors && door.locked) door.locked = 0; // Unlock like Space bar
-                        if (b.openSecretRooms && door.hidden) { door.hidden = false; door.active = true; }
-                    }
-                });
-            }
-
-            if (!b.didDamage) {
-                b.didDamage = true;
-                enemies.forEach(en => { if (Math.hypot(b.x - en.x, b.y - en.y) < b.maxR) en.hp -= b.damage; });
-            }
-
-            ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = b.explosionColour;
-            ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-            if (p >= 1) bombs.splice(i, 1);
-        } else {
-            // Unexploded bomb glow
-            ctx.fillStyle = b.colour; ctx.shadowBlur = 10; ctx.shadowColor = b.colour;
-            ctx.beginPath(); ctx.arc(b.x, b.y, b.baseR, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-        }
-    }
-}
-
-function updateBombDropping() {
-
-    // --- 3. BOMB DROPPING ---
-    if (keys['KeyB'] && player.inventory?.bombs > 0) {
-        const now = Date.now();
-        // Uses the fireRate (0.5) from your bomb JSON
-        if (bomb && now - (player.lastBombTime || 0) > (bomb.fireRate * 1000)) {
-            player.inventory.bombs--;
-            player.lastBombTime = now;
-            bombs.push({
-                x: player.x, y: player.y,
-                explodeAt: now + bomb.timer,
-                explosionDuration: bomb.explosionDuration,
-                baseR: 15, maxR: bomb.radius,
-                damage: bomb.damage, colour: bomb.colour,
-                explosionColour: bomb.explosionColour,
-                openDoors: bomb.openDoors, openSecretRooms: bomb.openSecretRooms,
-                canDamagePlayer: bomb.canDamagePlayer,
-                exploding: false, didDamage: false, didDoorCheck: false
-            });
-            SFX.shoot(0.1);
-            updateUI();
-        }
-    }
-}
 
 function updateMovementAndDoors(doors, roomLocked) {
     // --- 4. MOVEMENT & DOOR COLLISION ---
@@ -1894,7 +1407,6 @@ function drawTutorial() {
     // --- Start Room Tutorial Text ---
     if (player.roomX === 0 && player.roomY === 0 && (DEBUG_START_BOSS === false)) {
         ctx.save();
-        console.log("in")
 
         // Internal helper for keycaps
         const drawKey = (text, x, y) => {
@@ -2029,10 +1541,4 @@ function drawMinimap() {
 
 
     mctx.restore();
-}
-function gameWon() {
-    gameState = STATES.GAMEOVER;
-    overlayEl.style.display = 'flex';
-    statsEl.innerText = "VICTORY! You cleared the dungeon!";
-    document.querySelector('#overlay h1').innerText = "You Won!";
 }
