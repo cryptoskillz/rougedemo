@@ -1,10 +1,7 @@
 bugs
     add back all bullet tyoes stupid ai keeps removng it
-    guradian intro music
-    debug logging
     explode seems over powered
     fixed front locked
-    homing missles should start at the side of the key that was pressed
     if you get hit perfect bonus will reset 
     add the enemy knockback modifier to the player
     get invulTime from player file
@@ -20,7 +17,6 @@ items folder
 logic
     when bomb hits you you shoudl go white with invul, the same as happens when you get shot
     reload gun / bomb when they pick up a new item
-    add a debug log so we can clean up console
     get the drawr cordes for bomnbs, player, items, guns and bombs from the json files
 
 bombs

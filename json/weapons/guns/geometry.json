@@ -10,10 +10,10 @@
         "colour": "yellow",
         "ammo": {
             "active": true,
-            "timer": 0,
-            "max": 100,
-            "amount": 100,
-            "reload": 1000
+            "type": "finite",
+            "resetTimer": 0,
+            "amount": 10,
+            "maxAmount": 1000
         },
         "geometry": {
             "shape": "random",

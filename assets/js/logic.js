@@ -11,6 +11,7 @@ const statsEl = document.getElementById('stats');
 const perfectEl = document.getElementById('perfect');
 const roomNameEl = document.getElementById('roomName');
 const bombsEl = document.getElementById('bombs');
+const ammoEl = document.getElementById('ammo');
 const mapCanvas = document.getElementById('minimapCanvas');
 const mctx = mapCanvas.getContext('2d');
 const debugSelect = document.getElementById('debug-select');
@@ -150,6 +151,25 @@ async function updateUI() {
         bombsEl.style.color = "white";
     }
     bombsEl.innerText = player.inventory.bombs;
+
+    // Ammo Display
+    //console.log(gun);
+    if (gun.Bullet?.ammo?.active) {
+        if (player.reloading) {
+            ammoEl.innerText = "RELOADING...";
+            ammoEl.style.color = "red";
+        } else {
+            ammoEl.innerText = player.ammo;
+            if (player.ammoMode === 'reload') {
+                ammoEl.innerText += ` / ${player.reserveAmmo}`;
+            }
+            ammoEl.style.color = player.ammo <= player.maxMag * 0.2 ? "red" : "white";
+        }
+    } else {
+        ammoEl.innerText = "--";
+        ammoEl.style.color = "gray";
+    }
+
     //update cords only if debug mode is enabled otherwise hide this
     if (DEBUG_WINDOW_ENABLED) {
         roomEl.innerText = `Coords: ${player.roomX},${player.roomY}`;
@@ -441,12 +461,30 @@ async function initGame(isRestart = false) {
         ]);
         bomb = bData;
         gun = gunData;
-
         // Initialize Ammo
-        if (gun.ammo?.active) {
-            player.ammo = gun.ammo.amount !== undefined ? gun.ammo.amount : gun.ammo.max;
-            player.maxAmmo = gun.ammo.max;
+        if (gun.Bullet?.ammo?.active) {
+            player.ammoMode = gun.Bullet?.ammo?.type || 'finite'; // 'finite', 'reload', 'recharge'
+            player.maxMag = gun.Bullet?.ammo?.amount || 100; // Clip size
+            // Handle resetTimer being 0 or undefined, treat as 0 if finite, but if reload/recharge usually non-zero.
+            // But if user sets resetTimer to 0, it instant reloads?
+            player.reloadTime = gun.Bullet?.ammo?.resetTimer !== undefined ? gun.Bullet?.ammo?.resetTimer : (gun.Bullet?.ammo?.reload || 1000);
+
+            // Initial State
+            player.ammo = player.maxMag;
             player.reloading = false;
+
+            // Reserve Logic
+            if (player.ammoMode === 'reload') {
+                // Magazine Mode: maxAmount is total reserve
+                player.reserveAmmo = (gun.Bullet?.ammo?.maxAmount || 0) - player.maxMag;
+                if (player.reserveAmmo < 0) player.reserveAmmo = 0;
+            } else if (player.ammoMode === 'recharge') {
+                // Recharge Mode: Infinite reserve
+                player.reserveAmmo = Infinity;
+            } else {
+                // Finite Mode: No reserve
+                player.reserveAmmo = 0;
+            }
         }
 
         // 3. Pre-load ALL room templates
@@ -776,7 +814,7 @@ function fireBullet(direction, speed, vx, vy, angle) {
     }
 
     // Ammo Check
-    if (gun.ammo?.active) {
+    if (gun.Bullet?.ammo?.active) {
         if (player.reloading) return; // Cannot fire while reloading
         if (player.ammo <= 0) {
             reloadWeapon();
@@ -785,7 +823,9 @@ function fireBullet(direction, speed, vx, vy, angle) {
         player.ammo--;
         // Check if empty AFTER firing
         if (player.ammo <= 0) {
-            reloadWeapon();
+            if (player.reserveAmmo > 0 || player.ammoMode === 'recharge') {
+                reloadWeapon();
+            }
         }
     }
 
@@ -860,10 +900,18 @@ function reloadWeapon() {
     // SFX.reload(); 
 
     setTimeout(() => {
-        player.ammo = player.maxAmmo;
+        if (player.ammoMode === 'recharge') {
+            player.ammo = player.maxMag;
+        } else {
+            const needed = player.maxMag - player.ammo;
+            const take = Math.min(needed, player.reserveAmmo);
+            player.ammo += take;
+            if (player.ammoMode === 'reload') player.reserveAmmo -= take;
+        }
+
         player.reloading = false;
         log("Reloaded!");
-    }, gun.ammo?.reload || 1000);
+    }, player.reloadTime || 1000);
 }
 
 // update loop
@@ -949,6 +997,7 @@ async function draw() {
     drawMinimap();
     drawTutorial();
     drawBossIntro();
+    drawDebugLogs();
     requestAnimationFrame(() => { update(); draw(); });
 }
 
