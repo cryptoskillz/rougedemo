@@ -878,7 +878,7 @@ function update() {
 
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
-    // --- 0. MUSIC TOGGLE (M) ---
+    // --- 0. MUSIC TOGGLE ---
     if (keys['KeyM'] && Date.now() - (lastMKeyTime || 0) > 300) {
         musicMuted = !musicMuted;
         if (musicMuted) introMusic.pause();
@@ -887,7 +887,7 @@ function update() {
     }
 
     const currentCoord = `${player.roomX}, ${player.roomY}`;
-    const roomLocked = enemies.length > 0;
+    const roomLocked = enemies.filter(en => !en.isDead).length > 0;
     const doors = roomData.doors || {};
 
     // --- 1. ROOM CLEARING ---
@@ -908,7 +908,7 @@ function update() {
         updateUI();
     }
 
-    // --- 3. MOVEMENT (WASD) ---
+    // --- 3. MOVEMENT ---
     const moveKeys = { "KeyW": [0, -1, 'top'], "KeyS": [0, 1, 'bottom'], "KeyA": [-1, 0, 'left'], "KeyD": [1, 0, 'right'] };
     for (let [key, [dx, dy, dir]] of Object.entries(moveKeys)) {
         if (keys[key]) {
@@ -928,14 +928,12 @@ function update() {
         }
     }
 
-    // --- 4. SHOOTING (ARC BEHIND LOGIC) ---
+    // --- 4. SHOOTING ---
     const shootingKeys = keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
     if (shootingKeys) {
         const fireDelay = (gun.Bullet?.fireRate ?? 0.3) * 1000;
         if (Date.now() - (player.lastShot || 0) > fireDelay) {
             SFX.shoot(0.05);
-
-            // ALWAYS determine angle based on keys, NOT the enemy
             let centerAngle = 0;
             if (keys['ArrowUp']) centerAngle = -Math.PI / 2;
             else if (keys['ArrowDown']) centerAngle = Math.PI / 2;
@@ -946,7 +944,6 @@ function update() {
             const spread = gun.Bullet?.spreadRate || 0.2;
             const recoilVal = gun.Bullet?.recoil || 0;
 
-            // Recoil pushes away from where we are firing
             player.x -= Math.cos(centerAngle) * (recoilVal * count);
             player.y -= Math.sin(centerAngle) * (recoilVal * count);
             player.x = Math.max(BOUNDARY, Math.min(canvas.width - BOUNDARY, player.x));
@@ -955,15 +952,13 @@ function update() {
             for (let i = 0; i < count; i++) {
                 let finalAngle = centerAngle + (count > 1 ? (i - (count - 1) / 2) * spread : 0);
                 const speed = gun.Bullet?.speed || 7;
-                const vx = Math.cos(finalAngle) * speed;
-                const vy = Math.sin(finalAngle) * speed;
-                fireBullet(0, speed, vx, vy, finalAngle);
+                fireBullet(0, speed, Math.cos(finalAngle) * speed, Math.sin(finalAngle) * speed, finalAngle);
             }
             player.lastShot = Date.now();
         }
     }
 
-    // --- 5. BULLETS, SWARM HOMING, & PARTICLES ---
+    // --- 5. BULLETS & PARTICLES ---
     if (typeof particles !== 'undefined') {
         for (let i = particles.length - 1; i >= 0; i--) {
             particles[i].life -= 0.05;
@@ -972,65 +967,73 @@ function update() {
     }
 
     bullets.forEach((b, i) => {
-        // SWARM HOMING LOGIC
-        if (gun.Bullet?.homing && enemies.length > 0) {
-            let nearest = enemies.reduce((prev, curr) => {
-                let d1 = Math.hypot(b.x - prev.x, b.y - prev.y);
-                let d2 = Math.hypot(b.x - curr.x, b.y - curr.y);
-                return d1 < d2 ? prev : curr;
-            });
-
-            // Each bullet targets a slightly different spot for a swarm look
-            let offsetX = Math.sin(i * 0.8) * 25;
-            let offsetY = Math.cos(i * 0.8) * 25;
-            let targetX = nearest.x + offsetX;
-            let targetY = nearest.y + offsetY;
-
-            let desiredAngle = Math.atan2(targetY - b.y, targetX - b.x);
+        const aliveEnemies = enemies.filter(en => !en.isDead);
+        if (gun.Bullet?.homing && aliveEnemies.length > 0) {
+            let nearest = aliveEnemies.reduce((prev, curr) =>
+                Math.hypot(b.x - prev.x, b.y - prev.y) < Math.hypot(b.x - curr.x, b.y - curr.y) ? prev : curr);
+            let targetAngle = Math.atan2(nearest.y - b.y, nearest.x - b.x);
             let currentAngle = Math.atan2(b.vy, b.vx);
-            let speed = Math.hypot(b.vx, b.vy);
-
-            let diff = desiredAngle - currentAngle;
+            let diff = targetAngle - currentAngle;
             while (diff < -Math.PI) diff += Math.PI * 2;
             while (diff > Math.PI) diff -= Math.PI * 2;
-
-            // Turning speed: Controls how wide the "arc" is. 
-            // 0.08 = Huge looping arcs, 0.2 = Tight tracking
             let steerLimit = 0.1;
             currentAngle += Math.max(-steerLimit, Math.min(steerLimit, diff));
-
+            const speed = Math.hypot(b.vx, b.vy);
             b.vx = Math.cos(currentAngle) * speed;
             b.vy = Math.sin(currentAngle) * speed;
         }
 
-        // Particles
         const pSettings = gun.Bullet?.particles;
         if (pSettings?.active && Math.random() < (pSettings.frequency || 0.5)) {
-            particles.push({
-                x: b.x, y: b.y,
-                color: b.colour || 'yellow',
-                life: pSettings.life || 0.5,
-                size: (b.size || 5) * (pSettings.sizeMult || 0.5)
-            });
+            particles.push({ x: b.x, y: b.y, color: b.colour || 'yellow', life: pSettings.life || 0.5, size: (b.size || 5) * (pSettings.sizeMult || 0.5) });
         }
-
-        b.x += b.vx; b.y += b.vy;
-        b.life--;
+        b.x += b.vx; b.y += b.vy; b.life--;
         if (b.life <= 0) bullets.splice(i, 1);
     });
 
-    // --- 6. ENEMIES ---
+    // --- 6. ENEMIES (RECONSTRUCTED LOOP) ---
     enemies.forEach((en, ei) => {
-        let angle = Math.atan2(player.y - en.y, player.x - en.x);
-        en.x += Math.cos(angle) * en.speed;
-        en.y += Math.sin(angle) * en.speed;
+        if (en.isDead) {
+            en.deathTimer--;
+            if (en.deathTimer <= 0) enemies.splice(ei, 1);
+            return;
+        }
+
+        // Freeze Logic: Don't move if frozen
+        if (!en.freezeUntil || Date.now() > en.freezeUntil) {
+            let angle = Math.atan2(player.y - en.y, player.x - en.x);
+            en.x += Math.cos(angle) * en.speed;
+            en.y += Math.sin(angle) * en.speed;
+        }
 
         bullets.forEach((b, bi) => {
             if (Math.hypot(b.x - en.x, b.y - en.y) < en.size) {
+                let damage = b.damage || 1;
+
+                // CRITICAL HIT
+                if (Math.random() < (gun.Bullet?.critChance || 0)) {
+                    damage *= (gun.Bullet?.critDamage || 2);
+                    en.hitTimer = 10;
+                    en.lastHitWasCrit = true;
+                    SFX.shoot(0.1);
+                } else {
+                    en.hitTimer = 4;
+                    en.lastHitWasCrit = false;
+                }
+
+                // FREEZE
+                if (Math.random() < (gun.Bullet?.freezeChance || 0)) {
+                    en.freezeUntil = Date.now() + (gun.Bullet?.freezeDuration || 1000);
+                }
+
+                en.hp -= damage;
                 SFX.explode(0.08);
-                en.hp -= (b.damage || 1);
                 bullets.splice(bi, 1);
-                if (en.hp <= 0) enemies.splice(ei, 1);
+
+                if (en.hp <= 0) {
+                    en.isDead = true;
+                    en.deathTimer = en.deathDuration || 30;
+                }
             }
         });
 
@@ -1047,10 +1050,129 @@ function update() {
         if (player.y < 10 && doors.top?.active) changeRoom(0, -1);
         if (player.y > canvas.height - 10 && doors.bottom?.active) changeRoom(0, 1);
     }
-    if (player.hp <= 0) {
-        introMusic.pause();
-        gameOver();
+    if (player.hp <= 0) { introMusic.pause(); gameOver(); }
+}
+
+async function draw() {
+    await updateUI();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. --- SHAKE ---
+    let isShaking = false;
+    if (screenShake.power > 0 && Date.now() < screenShake.endAt) {
+        ctx.save();
+        const p = (screenShake.endAt - Date.now()) / 180;
+        const s = screenShake.power * Math.max(0, p);
+        ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+        isShaking = true;
     }
+
+    // 2. --- DOORS ---
+    const roomLocked = enemies.filter(en => !en.isDead).length > 0;
+    const doors = roomData.doors || {};
+    Object.entries(doors).forEach(([dir, door]) => {
+        if (!door.active) return;
+        ctx.fillStyle = roomLocked ? "#c0392b" : (door.locked ? "#f1c40f" : "#222");
+        const dx = door.x ?? canvas.width / 2, dy = door.y ?? canvas.height / 2;
+        if (dir === 'top') ctx.fillRect(dx - DOOR_SIZE / 2, 0, DOOR_SIZE, DOOR_THICKNESS);
+        if (dir === 'bottom') ctx.fillRect(dx - DOOR_SIZE / 2, canvas.height - DOOR_THICKNESS, DOOR_SIZE, DOOR_THICKNESS);
+        if (dir === 'left') ctx.fillRect(0, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
+        if (dir === 'right') ctx.fillRect(canvas.width - DOOR_THICKNESS, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
+    });
+
+    // 3. --- PORTAL ---
+    if (roomData.isBoss && roomData.cleared) {
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(Date.now() / 200);
+        ctx.fillStyle = "#9b59b6"; ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 150) * 0.2;
+        ctx.fillRect(-20, -20, 40, 40);
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+        if (Math.hypot(player.x - canvas.width / 2, player.y - canvas.height / 2) < 40) gameWon();
+    }
+
+    // 4. --- PLAYER ---
+    const isInv = player.invuln || Date.now() < (player.invulnUntil || 0);
+    ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
+    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
+
+    // 4.5 --- PARTICLE TRAILS ---
+    if (typeof particles !== 'undefined') {
+        particles.forEach(p => {
+            ctx.save();
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+    }
+
+    // 5. --- BULLETS ---
+    bullets.forEach(b => {
+        ctx.fillStyle = b.colour || 'yellow';
+        const s = b.size || 5;
+        ctx.save(); ctx.translate(b.x, b.y);
+        if (b.animated) ctx.rotate(b.spinAngle = (b.spinAngle || 0) + 0.15);
+        ctx.beginPath();
+        if (b.shape === 'triangle') { ctx.moveTo(0, -s); ctx.lineTo(s, s); ctx.lineTo(-s, s); ctx.closePath(); }
+        else if (b.shape === 'square') ctx.rect(-s, -s, s * 2, s * 2);
+        else ctx.arc(0, 0, s, 0, Math.PI * 2);
+        b.filled ? ctx.fill() : ctx.stroke();
+        ctx.restore();
+    });
+
+    // 6. --- BOMBS ---
+    for (let i = bombs.length - 1; i >= 0; i--) {
+        const b = bombs[i]; const now = Date.now();
+        if (!b.exploding && now >= b.explodeAt) { b.exploding = true; b.explosionStartAt = now; }
+        if (b.exploding) {
+            const p = Math.min(1, (now - b.explosionStartAt) / b.explosionDuration), r = b.baseR + (b.maxR - b.baseR) * p;
+            if (b.canDamagePlayer && !b.didPlayerDamage && !isInv && Math.hypot(player.x - b.x, player.y - b.y) < r + player.size) {
+                player.hp -= b.damage; b.didPlayerDamage = true;
+                player.invulnUntil = now + 1000;
+                screenShake.power = 10; screenShake.endAt = now + 200;
+            }
+            if (!b.didDamage) {
+                b.didDamage = true;
+                enemies.forEach((en) => { if (Math.hypot(en.x - b.x, en.y - b.y) < b.maxR + en.size) en.hp -= b.damage; });
+            }
+            ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = b.explosionColour;
+            ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            if (p >= 1) bombs.splice(i, 1);
+        } else { ctx.fillStyle = b.colour; ctx.beginPath(); ctx.arc(b.x, b.y, b.baseR, 0, Math.PI * 2); ctx.fill(); }
+    }
+
+    // 7. --- BOSS/ENEMIES (NEW HIT/FADE DRAW) ---
+    if (roomData.isBoss && !roomData.cleared && Date.now() < (bossIntroEndTime || 0)) {
+        ctx.fillStyle = "#e74c3c"; ctx.font = "bold 50px 'Courier New'"; ctx.textAlign = "center";
+        ctx.fillText((enemyTemplates["boss"]?.name || "BOSS").toUpperCase(), canvas.width / 2, canvas.height / 2);
+    } else {
+        // Inside draw() enemy loop
+        enemies.forEach(en => {
+            ctx.save();
+            if (en.isDead) ctx.globalAlpha = Math.max(0, en.deathTimer / (en.deathDuration || 30));
+
+            if (en.hitTimer > 0) {
+                ctx.fillStyle = en.lastHitWasCrit ? "#ff00ff" : "white"; // Purple for Crits
+                en.hitTimer--;
+            } else if (en.freezeUntil && Date.now() < en.freezeUntil) {
+                ctx.fillStyle = "#3498db"; // Cyan for Frozen
+            } else {
+                ctx.fillStyle = en.color || "#e74c3c";
+            }
+
+            ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        });
+    }
+
+    // 8. --- UI ---
+    if (isShaking) ctx.restore();
+    drawMinimap(); drawTutorial();
+    requestAnimationFrame(() => { update(); draw(); });
 }
 
 
@@ -1220,131 +1342,6 @@ function drawTutorial() {
     }
 }
 
-async function draw() {
-    await updateUI();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. --- SHAKE ---
-    let isShaking = false;
-    if (screenShake.power > 0 && Date.now() < screenShake.endAt) {
-        ctx.save();
-        const p = (screenShake.endAt - Date.now()) / 180;
-        const s = screenShake.power * Math.max(0, p);
-        ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
-        isShaking = true;
-    }
-
-    // 2. --- DOORS ---
-    const roomLocked = enemies.length > 0;
-    const doors = roomData.doors || {};
-    Object.entries(doors).forEach(([dir, door]) => {
-        if (!door.active) return;
-        ctx.fillStyle = roomLocked ? "#c0392b" : (door.locked ? "#f1c40f" : "#222");
-        const dx = door.x ?? canvas.width / 2, dy = door.y ?? canvas.height / 2;
-        if (dir === 'top') ctx.fillRect(dx - DOOR_SIZE / 2, 0, DOOR_SIZE, DOOR_THICKNESS);
-        if (dir === 'bottom') ctx.fillRect(dx - DOOR_SIZE / 2, canvas.height - DOOR_THICKNESS, DOOR_SIZE, DOOR_THICKNESS);
-        if (dir === 'left') ctx.fillRect(0, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
-        if (dir === 'right') ctx.fillRect(canvas.width - DOOR_THICKNESS, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
-    });
-
-    // 3. --- PORTAL ---
-    if (roomData.isBoss && roomData.cleared) {
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(Date.now() / 200);
-        ctx.fillStyle = "#9b59b6"; ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 150) * 0.2;
-        ctx.fillRect(-20, -20, 40, 40);
-        ctx.rotate(-Date.now() / 100); ctx.strokeStyle = "#8e44ad"; ctx.lineWidth = 3;
-        ctx.strokeRect(-25, -25, 50, 50);
-        ctx.restore();
-        ctx.globalAlpha = 1.0; // Reset alpha
-        if (Math.hypot(player.x - canvas.width / 2, player.y - canvas.height / 2) < 40) gameWon();
-    }
-
-    // 4. --- PLAYER ---
-    const isInv = player.invuln || Date.now() < (player.invulnUntil || 0);
-    ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
-    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
-
-    // 4.5 --- PARTICLE TRAILS ---
-    // Drawing trails before bullets so they appear underneath
-    if (typeof particles !== 'undefined') {
-        particles.forEach(p => {
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.globalAlpha = 1.0; // Reset alpha
-    }
-
-    // 5. --- GEOMETRY BULLETS ---
-    bullets.forEach(b => {
-        ctx.fillStyle = b.colour || 'yellow'; ctx.strokeStyle = b.colour || 'yellow';
-        const s = b.size || 5;
-        ctx.save(); ctx.translate(b.x, b.y);
-        if (b.animated) ctx.rotate(b.spinAngle = (b.spinAngle || 0) + 0.15);
-        ctx.beginPath();
-        if (b.shape === 'triangle') { ctx.moveTo(0, -s); ctx.lineTo(s, s); ctx.lineTo(-s, s); ctx.closePath(); }
-        else if (b.shape === 'square') ctx.rect(-s, -s, s * 2, s * 2);
-        else if (b.shape === 'rectangle') ctx.rect(-s * 1.5, -s, s * 3, s * 2);
-        else ctx.arc(0, 0, s, 0, Math.PI * 2);
-        b.filled ? ctx.fill() : ctx.stroke();
-        ctx.restore();
-    });
-
-    // 6. --- BOMBS ---
-    for (let i = bombs.length - 1; i >= 0; i--) {
-        const b = bombs[i]; const now = Date.now();
-        if (!b.exploding && now >= b.explodeAt) { b.exploding = true; b.explosionStartAt = now; }
-        if (b.exploding) {
-            const p = Math.min(1, (now - b.explosionStartAt) / b.explosionDuration), r = b.baseR + (b.maxR - b.baseR) * p;
-            // --- Inside Section 6: BOMBS ---
-            if (b.canDamagePlayer && !b.didPlayerDamage && !isInv && Math.hypot(player.x - b.x, player.y - b.y) < r + player.size) {
-                player.hp -= b.damage;
-                b.didPlayerDamage = true;
-                player.invulnUntil = now + 1000;
-                screenShake.power = 10;
-                screenShake.endAt = now + 200;
-
-                // --- RESTORE KNOCKBACK ---
-                const angle = Math.atan2(player.y - b.y, player.x - b.x);
-                const pushForce = 40; // Strength of the blast push
-                player.x += Math.cos(angle) * pushForce;
-                player.y += Math.sin(angle) * pushForce;
-
-                // Boundary Check: Ensure the bomb doesn't push you outside the walls
-                player.x = Math.max(BOUNDARY, Math.min(canvas.width - BOUNDARY, player.x));
-                player.y = Math.max(BOUNDARY, Math.min(canvas.height - BOUNDARY, player.y));
-            }
-            if (!b.didDamage) {
-                b.didDamage = true;
-                enemies.forEach((en, ei) => { if (Math.hypot(en.x - b.x, en.y - b.y) < b.maxR + en.size) { en.hp -= b.damage; if (en.hp <= 0) enemies.splice(ei, 1); } });
-            }
-            ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = b.explosionColour;
-            ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-            if (p >= 1) bombs.splice(i, 1);
-        } else { ctx.fillStyle = b.colour; ctx.beginPath(); ctx.arc(b.x, b.y, b.baseR, 0, Math.PI * 2); ctx.fill(); }
-    }
-
-    // 7. --- BOSS/ENEMIES ---
-    if (roomData.isBoss && !roomData.cleared && Date.now() < (bossIntroEndTime || 0)) {
-        ctx.fillStyle = "#e74c3c"; ctx.font = "bold 50px 'Courier New'"; ctx.textAlign = "center";
-        const bossName = (enemyTemplates["boss"]?.name || "BOSS").toUpperCase();
-        ctx.fillText(bossName, canvas.width / 2, canvas.height / 2);
-    } else {
-        enemies.forEach(en => {
-            ctx.fillStyle = Date.now() < en.freezeUntil ? "#3498db" : (en.color || "#e74c3c");
-            ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI * 2); ctx.fill();
-        });
-    }
-
-    // 8. --- UI ---
-    if (isShaking) ctx.restore();
-    drawMinimap(); drawTutorial();
-    requestAnimationFrame(() => { update(); draw(); });
-}
 
 function drawMinimap() {
     const mapSize = 100;

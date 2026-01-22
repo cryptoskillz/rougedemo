@@ -41,6 +41,10 @@
         "backfire": false,
         "frontLocked": true,
         "NoBullets": false,
+        "critChance": 0.2,
+        "critDamage": 2.0,
+        "freezeChance": 0.15,
+        "freezeDuration": 2000,
         "multiDirectional": {
             "active": false,
             "fireNorth": true,

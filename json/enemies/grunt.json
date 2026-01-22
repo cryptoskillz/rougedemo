@@ -7,5 +7,8 @@
     "speed": 1.2,
     "size": 25,
     "color": "rgba(231, 76, 60, 0.8)",
-    "description": "Standard dungeon dweller."
+    "description": "Standard dungeon dweller.",
+    "hitColor": "#ffffff",
+    "deathType": "fadeaway",
+    "deathDuration": 30
 }
