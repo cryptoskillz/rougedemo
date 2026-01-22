@@ -901,32 +901,35 @@ function update() {
     // --- 2. BOMB DROPPING ---
     if (keys['KeyB'] && player.inventory?.bombs > 0) {
         const now = Date.now();
-        // Prevent dropping multiple bombs too fast (300ms delay)
-        if (now - (player.lastBombTime || 0) > 300) {
+
+        // Check if global 'bomb' object exists and respect its fireRate
+        if (bomb && now - (player.lastBombTime || 0) > (bomb.fireRate * 1000)) {
             player.inventory.bombs--;
             player.lastBombTime = now;
 
-            // Push new bomb object
+            // Push a new bomb instance using the fetched JSON data
             bombs.push({
                 x: player.x,
                 y: player.y,
-                explodeAt: now + 1500, // Explode after 1.5 seconds
-                explosionDuration: 300,
-                baseR: 10,
-                maxR: 80,
-                damage: 5,
-                colour: "#e67e22",
-                explosionColour: "rgba(230, 126, 34, 0.6)",
+                explodeAt: now + bomb.timer,               // 1000ms
+                explosionDuration: bomb.explosionDuration, // 1000ms
+                baseR: 12,                                 // Visual item size
+                maxR: bomb.radius,                         // 100
+                damage: bomb.damage,                       // 2
+                colour: bomb.colour,                       // #ffff00
+                explosionColour: bomb.explosionColour,     // #FF0000
+                openDoors: bomb.openDoors,                 // true
+                openSecretRooms: bomb.openSecretRooms,     // true
+                canDamagePlayer: bomb.canDamagePlayer,     // true
                 exploding: false,
                 didDamage: false,
-                canDamagePlayer: true
+                didDoorCheck: false
             });
 
-            SFX.shoot(0.1); // Sound of dropping
+            SFX.shoot(0.1);
             updateUI();
         }
     }
-
     // --- 3. MOVEMENT ---
     const moveKeys = { "KeyW": [0, -1, 'top'], "KeyS": [0, 1, 'bottom'], "KeyA": [-1, 0, 'left'], "KeyD": [1, 0, 'right'] };
     for (let [key, [dx, dy, dir]] of Object.entries(moveKeys)) {
@@ -1060,127 +1063,162 @@ async function draw() {
     await updateUI();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 1. --- SHAKE ---
+    // 1. --- SCREEN SHAKE WRAPPER ---
     let isShaking = false;
-    if (screenShake.power > 0 && Date.now() < screenShake.endAt) {
+    const now = Date.now();
+    if (screenShake.power > 0 && now < screenShake.endAt) {
         ctx.save();
-        const p = (screenShake.endAt - Date.now()) / 180;
+        const p = (screenShake.endAt - now) / 180;
         const s = screenShake.power * Math.max(0, p);
         ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
         isShaking = true;
     }
 
-    // 2. --- DOORS ---
+    // 2. --- DOORS & SECRET ROOMS ---
     const roomLocked = enemies.filter(en => !en.isDead).length > 0;
     const doors = roomData.doors || {};
     Object.entries(doors).forEach(([dir, door]) => {
-        if (!door.active) return;
+        if (!door.active && !door.hidden) return; // Don't draw inactive non-secret doors
+        if (door.hidden) return; // Secret rooms stay invisible until bombed
+
         ctx.fillStyle = roomLocked ? "#c0392b" : (door.locked ? "#f1c40f" : "#222");
-        const dx = door.x ?? canvas.width / 2, dy = door.y ?? canvas.height / 2;
+        const dx = door.x ?? canvas.width / 2;
+        const dy = door.y ?? canvas.height / 2;
+
         if (dir === 'top') ctx.fillRect(dx - DOOR_SIZE / 2, 0, DOOR_SIZE, DOOR_THICKNESS);
         if (dir === 'bottom') ctx.fillRect(dx - DOOR_SIZE / 2, canvas.height - DOOR_THICKNESS, DOOR_SIZE, DOOR_THICKNESS);
         if (dir === 'left') ctx.fillRect(0, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
         if (dir === 'right') ctx.fillRect(canvas.width - DOOR_THICKNESS, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
     });
 
-    // 3. --- PORTAL ---
+    // 3. --- PORTAL (BOSS CLEAR) ---
     if (roomData.isBoss && roomData.cleared) {
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(Date.now() / 200);
-        ctx.fillStyle = "#9b59b6"; ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 150) * 0.2;
+        ctx.rotate(now / 200);
+        ctx.fillStyle = "#9b59b6";
+        ctx.globalAlpha = 0.6 + Math.sin(now / 150) * 0.2;
         ctx.fillRect(-20, -20, 40, 40);
         ctx.restore();
         ctx.globalAlpha = 1.0;
         if (Math.hypot(player.x - canvas.width / 2, player.y - canvas.height / 2) < 40) gameWon();
     }
 
-    // 4. --- PLAYER ---
-    const isInv = player.invuln || Date.now() < (player.invulnUntil || 0);
-    ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
-    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
+    // 4. --- BOMBS (GOLDEN BOMB LOGIC) ---
+    for (let i = bombs.length - 1; i >= 0; i--) {
+        const b = bombs[i];
 
-    // 4.5 --- PARTICLE TRAILS ---
-    if (typeof particles !== 'undefined') {
-        particles.forEach(p => {
-            ctx.save(); ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        });
+        if (!b.exploding && now >= b.explodeAt) {
+            b.exploding = true;
+            b.explosionStartAt = now;
+            SFX.explode(0.3);
+        }
+
+        if (b.exploding) {
+            const progress = Math.min(1, (now - b.explosionStartAt) / b.explosionDuration);
+            const currentRadius = b.baseR + (b.maxR - b.baseR) * progress;
+
+            // Handle Logic (Doors, Damage) only on the first frame of explosion
+            if (!b.didDoorCheck) {
+                b.didDoorCheck = true;
+                // Door/Secret Room detection
+                Object.entries(doors).forEach(([dir, door]) => {
+                    const dx = door.x ?? canvas.width / 2;
+                    const dy = door.y ?? canvas.height / 2;
+                    if (Math.hypot(b.x - dx, b.y - dy) < b.maxR + 20) {
+                        if (b.openDoors && door.locked) door.locked = false;
+                        if (b.openSecretRooms && door.hidden) {
+                            door.hidden = false;
+                            door.active = true;
+                        }
+                    }
+                });
+            }
+
+            // Visual Blast Wave
+            ctx.save();
+            ctx.globalAlpha = 1 - progress;
+            ctx.fillStyle = b.explosionColour;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, currentRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            if (progress >= 1) bombs.splice(i, 1);
+        } else {
+            // Drawing the unexploded bomb (Pulsing Golden Effect)
+            const pulse = 1 + Math.sin(now / 150) * 0.15;
+            ctx.save();
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = b.colour;
+            ctx.fillStyle = b.colour;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.baseR * pulse, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
     }
 
-    // 5. --- BULLETS ---
+    // 5. --- PLAYER ---
+    const isInv = player.invuln || now < (player.invulnUntil || 0);
+    ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 6. --- BULLETS & SHARDS ---
     bullets.forEach(b => {
-        ctx.fillStyle = b.colour || 'yellow';
-        const s = b.size || 5;
         ctx.save();
+        ctx.fillStyle = b.colour || 'yellow';
         ctx.translate(b.x, b.y);
         ctx.rotate(Math.atan2(b.vy, b.vx));
+
+        const s = b.size || 5;
         ctx.beginPath();
-        if (b.shape === 'triangle') { ctx.moveTo(s, 0); ctx.lineTo(-s, s); ctx.lineTo(-s, -s); ctx.closePath(); }
-        else if (b.shape === 'square') ctx.rect(-s, -s, s * 2, s * 2);
-        else ctx.arc(0, 0, s, 0, Math.PI * 2);
+        if (b.shape === 'triangle') {
+            ctx.moveTo(s, 0); ctx.lineTo(-s, s); ctx.lineTo(-s, -s); ctx.closePath();
+        } else if (b.shape === 'square') {
+            ctx.rect(-s, -s, s * 2, s * 2);
+        } else {
+            ctx.arc(0, 0, s, 0, Math.PI * 2);
+        }
         ctx.fill();
         ctx.restore();
     });
 
-    // 6. --- BOMBS ---
-    for (let i = bombs.length - 1; i >= 0; i--) {
-        const b = bombs[i]; const now = Date.now();
-        // Trigger explosion state
-        if (!b.exploding && now >= b.explodeAt) {
-            b.exploding = true;
-            b.explosionStartAt = now;
-            SFX.explode(0.2);
-
-            // OPTIONAL: Add shards to bomb explosion
-            if (gun.Bullet?.Explode?.active) {
-                const ex = gun.Bullet.Explode;
-                const step = (Math.PI * 2) / ex.shards;
-                for (let j = 0; j < ex.shards; j++) {
-                    bullets.push({
-                        x: b.x, y: b.y, vx: Math.cos(step * j) * 5, vy: Math.sin(step * j) * 5,
-                        life: ex.shardRange, damage: 2, size: ex.size * 2, isShard: true, colour: "orange"
-                    });
-                }
-            }
-        }
-
-        if (b.exploding) {
-            const p = Math.min(1, (now - b.explosionStartAt) / b.explosionDuration), r = b.baseR + (b.maxR - b.baseR) * p;
-            if (b.canDamagePlayer && !b.didPlayerDamage && !isInv && Math.hypot(player.x - b.x, player.y - b.y) < r + player.size) {
-                player.hp -= b.damage; b.didPlayerDamage = true;
-                player.invulnUntil = now + 1000;
-                screenShake.power = 10; screenShake.endAt = now + 200;
-            }
-            if (!b.didDamage) {
-                b.didDamage = true;
-                enemies.forEach((en) => { if (Math.hypot(en.x - b.x, en.y - b.y) < b.maxR + en.size) en.hp -= b.damage; });
-            }
-            ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = b.explosionColour;
-            ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-            if (p >= 1) bombs.splice(i, 1);
-        } else {
-            // Pulse effect for ticking bomb
-            const pulse = 1 + Math.sin(now / 100) * 0.2;
-            ctx.fillStyle = b.colour; ctx.beginPath(); ctx.arc(b.x, b.y, b.baseR * pulse, 0, Math.PI * 2); ctx.fill();
-        }
-    }
-
     // 7. --- ENEMIES ---
     enemies.forEach(en => {
+        if (en.isDead) {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, en.deathTimer / 30);
+            ctx.fillStyle = "#555";
+            ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            return;
+        }
+
         ctx.save();
-        if (en.isDead) ctx.globalAlpha = Math.max(0, en.deathTimer / 30);
-        ctx.fillStyle = en.hitTimer > 0 ? "white" : (en.color || "#e74c3c");
-        if (en.hitTimer > 0) en.hitTimer--;
+        if (en.hitTimer > 0) {
+            ctx.fillStyle = en.lastHitWasCrit ? "#ff00ff" : "white";
+            en.hitTimer--;
+        } else {
+            ctx.fillStyle = en.color || "#e74c3c";
+        }
         ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     });
 
+    // 8. --- CLEANUP SHAKE & UI ---
     if (isShaking) ctx.restore();
-    drawMinimap();
-    requestAnimationFrame(() => { update(); draw(); });
-}
 
+    drawMinimap();
+    drawTutorial();
+
+    requestAnimationFrame(() => {
+        update();
+        draw();
+    });
+}
 
 function playerHit(en, invuln = false, knockback = false, shakescreen = false) {
     //check if player should be made invulerable
