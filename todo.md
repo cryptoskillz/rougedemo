@@ -1,5 +1,9 @@
 bugs
-
+    add back all bullet tyoes stupid ai keeps removng it
+    guradian intro music
+    debug logging
+    explode seems over powered
+    fixed front locked
     homing missles should start at the side of the key that was pressed
     if you get hit perfect bonus will reset 
     add the enemy knockback modifier to the player
@@ -56,9 +60,9 @@ enemies
     have swarm enemies that run away unless there are x of them
     have run away enemies
     last enemy tougher
-    animatoin when they die
-    make them go to hit color if a bomb or bullet hits them 
-    add gemotery to the enemy
+    add enemy hit and enemy death sound   from json
+    boss hit boss death   from json
+    death shake  from json
 
 
 key binding

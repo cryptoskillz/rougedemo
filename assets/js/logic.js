@@ -17,6 +17,28 @@ const debugSelect = document.getElementById('debug-select');
 const debugForm = document.getElementById('debug-form');
 const debugPanel = document.getElementById('debug-panel');
 
+// Global audio variable
+const introMusic = new Audio('assets/music/tron.mp3');
+introMusic.loop = true;
+introMusic.volume = 0.4;
+// --- MUSIC TOGGLE LOGIC ---
+// --- MUSIC TOGGLE LOGIC ---
+let lastMusicToggle = 0;
+
+// --- DEBUG LOGGING ---
+let debugLogs = [];
+const MAX_DEBUG_LOGS = 10;
+
+function log(...args) {
+    if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED) {
+        const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        debugLogs.push(msg);
+        if (debugLogs.length > MAX_DEBUG_LOGS) {
+            debugLogs.shift();
+        }
+    }
+}
+
 // --- Game State ---
 let player = {
     x: 300, y: 200, speed: 4, hp: 3, roomX: 0, roomY: 0,
@@ -66,6 +88,52 @@ let enemyTemplates = {};
 let bossIntroEndTime = 0;
 let gameLoopStarted = false;
 let keyUsedForRoom = false;
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+const SFX = {
+    // A quick high-to-low "pew"
+    shoot: (vol = 0.05) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square'; // Classic NES sound
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    },
+
+    // A low-frequency crunch for hits/explosions
+    explode: (vol = 0.1) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime + 0.2);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+    },
+
+    playerHit: (vol = 0.2) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        // Starts at 200Hz and drops to 50Hz for a "oof" feeling
+        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+    }
+};
+
 
 async function updateUI() {
     if (player.hp < 0) {
@@ -265,8 +333,8 @@ function generateLevel(length) {
 
     }
 
-    console.log("Level Generated upfront with", Object.keys(levelMap).length, "rooms.");
-    console.log("Golden Path:", goldenPath);
+    log("Level Generated upfront with", Object.keys(levelMap).length, "rooms.");
+    log("Golden Path:", goldenPath);
 }
 
 const BOUNDARY = 20;
@@ -278,10 +346,26 @@ const DEBUG_PLAYER = true;
 const CHEATS_ENABLED = false;
 const DEBUG_WINDOW_ENABLED = true;
 
-// configurations
+let musicMuted = true;
+let lastMKeyTime = 0;
+
+
+
 // configurations
 async function initGame(isRestart = false) {
     if (debugPanel) debugPanel.style.display = DEBUG_WINDOW_ENABLED ? 'flex' : 'none';
+    // Attempt to start music immediately
+    introMusic.play().catch(() => log("Waiting for interaction to play music..."));
+
+    // One-time listener to start music on first click/key if blocked by browser
+    const startAudio = () => {
+        if (!musicMuted) introMusic.play();
+        window.removeEventListener('keydown', startAudio);
+        window.removeEventListener('mousedown', startAudio);
+    };
+    window.addEventListener('keydown', startAudio);
+    window.addEventListener('mousedown', startAudio);
+
     gameState = isRestart ? STATES.PLAY : STATES.START;
     overlayEl.style.display = 'none';
     welcomeEl.style.display = isRestart ? 'none' : 'flex';
@@ -289,14 +373,13 @@ async function initGame(isRestart = false) {
     bullets = [];
     bombs = [];
 
-    //check if debug mode is enabled and if so show the room cords
+    // ... [Previous debug and player reset logic remains the same] ...
     if (DEBUG_WINDOW_ENABLED) {
         roomEl.style.display = 'block';
     } else {
         roomEl.style.display = 'none';
     }
 
-    // Reset player
     player.hp = 3;
     player.speed = 4;
     player.inventory.keys = 0;
@@ -322,37 +405,56 @@ async function initGame(isRestart = false) {
 
         gameData = gData;
         roomManifest = mData;
+        if (gameData.music) {
 
-        // Ensure player maintains inventory structure if not present in player.json
+            // --- 1. INSTANT AUDIO SETUP ---
+            if (!window.introMusic) {
+                window.introMusic = new Audio('/assets/music/tron.mp3');
+                window.introMusic.loop = true;
+                window.introMusic.volume = 0.4;
+            }
+
+            // This attempts to play immediately. 
+            // If the browser blocks it, the 'keydown' listener below will catch it.
+            window.introMusic.play().catch(() => {
+                log("Autoplay blocked: Waiting for first user interaction to start music.");
+            });
+
+            // Fallback: Start music on the very first key press or click if autoplay failed
+            const startAudio = () => {
+                if (window.introMusic.paused) window.introMusic.play();
+                window.removeEventListener('keydown', startAudio);
+                window.removeEventListener('mousedown', startAudio);
+            };
+            window.addEventListener('keydown', startAudio);
+            window.addEventListener('mousedown', startAudio);
+
+        }
+
         if (pData.inventory === undefined) pData.inventory = { keys: 0 };
         Object.assign(player, pData);
 
-        //2. load the bomb and gun data
+        // 2. load the bomb and gun data
         const [bData, gunData] = await Promise.all([
             fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json()),
             fetch(`/json/weapons/guns/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
-
-        ])
+        ]);
         bomb = bData;
         gun = gunData;
 
-        // 2. Pre-load ALL room templates
+        // 3. Pre-load ALL room templates
         roomTemplates = {};
         const templatePromises = [];
-
-        // Always load start and boss
         templatePromises.push(fetch('/json/rooms/start/room.json?t=' + Date.now()).then(res => res.json()).then(data => roomTemplates["start"] = data));
         templatePromises.push(fetch('/json/rooms/boss1/room.json?t=' + Date.now()).then(res => res.json()).then(data => roomTemplates["boss"] = data));
 
-        // Load all from manifest
         roomManifest.rooms.forEach(id => {
             templatePromises.push(fetch(`/json/rooms/${id}/room.json?t=` + Date.now()).then(res => res.json()).then(data => roomTemplates[id] = data));
         });
 
         await Promise.all(templatePromises);
-        console.log("All room templates loaded:", Object.keys(roomTemplates));
 
-        // 3. Pre-load ALL enemy templates
+        // 4. Pre-load ALL enemy templates
         enemyTemplates = {};
         const enemyManifest = await fetch('json/enemies/manifest.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ enemies: [] }));
         const ePromises = enemyManifest.enemies.map(id =>
@@ -361,21 +463,17 @@ async function initGame(isRestart = false) {
                 .then(data => enemyTemplates[id] = data)
         );
         await Promise.all(ePromises);
-        console.log("All enemy templates loaded:", Object.keys(enemyTemplates));
 
-        // 4. Generate Level
+        // 5. Generate Level
         if (DEBUG_START_BOSS) {
-            console.log("DEBUG MODE: Starting in Boss Room");
             bossCoord = "0,0";
             goldenPath = ["0,0"];
             bossIntroEndTime = Date.now() + 2000;
-            // Create a minimal level map for debug
             levelMap["0,0"] = { roomData: JSON.parse(JSON.stringify(roomTemplates["boss"])), cleared: false };
         } else {
             generateLevel(gameData.NoRooms || 11);
         }
 
-        // Set initial room from levelMap
         const startEntry = levelMap["0,0"];
         roomData = startEntry.roomData;
         visitedRooms["0,0"] = startEntry;
@@ -387,10 +485,8 @@ async function initGame(isRestart = false) {
 
         if (!gameLoopStarted) {
             gameLoopStarted = true;
-            draw(); // Start loop only once
+            draw();
         }
-
-
 
     } catch (err) {
         console.warn("Could not load configurations", err);
@@ -400,7 +496,6 @@ async function initGame(isRestart = false) {
         }
     }
 }
-
 // Initial Start
 initGame();
 
@@ -421,8 +516,25 @@ window.addEventListener('keydown', e => {
         return;
     }
     keys[e.code] = true;
-    if (gameState === STATES.GAMEOVER && e.code === 'Enter') {
-        restartGame();
+    if (gameState === STATES.GAMEOVER) {
+        if (e.code === 'Enter' || e.code === 'KeyR') {
+            restartGame();
+        }
+        if (e.code === 'KeyM') {
+            goToWelcome();
+        }
+    }
+    // Pause menu key controls
+    if (gameState === STATES.GAMEMENU) {
+        if (e.code === 'KeyP' || e.code === 'KeyC') {
+            goContinue();  // P or C = Continue
+        }
+        if (e.code === 'KeyR') {
+            restartGame(); // R = Restart
+        }
+        if (e.code === 'KeyM') {
+            goToWelcome(); // M = Main Menu
+        }
     }
 });
 window.addEventListener('keyup', e => {
@@ -438,7 +550,7 @@ setTimeout(renderDebugForm, 100);
 function spawnEnemies() {
     enemies = [];
     //add the invul timer to the freeze until so they invulnerable for the time in player json
-    const freezeUntil = Date.now() + player.invulTimer;
+    const freezeUntil = Date.now() + (gameData.enterRoomFreezeTime || player.invulTimer || 1000);
 
     // Only apply invulnerability if NOT in start room
     if (player.roomX !== 0 || player.roomY !== 0) {
@@ -450,16 +562,21 @@ function spawnEnemies() {
 
     // Use roomData.enemies if defined (array of {type, count}), otherwise fallback
     if (roomData.enemies && Array.isArray(roomData.enemies)) {
+        log(`Spawning enemies for room: ${roomData.name}`, roomData.enemies);
         roomData.enemies.forEach(group => {
             const template = enemyTemplates[group.type];
+            log(`Looking for enemy type: ${group.type}, found: ${!!template}`);
             if (template) {
                 for (let i = 0; i < group.count; i++) {
                     const inst = JSON.parse(JSON.stringify(template));
                     inst.x = Math.random() * (canvas.width - 60) + 30;
                     inst.y = Math.random() * (canvas.height - 60) + 30;
-                    inst.freezeUntil = freezeUntil;
+                    inst.frozen = true;
+                    inst.freezeEnd = freezeUntil;
                     enemies.push(inst);
                 }
+            } else {
+                console.warn(`Enemy template not found for: ${group.type}`);
             }
         });
     } else {
@@ -472,7 +589,8 @@ function spawnEnemies() {
             const inst = JSON.parse(JSON.stringify(template));
             inst.x = Math.random() * (canvas.width - 60) + 30;
             inst.y = Math.random() * (canvas.height - 60) + 30;
-            inst.freezeUntil = freezeUntil;
+            inst.frozen = true;
+            inst.freezeEnd = freezeUntil;
             enemies.push(inst);
         }
     }
@@ -564,7 +682,7 @@ function changeRoom(dx, dy) {
         if (keyUsedForRoom && !levelMap[nextCoord].bonusAwarded) {
             const baseChance = roomData.keyBonus !== undefined ? roomData.keyBonus : 1.0;
             const finalChance = baseChance + (player.luck || 0);
-            console.log(`Bonus Roll - Base: ${baseChance}, Luck: ${player.luck}, Final: ${finalChance}`);
+            log(`Bonus Roll - Base: ${baseChance}, Luck: ${player.luck}, Final: ${finalChance}`);
             if (Math.random() < finalChance) {
                 levelMap[nextCoord].bonusAwarded = true; // Mark bonus as awarded
                 perfectEl.innerText = "ROOM BONUS!";
@@ -706,15 +824,300 @@ function fireBullet(direction, speed, vx, vy, angle) {
     bulletsInRoom++;
 }
 
-// --- Generic "Use" action (SPACE) ---
-// Call this once per frame near the top of update(), BEFORE the WASD blocks.
-function tryUse() {
+// update loop
+function update() {
+    // 1. If already dead, stop all logic
+    if (gameState === STATES.GAMEOVER) return;
+
+    // 2. TRIGGER GAME OVER
+    if (player.hp <= 0) {
+
+        player.hp = 0; // Prevent negative health
+        updateUI();    // Final UI refresh
+        gameOver();    // Trigger your overlay function
+        return;        // Exit loop
+    }
+    if (gameState !== STATES.PLAY) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    //const now = Date.now();
+    const aliveEnemies = enemies.filter(en => !en.isDead);
+    const roomLocked = aliveEnemies.length > 0;
+    const doors = roomData.doors || {};
+
+    // 1. Inputs & Music
+    updateRestart();
+    updateMusicToggle(); // <--- Added this
+    if (keys["Space"]) updateUse();
+    if (keys["KeyP"]) {
+        keys["KeyP"] = false; // Prevent repeated triggers
+        gameMenu();
+        return;
+    }
+
+    // 2. World Logic
+    updateRoomLock();
+    updateBombDropping();
+    updateMovementAndDoors(doors, roomLocked);
+
+    // 3. Combat Logic
+    updateShooting();
+    updateBulletsAndShards(aliveEnemies); // Pass enemies for homing check
+    updateEnemies(); // Enemy movement + player collision handled inside
+
+    // 4. Transitions
+    updateRoomTransitions(doors, roomLocked);
+
+    // 5. Game Over Check
+    if (player.hp < 1) gameState = STATES.GAMEOVER;
+}
+
+//draw loop
+async function draw() {
+    const aliveEnemies = enemies.filter(en => !en.isDead);
+    const roomLocked = aliveEnemies.length > 0;
+    const doors = roomData.doors || {};
+    await updateUI();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawShake()
+    drawDoors()
+    drawPlayer()
+    drawBulletsAndShards()
+    drawBombs(doors)
+    drawEnemies()
+    if (screenShake.power > 0) ctx.restore();
+    drawMinimap();
+    drawTutorial();
+    drawBossIntro();
+    requestAnimationFrame(() => { update(); draw(); });
+}
+
+function updateMusicToggle() {
+    if (keys['KeyM']) {
+        const now = Date.now();
+        // 300ms cooldown so it doesn't toggle every frame
+        if (now - lastMusicToggle > 300) {
+            if (introMusic.paused) {
+                introMusic.play();
+                musicMuted = false;
+                log("Music Playing");
+            } else {
+                introMusic.pause();
+                musicMuted = true;
+                log("Music Paused");
+            }
+            lastMusicToggle = now;
+        }
+    }
+}
+
+function updateRoomTransitions(doors, roomLocked) {
+
+    // --- 8. ROOM TRANSITIONS ---
+    // --- 8. ROOM TRANSITIONS ---
+    const t = 15;
+    // Allow transition if room is unlocked OR if the specific door is forced open (red door blown)
+    if (player.x < t && doors.left?.active && !doors.left?.locked && (!roomLocked || doors.left?.forcedOpen)) changeRoom(-1, 0);
+    else if (player.x > canvas.width - t && doors.right?.active && !doors.right?.locked && (!roomLocked || doors.right?.forcedOpen)) changeRoom(1, 0);
+    else if (player.y < t && doors.top?.active && !doors.top?.locked && (!roomLocked || doors.top?.forcedOpen)) changeRoom(0, -1);
+    else if (player.y > canvas.height - t && doors.bottom?.active && !doors.bottom?.locked && (!roomLocked || doors.bottom?.forcedOpen)) changeRoom(0, 1);
+}
+
+function updateRoomLock() {
+    // --- 2. ROOM & LOCK STATUS ---
+    const aliveEnemies = enemies.filter(en => !en.isDead);
+    const roomLocked = aliveEnemies.length > 0;
+    const doors = roomData.doors || {};
+
+    if (!roomLocked && !roomData.cleared) {
+        roomData.cleared = true;
+        const currentCoord = `${player.roomX}, ${player.roomY}`;
+        if (visitedRooms[currentCoord]) visitedRooms[currentCoord].cleared = true;
+    }
+}
+
+function drawShake() {
+    const now = Date.now();
+    // 1. --- SHAKE ---
+    if (screenShake.power > 0 && now < screenShake.endAt) {
+        ctx.save();
+        const s = screenShake.power * ((screenShake.endAt - now) / 180);
+        ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+    }
+}
+
+function drawDoors() {
+    const roomLocked = enemies.filter(en => !en.isDead).length > 0;
+    const doors = roomData.doors || {};
+    Object.entries(doors).forEach(([dir, door]) => {
+        if (!door.active || door.hidden) return;
+
+        let color = "#222"; // default open
+        if (roomLocked && !door.forcedOpen) color = "#c0392b"; // red if locked by enemies (and not forced)
+        else if (door.locked) color = "#f1c40f"; // yellow if locked by key
+
+        ctx.fillStyle = color;
+        const dx = door.x ?? canvas.width / 2, dy = door.y ?? canvas.height / 2;
+        if (dir === 'top') ctx.fillRect(dx - DOOR_SIZE / 2, 0, DOOR_SIZE, DOOR_THICKNESS);
+        if (dir === 'bottom') ctx.fillRect(dx - DOOR_SIZE / 2, canvas.height - DOOR_THICKNESS, DOOR_SIZE, DOOR_THICKNESS);
+        if (dir === 'left') ctx.fillRect(0, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
+        if (dir === 'right') ctx.fillRect(canvas.width - DOOR_THICKNESS, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
+    });
+}
+
+function drawPlayer() {
+    const now = Date.now();
+    // 4. --- PLAYER ---
+    const isInv = player.invuln || now < (player.invulnUntil || 0);
+    ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
+    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
+
+}
+
+function drawBulletsAndShards() {
+    // 5. --- BULLETS & ENEMIES ---
+    bullets.forEach(b => {
+        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
+        ctx.fillStyle = b.colour || 'yellow';
+        const s = b.size || 5;
+        ctx.beginPath();
+        if (b.shape === 'triangle') { ctx.moveTo(s, 0); ctx.lineTo(-s, s); ctx.lineTo(-s, -s); ctx.closePath(); }
+        else if (b.shape === 'square') ctx.rect(-s, -s, s * 2, s * 2);
+        else ctx.arc(0, 0, s, 0, Math.PI * 2);
+        ctx.fill(); ctx.restore();
+    });
+}
+
+function spawnShards(b) {
+    const ex = gun.Bullet.Explode;
+    for (let j = 0; j < ex.shards; j++) {
+        const angle = (Math.PI * 2 / ex.shards) * j;
+        bullets.push({
+            x: b.x,
+            y: b.y,
+            vx: Math.cos(angle) * 5,
+            vy: Math.sin(angle) * 5,
+            life: ex.shardRange,
+            damage: ex.damage,
+            size: ex.size,
+            isShard: true,
+            colour: b.colour,
+            shape: 'circle' // Shards are usually simple circles
+        });
+    }
+}
+
+function updateBulletsAndShards(aliveEnemies) {
+    bullets.forEach((b, i) => {
+        // --- HOMING LOGIC ---
+        if (b.homing && aliveEnemies && aliveEnemies.length > 0) {
+            // Find closest enemy
+            let closest = aliveEnemies[0];
+            let minDist = Infinity;
+            aliveEnemies.forEach(en => {
+                const d = Math.hypot(b.x - en.x, b.y - en.y);
+                if (d < minDist) { minDist = d; closest = en; }
+            });
+
+            // Rotate velocity towards target
+            const targetAngle = Math.atan2(closest.y - b.y, closest.x - b.x);
+            const currentAngle = Math.atan2(b.vy, b.vx);
+
+            // Subtle curve (0.1 strength)
+            b.vx += Math.cos(targetAngle) * 0.5;
+            b.vy += Math.sin(targetAngle) * 0.5;
+
+            // Normalize to gun speed so bullets don't accelerate to infinity
+            const speed = gun.Bullet.speed || 5;
+            const currMag = Math.hypot(b.vx, b.vy);
+            b.vx = (b.vx / currMag) * speed;
+            b.vy = (b.vy / currMag) * speed;
+        }
+
+        b.x += b.vx;
+        b.y += b.vy;
+
+        // --- WALL COLLISION ---
+        if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+            if (gun.Bullet?.wallBounce) {
+                if (b.x < 0 || b.x > canvas.width) b.vx *= -1;
+                if (b.y < 0 || b.y > canvas.height) b.vy *= -1;
+            } else {
+                if (gun.Bullet?.Explode?.active && !b.isShard) spawnShards(b);
+                bullets.splice(i, 1);
+                return; // Use return to skip further processing for this bullet
+            }
+        }
+
+        // --- Bomb Collision (Shootable Bombs) ---
+        let hitBomb = false;
+        for (let j = 0; j < bombs.length; j++) {
+            const bomb = bombs[j]; // Renamed 'b' to 'bomb' to avoid conflict with 'bullet'
+            if (bomb.shootable && !bomb.exploding) {
+                const distToBomb = Math.hypot(bomb.x - b.x, bomb.y - b.y);
+                if (distToBomb < (bomb.baseR || 15) + b.size) { // Approximate collision with bomb body
+                    bomb.exploding = true;
+                    bomb.explosionStartAt = Date.now();
+                    SFX.explode(0.3);
+                    bullets.splice(i, 1);
+                    hitBomb = true;
+                    break;
+                }
+            }
+        }
+        if (hitBomb) return; // Use return to skip further processing for this bullet
+
+        // --- Enemy Collision ---
+        b.life--;
+        if (b.life <= 0) bullets.splice(i, 1);
+    });
+}
+
+function updateShooting() {
+    // --- 5. SHOOTING ---
+    const shootingKeys = keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
+    if (shootingKeys) {
+        const fireDelay = (gun.Bullet?.fireRate ?? 0.3) * 1000;
+        if (Date.now() - (player.lastShot || 0) > fireDelay) {
+            SFX.shoot(0.05);
+            let centerAngle = 0;
+            if (gun.frontLocked) centerAngle = Math.atan2(player.lastMoveY || 0, player.lastMoveX || 1);
+            else {
+                if (keys['ArrowUp']) centerAngle = -Math.PI / 2; else if (keys['ArrowDown']) centerAngle = Math.PI / 2;
+                else if (keys['ArrowLeft']) centerAngle = Math.PI; else if (keys['ArrowRight']) centerAngle = 0;
+            }
+            const count = gun.Bullet?.number || 1;
+            for (let i = 0; i < count; i++) {
+                let fanAngle = centerAngle + (count > 1 ? (i - (count - 1) / 2) * (gun.Bullet?.spreadRate || 0.2) : 0);
+                const speed = gun.Bullet?.speed || 7;
+                fireBullet(0, speed, Math.cos(fanAngle) * speed, Math.sin(fanAngle) * speed, fanAngle);
+            }
+            player.lastShot = Date.now();
+        }
+    }
+
+}
+
+
+
+function updateUse() {
     if (!keys["Space"]) return;
+
+
 
     // consume input so it fires once
     keys["Space"] = false;
 
     if (gameState !== STATES.PLAY) return;
+
+    // Start the Tron music if it hasn't started yet
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    // Handle Audio Context
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
 
     const roomLocked = enemies.length > 0;
     const doors = roomData.doors || {};
@@ -776,58 +1179,292 @@ function tryUse() {
             keysEl.innerText = player.inventory.keys;
             d.locked = 0;
             d.unlockedByKey = true;
-            console.log(`${target.dir} door unlocked via USE (Space)`);
+            log(`${target.dir} door unlocked via USE (Space)`);
         } else {
-            console.log("Door is locked - no keys");
+            log("Door is locked - no keys");
         }
         return;
     }
 
     // (optional) if you ever add "open but interact" doors, handle here
-    console.log(`${target.dir} door used (already unlocked)`);
+    log(`${target.dir} door used (already unlocked)`);
+}
+
+function updateRestart() {
+    // --- 1. RESTART & UI CHECKS ---
+    if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
+
+    // Check for Space Bar interaction (Key Unlock)
+    if (keys["Space"]) {
+        updateUse();
+    } if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
 }
 
 
-function update() {
-    if (gameState !== STATES.PLAY) return;
+function updateEnemies() {
+    const now = Date.now();
+    enemies.forEach((en, ei) => {
+        // 1. Skip if dead
+        if (en.isDead) {
+            en.deathTimer--;
+            if (en.deathTimer <= 0) enemies.splice(ei, 1);
+            return;
+        }
 
-    const currentCoord = `${player.roomX}, ${player.roomY}`;
-    const roomLocked = enemies.length > 0;
-    const doors = roomData.doors || {};
+        // 2. Frozen/Movement Logic
+        if (!en.frozen) {
+            let ang = Math.atan2(player.y - en.y, player.x - en.x);
+            en.x += Math.cos(ang) * en.speed;
+            en.y += Math.sin(ang) * en.speed;
+        } else if (now > en.freezeEnd) {
+            en.frozen = false;
+        }
 
-    // --- 1. ROOM CLEARING LOGIC ---
-    if (!roomLocked && !roomData.cleared) {
-        roomData.cleared = true;
-        if (visitedRooms[currentCoord]) visitedRooms[currentCoord].cleared = true;
-        if (roomData.isBoss) {
-            perfectEl.innerText = "BOSS CLEARED!";
-            perfectEl.style.display = 'block';
-            setTimeout(() => perfectEl.style.display = 'none', 5000);
+        // 3. Player Collision
+        const distToPlayer = Math.hypot(player.x - en.x, player.y - en.y);
+        if (distToPlayer < en.size + player.size) {
+            playerHit(en, true, true, true);
+        }
+
+        // 4. BULLET COLLISION (Fixed)
+        bullets.forEach((b, bi) => {
+            const dist = Math.hypot(b.x - en.x, b.y - en.y);
+            // Check if bullet overlaps enemy radius
+            if (dist < en.size + (b.size || 5)) {
+
+                // PIERCING: If piercing is on, don't hit the same enemy twice
+                if (gun.Bullet?.pierce && b.hitEnemies?.includes(ei)) return;
+
+                // CRIT & DAMAGE
+                let finalDamage = b.damage || 1;
+                if (Math.random() < (gun.Bullet?.critChance || 0)) {
+                    finalDamage *= (gun.Bullet?.critDamage || 2);
+                }
+                en.hp -= finalDamage;
+                en.hitTimer = 10; // Trigger white flash in draw()
+                SFX.explode(0.08);
+
+                // FREEZE MECHANIC
+                if (Math.random() < (gun.Bullet?.freezeChance || 0)) {
+                    en.frozen = true;
+                    en.freezeEnd = now + (gun.Bullet?.freezeDuration || 1000);
+                }
+
+                // SHARD EXPLOSION ON HIT
+                if (gun.Bullet?.Explode?.active && !b.isShard) {
+                    spawnShards(b);
+                }
+
+                // PIERCING VS REMOVAL
+                if (gun.Bullet?.pierce) {
+                    if (!b.hitEnemies) b.hitEnemies = [];
+                    b.hitEnemies.push(ei);
+                } else {
+                    bullets.splice(bi, 1);
+                }
+
+                // CHECK ENEMY DEATH
+                if (en.hp <= 0) {
+                    en.isDead = true;
+                    en.deathTimer = 30;
+                }
+            }
+        });
+    });
+}
+
+function drawEnemies() {
+    enemies.forEach(en => {
+        ctx.save();
+        if (en.isDead) ctx.globalAlpha = en.deathTimer / 30;
+
+        // Visual Feedback: White for hit, Blue for frozen, Red for normal
+        if (en.hitTimer > 0) {
+            ctx.fillStyle = "white";
+            en.hitTimer--; // Countdown the hit flash
+        } else if (en.frozen) {
+            ctx.fillStyle = "#85c1e9"; // Light Blue
+        } else {
+            ctx.fillStyle = en.color || "#e74c3c";
+        }
+
+        ctx.beginPath();
+        ctx.arc(en.x, en.y, en.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+}
+function playerHit(en, invuln = false, knockback = false, shakescreen = false) {
+    if (invuln) {
+        const now = Date.now();
+        const isInvuln = player.invuln || now < (player.invulnUntil || 0);
+
+        if (!isInvuln) {
+            player.hp -= en.damage || 1;
+            player.invulnUntil = now + 1000;
+            SFX.playerHit(0.2);
+            log(`Player hit! HP: ${player.hp}, Damage: ${en.damage || 1}`);
+
+            // If the player dies from this hit, the next update() call will catch it
+            if (typeof updateUI === "function") updateUI();
+
+            // Check for game over immediately after taking damage
+            if (player.hp <= 0) {
+                log("Player HP <= 0, triggering game over");
+                player.hp = 0;
+                gameOver();
+            }
         }
     }
 
-    // --- 2. INPUT HANDLERS ---
-    if (keys['KeyM']) gameMenu();
-    if (keys['KeyR'] && DEBUG_WINDOW_ENABLED) restartGame();
-    tryUse();
+    if (knockback) {
+        let dx = player.x - en.x;
+        let dy = player.y - en.y;
 
-    if (keys['KeyB'] && player.inventory?.bombs > 0) {
-        player.inventory.bombs--;
-        keys['KeyB'] = false;
-        dropBomb();
-        updateUI();
+        // If dx/dy are zero (perfect overlap), pick a random direction
+        if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) {
+            const angle = Math.random() * Math.PI * 2;
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+        }
+
+        const len = Math.hypot(dx, dy);
+        const nx = dx / len;
+        const ny = dy / len;
+        const padding = 6;
+        const targetDist = en.size + player.size + padding;
+        const needed = targetDist - len;
+
+        if (needed > 0) {
+            log(`Knockback applied! Needed: ${needed}, NX: ${nx}, NY: ${ny}`);
+            player.x += nx * needed;
+            player.y += ny * needed;
+        } else {
+            log(`No knockback needed. TargetDist: ${targetDist}, Len: ${len}`);
+        }
+
+        player.x = Math.max(BOUNDARY + player.size, Math.min(canvas.width - BOUNDARY - player.size, player.x));
+        player.y = Math.max(BOUNDARY + player.size, Math.min(canvas.height - BOUNDARY - player.size, player.y));
     }
 
-    // --- 3. MOVEMENT (WASD) ---
+    if (shakescreen) {
+        const shakePower = (en.shake || 8) * (120 / 40);
+        screenShake.power = Math.max(screenShake.power, shakePower);
+        screenShake.endAt = Date.now() + (en.shakeDuration || 200);
+    }
+}
+
+function drawBombs(doors) {
+    const now = Date.now();
+
+    // 3. --- BOMBS (Explosion & Door Logic) ---
+    for (let i = bombs.length - 1; i >= 0; i--) {
+        const b = bombs[i];
+        if (!b.exploding && now >= b.explodeAt) {
+            b.exploding = true;
+            b.explosionStartAt = now;
+            SFX.explode(0.3);
+        }
+
+        if (b.exploding) {
+            const p = Math.min(1, (now - b.explosionStartAt) / b.explosionDuration);
+            const r = b.baseR + (b.maxR - b.baseR) * p;
+
+            if (!b.didDoorCheck) {
+                b.didDoorCheck = true;
+                Object.entries(doors).forEach(([dir, door]) => {
+                    let dX = door.x ?? canvas.width / 2, dY = door.y ?? canvas.height / 2;
+                    if (dir === 'top') dY = 0; if (dir === 'bottom') dY = canvas.height;
+                    if (dir === 'left') dX = 0; if (dir === 'right') dX = canvas.width;
+
+                    // If bomb blast hits the door
+                    if (Math.hypot(b.x - dX, b.y - dY) < b.maxR + 30) {
+                        if (b.openLockedDoors && door.locked) door.locked = 0; // Unlock standard locks
+                        if (b.openRedDoors) {
+                            // Force open even if enemies are present
+                            door.forcedOpen = true;
+                        }
+                        if (b.openSecretRooms && door.hidden) { door.hidden = false; door.active = true; }
+                    }
+                });
+            }
+
+            if (!b.didDamage) {
+                b.didDamage = true;
+                enemies.forEach(en => { if (Math.hypot(b.x - en.x, b.y - en.y) < b.maxR) en.hp -= b.damage; });
+
+                if (b.canDamagePlayer) {
+                    const distToPlayer = Math.hypot(b.x - player.x, b.y - player.y);
+                    if (distToPlayer < b.maxR) {
+                        // Pass a mock enemy object to playerHit
+                        log(`Bomb hitting player! Bomb Size: ${b.maxR}, Player Size: ${player.size}`);
+                        playerHit({ x: b.x, y: b.y, size: b.maxR, damage: 1, shake: 5, shakeDuration: 300 }, true, true, true);
+                    } else {
+                        log(`Player safe. Dist: ${Math.round(distToPlayer)}, Radius: ${b.maxR}`);
+                    }
+                } else {
+                    log(`Bomb canDamagePlayer is false or undefined: ${b.canDamagePlayer}`);
+                }
+            }
+
+            ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = b.explosionColour;
+            ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            if (p >= 1) bombs.splice(i, 1);
+        } else {
+            // Unexploded bomb glow
+            ctx.fillStyle = b.colour; ctx.shadowBlur = 10; ctx.shadowColor = b.colour;
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.baseR, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        }
+    }
+}
+
+function updateBombDropping() {
+
+    // --- 3. BOMB DROPPING ---
+    if (keys['KeyB'] && player.inventory?.bombs > 0) {
+        const now = Date.now();
+        // Uses the fireRate (0.5) from your bomb JSON
+        if (bomb && now - (player.lastBombTime || 0) > (bomb.fireRate * 1000)) {
+            player.inventory.bombs--;
+            player.lastBombTime = now;
+            bombs.push({
+                x: player.x, y: player.y,
+                explodeAt: now + bomb.timer,
+                explosionDuration: bomb.explosionDuration,
+                baseR: bomb.size || 15, maxR: bomb.radius,
+                damage: bomb.damage, colour: bomb.colour,
+                explosionColour: bomb.explosionColour,
+                openLockedDoors: bomb.openLockedDoors, openRedDoors: bomb.openRedDoors, openSecretRooms: bomb.openSecretRooms,
+                openLockedDoors: bomb.openLockedDoors, openRedDoors: bomb.openRedDoors, openSecretRooms: bomb.openSecretRooms,
+                canDamagePlayer: bomb.canDamagePlayer,
+                shootable: bomb.shootable,
+                exploding: false, didDamage: false, didDoorCheck: false
+            });
+            SFX.shoot(0.1);
+            updateUI();
+        }
+    }
+}
+
+
+
+
+function updateMovementAndDoors(doors, roomLocked) {
+    // --- 4. MOVEMENT & DOOR COLLISION ---
     const moveKeys = { "KeyW": [0, -1, 'top'], "KeyS": [0, 1, 'bottom'], "KeyA": [-1, 0, 'left'], "KeyD": [1, 0, 'right'] };
     for (let [key, [dx, dy, dir]] of Object.entries(moveKeys)) {
         if (keys[key]) {
             player.lastMoveX = dx; player.lastMoveY = dy;
-            const door = doors[dir] || { active: 0, locked: 0 };
-            const doorRef = (dir === 'top' || dir === 'bottom') ? (door.x ?? canvas.width / 2) : (door.y ?? canvas.height / 2);
-            const playerPos = (dir === 'top' || dir === 'bottom') ? player.x : player.y;
-            const inDoorRange = playerPos > doorRef - DOOR_SIZE && playerPos < doorRef + DOOR_SIZE;
-            const canPass = door.active && !door.locked && !roomLocked;
+            const door = doors[dir] || { active: 0, locked: 0, hidden: 0 };
+
+            // Reference center for alignment
+            let doorRef = (dir === 'top' || dir === 'bottom') ? (door.x ?? canvas.width / 2) : (door.y ?? canvas.height / 2);
+            let playerPos = (dir === 'top' || dir === 'bottom') ? player.x : player.y;
+
+            const inDoorRange = playerPos > doorRef - (DOOR_SIZE / 2) && playerPos < doorRef + (DOOR_SIZE / 2);
+            // canPass checks if bomb or key removed the 'locked' status
+            // If door.forcedOpen is true, we ignore roomLocked
+            const canPass = door.active && !door.locked && !door.hidden && (!roomLocked || door.forcedOpen);
 
             if (dx !== 0) {
                 const limit = dx < 0 ? BOUNDARY : canvas.width - BOUNDARY;
@@ -839,194 +1476,6 @@ function update() {
         }
     }
 
-    // --- 4. SHOOTING LOGIC ---
-    const shootingKeys = keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
-    if (shootingKeys) {
-        const fireDelay = (gun.Bullet?.fireRate ?? 0.3) * 1000;
-        if (Date.now() - (player.lastShot || 0) > fireDelay) {
-            bulletsInRoom++;
-            let baseAngle = 0;
-            if (keys['ArrowUp']) baseAngle = -Math.PI / 2;
-            else if (keys['ArrowDown']) baseAngle = Math.PI / 2;
-            else if (keys['ArrowLeft']) baseAngle = Math.PI;
-            else if (keys['ArrowRight']) baseAngle = 0;
-
-            // Initial Homing Aim
-            console.log(gun.Bullet.homing)
-            if (gun.Bullet?.homing && enemies.length > 0) {
-                let nearest = enemies.reduce((a, b) => Math.hypot(player.x - a.x, player.y - a.y) < Math.hypot(player.x - b.x, player.y - b.y) ? a : b);
-                baseAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
-            }
-
-            const bulletCount = gun.Bullet?.number || 1;
-            for (let i = 0; i < bulletCount; i++) {
-                let angle = baseAngle + (bulletCount > 1 ? (i - (bulletCount - 1) / 2) * (gun.Bullet.spreadRate || 0.2) : 0);
-                const speed = gun.Bullet?.speed || 7;
-                const vx = Math.cos(angle) * speed;
-                const vy = Math.sin(angle) * speed;
-
-                if (gun.Bullet?.multiDirectional?.active) {
-                    if (gun.Bullet.multiDirectional.fire360) fireBullet(360, speed, vx, vy, angle);
-                    else {
-                        if (gun.Bullet.multiDirectional.fireNorth) fireBullet(1, speed, vx, vy, angle);
-                        if (gun.Bullet.multiDirectional.fireEast) fireBullet(2, speed, vx, vy, angle);
-                        if (gun.Bullet.multiDirectional.fireSouth) fireBullet(3, speed, vx, vy, angle);
-                        if (gun.Bullet.multiDirectional.fireWest) fireBullet(4, speed, vx, vy, angle);
-                    }
-                } else if (gun.Bullet?.backfire) {
-                    fireBullet(0, speed, vx, vy, angle);
-                    if (keys['ArrowUp']) fireBullet(3, speed, vx, vy, angle);
-                    if (keys['ArrowDown']) fireBullet(1, speed, vx, vy, angle);
-                    if (keys['ArrowLeft']) fireBullet(2, speed, vx, vy, angle);
-                    if (keys['ArrowRight']) fireBullet(4, speed, vx, vy, angle);
-                } else if (gun.Bullet?.frontLocked) {
-                    const moveKeyActive = keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'];
-                    if (!moveKeyActive) {
-                        if (keys['ArrowUp']) fireBullet(1, speed, vx, vy, angle);
-                        else if (keys['ArrowDown']) fireBullet(3, speed, vx, vy, angle);
-                        else if (keys['ArrowLeft']) fireBullet(4, speed, vx, vy, angle);
-                        else if (keys['ArrowRight']) fireBullet(2, speed, vx, vy, angle);
-                    } else {
-                        if (keys['KeyW']) fireBullet(1, speed, vx, vy, angle);
-                        else if (keys['KeyS']) fireBullet(3, speed, vx, vy, angle);
-                        else if (keys['KeyA']) fireBullet(4, speed, vx, vy, angle);
-                        else if (keys['KeyD']) fireBullet(2, speed, vx, vy, angle);
-                    }
-                } else {
-                    fireBullet(0, speed, vx, vy, angle);
-                }
-            }
-            player.lastShot = Date.now();
-        }
-    }
-
-    // --- 5. BULLETS, PARTICLES, & ENEMIES ---
-    // Update Particles (Trails)
-    if (typeof particles !== 'undefined') {
-        for (let i = particles.length - 1; i >= 0; i--) {
-            particles[i].life -= 0.05;
-            if (particles[i].life <= 0) particles.splice(i, 1);
-        }
-    }
-
-    bullets.forEach((b, i) => {
-        // Active Homing Steering
-        if (gun.Bullet?.homing && enemies.length > 0) {
-            let nearest = enemies.reduce((a, b_en) => Math.hypot(b.x - a.x, b.y - a.y) < Math.hypot(b.x - b_en.x, b.y - b_en.y) ? a : b_en);
-            let desiredAngle = Math.atan2(nearest.y - b.y, nearest.x - b.x);
-            let currentAngle = Math.atan2(b.vy, b.vx);
-            let speed = Math.hypot(b.vx, b.vy);
-
-            let diff = desiredAngle - currentAngle;
-            while (diff < -Math.PI) diff += Math.PI * 2;
-            while (diff > Math.PI) diff -= Math.PI * 2;
-
-            let steerAmount = 0.12;
-            if (Math.abs(diff) < steerAmount) currentAngle = desiredAngle;
-            else currentAngle += Math.sign(diff) * steerAmount;
-
-            b.vx = Math.cos(currentAngle) * speed;
-            b.vy = Math.sin(currentAngle) * speed;
-        }
-
-        // Trail Effect (Particle spawning)
-        if (typeof particles !== 'undefined' && Math.random() > 0.3) {
-            particles.push({
-                x: b.x, y: b.y,
-                color: b.colour || 'yellow',
-                life: 0.5,
-                size: (b.size || 5) * 0.6
-            });
-        }
-
-        b.x += b.vx; b.y += b.vy;
-
-        if (gun.Bullet?.wallBounce) {
-            if (b.x < 0 || b.x > canvas.width) b.vx *= -1;
-            if (b.y < 0 || b.y > canvas.height) b.vy *= -1;
-        }
-        b.life--; if (b.life <= 0) bullets.splice(i, 1);
-    });
-
-    enemies.forEach((en, ei) => {
-        if (Date.now() > (en.freezeUntil || 0)) {
-            let angle = Math.atan2(player.y - en.y, player.x - en.x);
-            en.x += Math.cos(angle) * en.speed; en.y += Math.sin(angle) * en.speed;
-        }
-        bullets.forEach((b, bi) => {
-            if (Math.hypot(b.x - en.x, b.y - en.y) < en.size) {
-                en.hp -= (b.damage || 1); hitsInRoom++;
-                if (!gun.Bullet?.pierce) bullets.splice(bi, 1);
-                if (en.hp <= 0) enemies.splice(ei, 1);
-            }
-        });
-        if (Math.hypot(player.x - en.x, player.y - en.y) < player.size + en.size) playerHit(en, true, true, true);
-    });
-
-    // --- 6. TRANSITIONS ---
-    if (!roomLocked) {
-        if (player.x < 10 && doors.left?.active) changeRoom(-1, 0);
-        if (player.x > canvas.width - 10 && doors.right?.active) changeRoom(1, 0);
-        if (player.y < 10 && doors.top?.active) changeRoom(0, -1);
-        if (player.y > canvas.height - 10 && doors.bottom?.active) changeRoom(0, 1);
-    }
-    if (player.hp <= 0) gameOver();
-}
-
-function playerHit(en, invuln = false, knockback = false, shakescreen = false) {
-    //check if player should be made invulerable
-    if (invuln) {
-        const isInvuln = player.invuln || Date.now() < player.invulnUntil;
-        // Very basic "iframes" logic
-        if (!isInvuln) {
-            //deduct enemies damage type
-            player.hp -= en.damage || 1;
-            hpEl.innerText = player.hp;
-            player.invuln = true;
-            setTimeout(() => player.invuln = false, 1000);
-        }
-
-    }
-    if (knockback) {
-
-        //add the enemy knockback modifier to the player
-        const dx = player.x - en.x;
-        const dy = player.y - en.y;
-        const len = Math.hypot(dx, dy) || 1;
-
-        const nx = dx / len;
-        const ny = dy / len;
-
-        // Push player to just outside the enemy radius
-        const padding = 6;
-        const targetDist = en.size + player.size + padding;
-        const needed = targetDist - len;
-
-        if (needed > 0) {
-            player.x += nx * needed;
-            player.y += ny * needed;
-        }
-
-        // Clamp to room bounds
-        player.x = Math.max(
-            BOUNDARY + player.size,
-            Math.min(canvas.width - BOUNDARY - player.size, player.x)
-        );
-        player.y = Math.max(
-            BOUNDARY + player.size,
-            Math.min(canvas.height - BOUNDARY - player.size, player.y)
-        );
-
-    }
-
-    if (shakescreen) {
-        // basic screen shake not dependant bombs max radius
-        const explosionStrength = 120 / 40; // scale with explosion size
-        const shakePower = (en.shake || 8) * explosionStrength;
-
-        screenShake.power = Math.max(screenShake.power, shakePower);
-        screenShake.endAt = Date.now() + (en.shakeDuration || 200);
-    }
 }
 
 function gameOver() {
@@ -1046,7 +1495,7 @@ function gameWon() {
 }
 
 function gameMenu() {
-    gameState = STATES.gameMenu;
+    gameState = STATES.GAMEMENU;
     overlay.style.display = 'flex';
     overlayTitle.innerText = "Pause";
     overlayEl.querySelector('#continueBtn').style.display = '';
@@ -1069,7 +1518,6 @@ function drawTutorial() {
     // --- Start Room Tutorial Text ---
     if (player.roomX === 0 && player.roomY === 0 && (DEBUG_START_BOSS === false)) {
         ctx.save();
-        console.log("in")
 
         // Internal helper for keycaps
         const drawKey = (text, x, y) => {
@@ -1120,6 +1568,7 @@ function drawTutorial() {
 
         const actions = [
             { label: "ITEM", key: "⎵" },
+            { label: "PAUSE", key: "P" },
             { label: "MENU", key: "M" },
             { label: "BOMB", key: "B" }
         ];
@@ -1137,118 +1586,6 @@ function drawTutorial() {
 
         ctx.restore();
     }
-}
-
-async function draw() {
-    await updateUI();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 1. --- SHAKE ---
-    let isShaking = false;
-    if (screenShake.power > 0 && Date.now() < screenShake.endAt) {
-        ctx.save();
-        const p = (screenShake.endAt - Date.now()) / 180;
-        const s = screenShake.power * Math.max(0, p);
-        ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
-        isShaking = true;
-    }
-
-    // 2. --- DOORS ---
-    const roomLocked = enemies.length > 0;
-    const doors = roomData.doors || {};
-    Object.entries(doors).forEach(([dir, door]) => {
-        if (!door.active) return;
-        ctx.fillStyle = roomLocked ? "#c0392b" : (door.locked ? "#f1c40f" : "#222");
-        const dx = door.x ?? canvas.width / 2, dy = door.y ?? canvas.height / 2;
-        if (dir === 'top') ctx.fillRect(dx - DOOR_SIZE / 2, 0, DOOR_SIZE, DOOR_THICKNESS);
-        if (dir === 'bottom') ctx.fillRect(dx - DOOR_SIZE / 2, canvas.height - DOOR_THICKNESS, DOOR_SIZE, DOOR_THICKNESS);
-        if (dir === 'left') ctx.fillRect(0, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
-        if (dir === 'right') ctx.fillRect(canvas.width - DOOR_THICKNESS, dy - DOOR_SIZE / 2, DOOR_THICKNESS, DOOR_SIZE);
-    });
-
-    // 3. --- PORTAL ---
-    if (roomData.isBoss && roomData.cleared) {
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(Date.now() / 200);
-        ctx.fillStyle = "#9b59b6"; ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 150) * 0.2;
-        ctx.fillRect(-20, -20, 40, 40);
-        ctx.rotate(-Date.now() / 100); ctx.strokeStyle = "#8e44ad"; ctx.lineWidth = 3;
-        ctx.strokeRect(-25, -25, 50, 50);
-        ctx.restore();
-        ctx.globalAlpha = 1.0; // Reset alpha
-        if (Math.hypot(player.x - canvas.width / 2, player.y - canvas.height / 2) < 40) gameWon();
-    }
-
-    // 4. --- PLAYER ---
-    const isInv = player.invuln || Date.now() < (player.invulnUntil || 0);
-    ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
-    ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
-
-    // 4.5 --- PARTICLE TRAILS ---
-    // Drawing trails before bullets so they appear underneath
-    if (typeof particles !== 'undefined') {
-        particles.forEach(p => {
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.globalAlpha = 1.0; // Reset alpha
-    }
-
-    // 5. --- GEOMETRY BULLETS ---
-    bullets.forEach(b => {
-        ctx.fillStyle = b.colour || 'yellow'; ctx.strokeStyle = b.colour || 'yellow';
-        const s = b.size || 5;
-        ctx.save(); ctx.translate(b.x, b.y);
-        if (b.animated) ctx.rotate(b.spinAngle = (b.spinAngle || 0) + 0.15);
-        ctx.beginPath();
-        if (b.shape === 'triangle') { ctx.moveTo(0, -s); ctx.lineTo(s, s); ctx.lineTo(-s, s); ctx.closePath(); }
-        else if (b.shape === 'square') ctx.rect(-s, -s, s * 2, s * 2);
-        else if (b.shape === 'rectangle') ctx.rect(-s * 1.5, -s, s * 3, s * 2);
-        else ctx.arc(0, 0, s, 0, Math.PI * 2);
-        b.filled ? ctx.fill() : ctx.stroke();
-        ctx.restore();
-    });
-
-    // 6. --- BOMBS ---
-    for (let i = bombs.length - 1; i >= 0; i--) {
-        const b = bombs[i]; const now = Date.now();
-        if (!b.exploding && now >= b.explodeAt) { b.exploding = true; b.explosionStartAt = now; }
-        if (b.exploding) {
-            const p = Math.min(1, (now - b.explosionStartAt) / b.explosionDuration), r = b.baseR + (b.maxR - b.baseR) * p;
-            if (b.canDamagePlayer && !b.didPlayerDamage && !isInv && Math.hypot(player.x - b.x, player.y - b.y) < r + player.size) {
-                player.hp -= b.damage; b.didPlayerDamage = true; player.invulnUntil = now + 1000;
-                screenShake.power = 10; screenShake.endAt = now + 200;
-            }
-            if (!b.didDamage) {
-                b.didDamage = true;
-                enemies.forEach((en, ei) => { if (Math.hypot(en.x - b.x, en.y - b.y) < b.maxR + en.size) { en.hp -= b.damage; if (en.hp <= 0) enemies.splice(ei, 1); } });
-            }
-            ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = b.explosionColour;
-            ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-            if (p >= 1) bombs.splice(i, 1);
-        } else { ctx.fillStyle = b.colour; ctx.beginPath(); ctx.arc(b.x, b.y, b.baseR, 0, Math.PI * 2); ctx.fill(); }
-    }
-
-    // 7. --- BOSS/ENEMIES ---
-    if (roomData.isBoss && !roomData.cleared && Date.now() < (bossIntroEndTime || 0)) {
-        ctx.fillStyle = "#e74c3c"; ctx.font = "bold 50px 'Courier New'"; ctx.textAlign = "center";
-        const bossName = (enemyTemplates["boss"]?.name || "BOSS").toUpperCase();
-        ctx.fillText(bossName, canvas.width / 2, canvas.height / 2);
-    } else {
-        enemies.forEach(en => {
-            ctx.fillStyle = Date.now() < en.freezeUntil ? "#3498db" : (en.color || "#e74c3c");
-            ctx.beginPath(); ctx.arc(en.x, en.y, en.size, 0, Math.PI * 2); ctx.fill();
-        });
-    }
-
-    // 8. --- UI ---
-    if (isShaking) ctx.restore();
-    drawMinimap(); drawTutorial();
-    requestAnimationFrame(() => { update(); draw(); });
 }
 
 function drawMinimap() {
@@ -1316,10 +1653,63 @@ function drawMinimap() {
 
 
     mctx.restore();
+
+    drawBossIntro();
+    drawDebugLogs();
 }
-function gameWon() {
-    gameState = STATES.GAMEOVER;
-    overlayEl.style.display = 'flex';
-    statsEl.innerText = "VICTORY! You cleared the dungeon!";
-    document.querySelector('#overlay h1').innerText = "You Won!";
+
+function drawDebugLogs() {
+    if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && debugLogs.length > 0) {
+        ctx.save();
+        ctx.font = "12px 'Courier New'";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(10, canvas.height - 15 - (debugLogs.length * 15), 400, (debugLogs.length * 15) + 5);
+
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = "#00FF00"; // Hacker green
+
+        debugLogs.forEach((msg, i) => {
+            ctx.fillText(msg, 15, canvas.height - 10 - ((debugLogs.length - 1 - i) * 15));
+        });
+
+        ctx.restore();
+    }
+}
+
+function drawBossIntro() {
+    const now = Date.now();
+    if (now < bossIntroEndTime) {
+        ctx.save();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Find boss name
+        let bossName = "BOSS";
+        let bossDesc = "Prepare yourself!";
+
+        // Try to find from templates or current enemies
+        if (enemyTemplates["boss"]) {
+            bossName = enemyTemplates["boss"].name || bossName;
+            bossDesc = enemyTemplates["boss"].description || bossDesc;
+        }
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // Title
+        ctx.font = "bold 60px 'Courier New'";
+        ctx.fillStyle = "#c0392b";
+        ctx.shadowColor = "#e74c3c";
+        ctx.shadowBlur = 20;
+        ctx.fillText(bossName, canvas.width / 2, canvas.height / 2 - 40);
+
+        // Subtitle
+        ctx.font = "italic 24px 'Courier New'";
+        ctx.fillStyle = "#ecf0f1";
+        ctx.shadowBlur = 0;
+        ctx.fillText(bossDesc, canvas.width / 2, canvas.height / 2 + 30);
+
+        ctx.restore();
+    }
 }

@@ -8,5 +8,8 @@
     "speed": 0.5,
     "size": 50,
     "color": "rgba(192, 57, 43, 0.9)",
-    "description": "The big bad."
+    "description": "The big bad.",
+    "hitColor": "#ffffff",
+    "deathType": "fadeaway",
+    "deathDuration": 30
 }
