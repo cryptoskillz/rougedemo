@@ -1231,9 +1231,18 @@ function playerHit(en, invuln = false, knockback = false, shakescreen = false) {
         if (!isInvuln) {
             player.hp -= en.damage || 1;
             player.invulnUntil = now + 1000;
+            SFX.playerHit(0.2);
+            console.log(`Player hit! HP: ${player.hp}, Damage: ${en.damage || 1}`);
 
             // If the player dies from this hit, the next update() call will catch it
             if (typeof updateUI === "function") updateUI();
+
+            // Check for game over immediately after taking damage
+            if (player.hp <= 0) {
+                console.log("Player HP <= 0, triggering game over");
+                player.hp = 0;
+                gameOver();
+            }
         }
     }
 
