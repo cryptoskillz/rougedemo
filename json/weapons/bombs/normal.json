@@ -36,5 +36,6 @@
     "kickableTotalCount": 0,
     "kickablePerfectCount": 0,
     "kickablePerfectTotalCount": 0,
+    "shootable": true,
     "colour": "#ff0000"
 }

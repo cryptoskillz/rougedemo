@@ -1045,9 +1045,29 @@ function updateBulletsAndShards(aliveEnemies) {
             } else {
                 if (gun.Bullet?.Explode?.active && !b.isShard) spawnShards(b);
                 bullets.splice(i, 1);
+                return; // Use return to skip further processing for this bullet
             }
         }
 
+        // --- Bomb Collision (Shootable Bombs) ---
+        let hitBomb = false;
+        for (let j = 0; j < bombs.length; j++) {
+            const bomb = bombs[j]; // Renamed 'b' to 'bomb' to avoid conflict with 'bullet'
+            if (bomb.shootable && !bomb.exploding) {
+                const distToBomb = Math.hypot(bomb.x - b.x, bomb.y - b.y);
+                if (distToBomb < (bomb.baseR || 15) + b.size) { // Approximate collision with bomb body
+                    bomb.exploding = true;
+                    bomb.explosionStartAt = Date.now();
+                    SFX.explode(0.3);
+                    bullets.splice(i, 1);
+                    hitBomb = true;
+                    break;
+                }
+            }
+        }
+        if (hitBomb) return; // Use return to skip further processing for this bullet
+
+        // --- Enemy Collision ---
         b.life--;
         if (b.life <= 0) bullets.splice(i, 1);
     });
@@ -1415,7 +1435,9 @@ function updateBombDropping() {
                 damage: bomb.damage, colour: bomb.colour,
                 explosionColour: bomb.explosionColour,
                 openLockedDoors: bomb.openLockedDoors, openRedDoors: bomb.openRedDoors, openSecretRooms: bomb.openSecretRooms,
+                openLockedDoors: bomb.openLockedDoors, openRedDoors: bomb.openRedDoors, openSecretRooms: bomb.openSecretRooms,
                 canDamagePlayer: bomb.canDamagePlayer,
+                shootable: bomb.shootable,
                 exploding: false, didDamage: false, didDoorCheck: false
             });
             SFX.shoot(0.1);

@@ -13,7 +13,7 @@
     "explosionDuration": 1000,
     "explosionColour": "#FF0000",
     "canDamagePlayer": true,
-    "timer": 1000,
+    "timer": 5000,
     "max": 100,
     "explodeOnTimer": true,
     "explodeOnImpactTimer": 0,
@@ -35,5 +35,6 @@
     "kickableCount": 0,
     "kickableTotalCount": 0,
     "kickablePerfectCount": 0,
-    "kickablePerfectTotalCount": 0
+    "kickablePerfectTotalCount": 0,
+    "shootable": true
 }
