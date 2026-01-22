@@ -1293,9 +1293,17 @@ function playerHit(en, invuln = false, knockback = false, shakescreen = false) {
     }
 
     if (knockback) {
-        const dx = player.x - en.x;
-        const dy = player.y - en.y;
-        const len = Math.hypot(dx, dy) || 1;
+        let dx = player.x - en.x;
+        let dy = player.y - en.y;
+
+        // If dx/dy are zero (perfect overlap), pick a random direction
+        if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) {
+            const angle = Math.random() * Math.PI * 2;
+            dx = Math.cos(angle);
+            dy = Math.sin(angle);
+        }
+
+        const len = Math.hypot(dx, dy);
         const nx = dx / len;
         const ny = dy / len;
         const padding = 6;
@@ -1303,8 +1311,11 @@ function playerHit(en, invuln = false, knockback = false, shakescreen = false) {
         const needed = targetDist - len;
 
         if (needed > 0) {
+            log(`Knockback applied! Needed: ${needed}, NX: ${nx}, NY: ${ny}`);
             player.x += nx * needed;
             player.y += ny * needed;
+        } else {
+            log(`No knockback needed. TargetDist: ${targetDist}, Len: ${len}`);
         }
 
         player.x = Math.max(BOUNDARY + player.size, Math.min(canvas.width - BOUNDARY - player.size, player.x));
@@ -1357,8 +1368,13 @@ function drawBombs(doors) {
                     const distToPlayer = Math.hypot(b.x - player.x, b.y - player.y);
                     if (distToPlayer < b.maxR) {
                         // Pass a mock enemy object to playerHit
-                        playerHit({ x: b.x, y: b.y, damage: 1, shake: 5, shakeDuration: 300 }, true, true, true);
+                        log(`Bomb hitting player! Bomb Size: ${b.maxR}, Player Size: ${player.size}`);
+                        playerHit({ x: b.x, y: b.y, size: b.maxR, damage: 1, shake: 5, shakeDuration: 300 }, true, true, true);
+                    } else {
+                        log(`Player safe. Dist: ${Math.round(distToPlayer)}, Radius: ${b.maxR}`);
                     }
+                } else {
+                    log(`Bomb canDamagePlayer is false or undefined: ${b.canDamagePlayer}`);
                 }
             }
 
