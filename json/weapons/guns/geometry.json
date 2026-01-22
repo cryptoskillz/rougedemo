@@ -23,7 +23,7 @@
                 "circle"
             ],
             "animated": true,
-            "filled": false
+            "filled": true
         },
         "speed": 5,
         "size": 15,

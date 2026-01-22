@@ -878,52 +878,31 @@ function tryUse() {
 
 function update() {
     if (gameState !== STATES.PLAY) return;
-
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
-    // --- RESTART LOGIC ---
-    if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) {
-        restartGame();
-    }
-
-    // --- 0. MUSIC TOGGLE ---
+    // --- RESTART & MUSIC LOGIC ---
+    if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
     if (keys['KeyM'] && Date.now() - (lastMKeyTime || 0) > 300) {
         musicMuted = !musicMuted;
-        if (introMusic) {
-            if (musicMuted) introMusic.pause();
-            else introMusic.play().catch(e => console.log("Audio play blocked"));
-        }
+        if (introMusic) musicMuted ? introMusic.pause() : introMusic.play().catch(e => { });
         lastMKeyTime = Date.now();
     }
 
-    const currentCoord = `${player.roomX}, ${player.roomY}`;
     const roomLocked = enemies.filter(en => !en.isDead).length > 0;
     const doors = roomData.doors || {};
 
     // --- 1. ROOM CLEARING ---
     if (!roomLocked && !roomData.cleared) {
         roomData.cleared = true;
+        const currentCoord = `${player.roomX}, ${player.roomY}`;
         if (visitedRooms[currentCoord]) visitedRooms[currentCoord].cleared = true;
     }
 
-    // --- 2. INPUT ---
-    if (keys['Escape']) gameMenu();
-    tryUse();
-
-    if (keys['KeyB'] && player.inventory?.bombs > 0) {
-        player.inventory.bombs--;
-        keys['KeyB'] = false;
-        dropBomb();
-        SFX.explode(0.2);
-        updateUI();
-    }
-
-    // --- 3. MOVEMENT ---
+    // --- 2. MOVEMENT ---
     const moveKeys = { "KeyW": [0, -1, 'top'], "KeyS": [0, 1, 'bottom'], "KeyA": [-1, 0, 'left'], "KeyD": [1, 0, 'right'] };
     for (let [key, [dx, dy, dir]] of Object.entries(moveKeys)) {
         if (keys[key]) {
-            player.lastMoveX = dx;
-            player.lastMoveY = dy;
+            player.lastMoveX = dx; player.lastMoveY = dy;
             const door = doors[dir] || { active: 0, locked: 0 };
             const doorRef = (dir === 'top' || dir === 'bottom') ? (door.x ?? canvas.width / 2) : (door.y ?? canvas.height / 2);
             const playerPos = (dir === 'top' || dir === 'bottom') ? player.x : player.y;
@@ -932,65 +911,47 @@ function update() {
 
             if (dx !== 0) {
                 const limit = dx < 0 ? BOUNDARY : canvas.width - BOUNDARY;
-                if ((dx < 0 ? player.x > limit : player.x < limit) || (inDoorRange && canPass)) {
-                    player.x += dx * player.speed;
-                }
+                if ((dx < 0 ? player.x > limit : player.x < limit) || (inDoorRange && canPass)) player.x += dx * player.speed;
             } else {
                 const limit = dy < 0 ? BOUNDARY : canvas.height - BOUNDARY;
-                if ((dy < 0 ? player.y > limit : player.y < limit) || (inDoorRange && canPass)) {
-                    player.y += dy * player.speed;
-                }
+                if ((dy < 0 ? player.y > limit : player.y < limit) || (inDoorRange && canPass)) player.y += dy * player.speed;
             }
         }
     }
 
-    // --- 4. SHOOTING (With Backfire & Multi-Directional Support) ---
+    // --- 4. SHOOTING ---
     const shootingKeys = keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
     if (shootingKeys) {
         const fireDelay = (gun.Bullet?.fireRate ?? 0.3) * 1000;
         if (Date.now() - (player.lastShot || 0) > fireDelay) {
             SFX.shoot(0.05);
-
             let centerAngle = 0;
-            if (gun.frontLocked) {
-                centerAngle = Math.atan2(player.lastMoveY || 0, player.lastMoveX || 1);
-            } else {
-                if (keys['ArrowUp']) centerAngle = -Math.PI / 2;
-                else if (keys['ArrowDown']) centerAngle = Math.PI / 2;
-                else if (keys['ArrowLeft']) centerAngle = Math.PI;
-                else if (keys['ArrowRight']) centerAngle = 0;
+            if (gun.frontLocked) centerAngle = Math.atan2(player.lastMoveY || 0, player.lastMoveX || 1);
+            else {
+                if (keys['ArrowUp']) centerAngle = -Math.PI / 2; else if (keys['ArrowDown']) centerAngle = Math.PI / 2;
+                else if (keys['ArrowLeft']) centerAngle = Math.PI; else if (keys['ArrowRight']) centerAngle = 0;
             }
 
             const count = gun.Bullet?.number || 1;
             const recoilVal = gun.Bullet?.recoil || 0;
-
-            // Recoil
             player.x -= Math.cos(centerAngle) * (recoilVal * count);
             player.y -= Math.sin(centerAngle) * (recoilVal * count);
 
-            // Collect all angles to fire
-            let firingAngles = new Set(); // Use Set to avoid duplicate angles
+            let firingAngles = new Set();
             firingAngles.add(centerAngle);
-
             if (gun.Bullet?.backfire) firingAngles.add(centerAngle + Math.PI);
-
             const md = gun.Bullet?.multiDirectional;
             if (md?.active) {
-                if (md.fireNorth) firingAngles.add(-Math.PI / 2);
-                if (md.fireSouth) firingAngles.add(Math.PI / 2);
-                if (md.fireEast) firingAngles.add(0);
-                if (md.fireWest) firingAngles.add(Math.PI);
-                if (md.fire360) {
-                    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) firingAngles.add(a);
-                }
+                if (md.fireNorth) firingAngles.add(-Math.PI / 2); if (md.fireSouth) firingAngles.add(Math.PI / 2);
+                if (md.fireEast) firingAngles.add(0); if (md.fireWest) firingAngles.add(Math.PI);
+                if (md.fire360) for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) firingAngles.add(a);
             }
 
             firingAngles.forEach(baseAngle => {
                 for (let i = 0; i < count; i++) {
                     let spreadGap = gun.Bullet?.spreadRate || 0.2;
                     let fanAngle = baseAngle + (count > 1 ? (i - (count - 1) / 2) * spreadGap : 0);
-                    let inaccuracy = (gun.Bullet?.spread || 0) / 1000;
-                    let finalAngle = fanAngle + (Math.random() - 0.5) * inaccuracy;
+                    let finalAngle = fanAngle + (Math.random() - 0.5) * ((gun.Bullet?.spread || 0) / 1000);
                     const speed = gun.Bullet?.speed || 7;
                     fireBullet(0, speed, Math.cos(finalAngle) * speed, Math.sin(finalAngle) * speed, finalAngle);
                 }
@@ -1000,52 +961,30 @@ function update() {
     }
 
     // --- 5. BULLETS & PARTICLES ---
-    if (typeof particles !== 'undefined') {
-        for (let i = particles.length - 1; i >= 0; i--) {
-            particles[i].life -= 0.05;
-            if (particles[i].life <= 0) particles.splice(i, 1);
-        }
-    }
-
     bullets.forEach((b, i) => {
-        if (b.curve && b.curve !== 0) {
-            const cos = Math.cos(b.curve), sin = Math.sin(b.curve);
-            const vxNew = b.vx * cos - b.vy * sin;
-            const vyNew = b.vx * sin + b.vy * cos;
-            b.vx = vxNew; b.vy = vyNew;
-        }
-
-        const aliveEnemies = enemies.filter(en => !en.isDead);
-        if (gun.Bullet?.homing && aliveEnemies.length > 0) {
-            let nearest = aliveEnemies.reduce((prev, curr) =>
-                Math.hypot(b.x - prev.x, b.y - prev.y) < Math.hypot(b.x - curr.x, b.y - curr.y) ? prev : curr);
-            let targetAngle = Math.atan2(nearest.y - b.y, nearest.x - b.x);
-            let currentAngle = Math.atan2(b.vy, b.vx);
-            let diff = targetAngle - currentAngle;
-            while (diff < -Math.PI) diff += Math.PI * 2;
-            while (diff > Math.PI) diff -= Math.PI * 2;
-            let steerLimit = 0.1;
-            currentAngle += Math.max(-steerLimit, Math.min(steerLimit, diff));
-            const speed = Math.hypot(b.vx, b.vy);
-            b.vx = Math.cos(currentAngle) * speed;
-            b.vy = Math.sin(currentAngle) * speed;
-        }
-
         b.x += b.vx; b.y += b.vy;
 
         const bounce = gun.Bullet?.wallBounce;
-        if (b.x < 0 || b.x > canvas.width) {
-            if (bounce) { b.vx *= -1; b.x = b.x < 0 ? 0 : canvas.width; }
-            else { b.life = 0; }
-        }
-        if (b.y < 0 || b.y > canvas.height) {
-            if (bounce) { b.vy *= -1; b.y = b.y < 0 ? 0 : canvas.height; }
-            else { b.life = 0; }
-        }
-
-        const pSettings = gun.Bullet?.particles;
-        if (pSettings?.active && Math.random() < (pSettings.frequency || 0.5)) {
-            particles.push({ x: b.x, y: b.y, color: b.colour || 'yellow', life: pSettings.life || 0.5, size: (b.size || 5) * (pSettings.sizeMult || 0.5) });
+        if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+            if (bounce) {
+                if (b.x < 0 || b.x > canvas.width) b.vx *= -1;
+                if (b.y < 0 || b.y > canvas.height) b.vy *= -1;
+                b.x = Math.max(0, Math.min(canvas.width, b.x));
+                b.y = Math.max(0, Math.min(canvas.height, b.y));
+            } else {
+                // EXPLODE ON WALL
+                if (gun.Bullet?.Explode?.active && !b.isShard) {
+                    const ex = gun.Bullet.Explode;
+                    const step = (Math.PI * 2) / ex.shards;
+                    for (let j = 0; j < ex.shards; j++) {
+                        bullets.push({
+                            x: b.x, y: b.y, vx: Math.cos(step * j) * (gun.Bullet?.speed || 7), vy: Math.sin(step * j) * (gun.Bullet?.speed || 7),
+                            life: ex.shardRange, damage: ex.damage, size: ex.size, isShard: true, colour: b.colour
+                        });
+                    }
+                }
+                bullets.splice(i, 1); return;
+            }
         }
 
         b.life--;
@@ -1054,74 +993,54 @@ function update() {
 
     // --- 6. ENEMIES ---
     enemies.forEach((en, ei) => {
-        if (en.isDead) {
-            en.deathTimer--;
-            if (en.deathTimer <= 0) enemies.splice(ei, 1);
-            return;
-        }
+        if (en.isDead) { en.deathTimer--; if (en.deathTimer <= 0) enemies.splice(ei, 1); return; }
 
-        if (!en.freezeUntil || Date.now() > en.freezeUntil) {
-            let angle = Math.atan2(player.y - en.y, player.x - en.x);
-            en.x += Math.cos(angle) * en.speed;
-            en.y += Math.sin(angle) * en.speed;
-        }
+        let angle = Math.atan2(player.y - en.y, player.x - en.x);
+        en.x += Math.cos(angle) * en.speed; en.y += Math.sin(angle) * en.speed;
 
-        for (let bi = bullets.length - 1; bi >= 0; bi--) {
-            const b = bullets[bi];
-            if (Math.hypot(b.x - en.x, b.y - en.y) < en.size) {
-                if (gun.Bullet?.pierce && b.lastHitEnemy === en) continue;
+        bullets.forEach((b, bi) => {
+            let dist = Math.hypot(b.x - en.x, b.y - en.y);
+            if (dist < en.size) {
+                if (gun.Bullet?.pierce && b.hitEnemies?.includes(ei)) return;
 
-                let damage = b.damage || 1;
-                if (Math.random() < (gun.Bullet?.critChance || 0)) {
-                    damage *= (gun.Bullet?.critDamage || 2);
-                    en.hitTimer = 10; en.lastHitWasCrit = true;
-                    SFX.shoot(0.1);
-                } else {
-                    en.hitTimer = 4; en.lastHitWasCrit = false;
+                // --- TRIGGER EXPLODE OBJECT PROPERTIES ---
+                if (gun.Bullet?.Explode?.active && !b.isShard) {
+                    const ex = gun.Bullet.Explode;
+                    const step = (Math.PI * 2) / ex.shards;
+                    for (let i = 0; i < ex.shards; i++) {
+                        bullets.push({
+                            x: b.x, y: b.y,
+                            vx: Math.cos(step * i) * (gun.Bullet?.speed || 7),
+                            vy: Math.sin(step * i) * (gun.Bullet?.speed || 7),
+                            life: ex.shardRange,   // Takes effect from JSON
+                            damage: ex.damage,     // Takes effect from JSON
+                            size: ex.size,         // Takes effect from JSON
+                            isShard: true,
+                            colour: b.colour
+                        });
+                    }
                 }
 
-                if (Math.random() < (gun.Bullet?.freezeChance || 0)) {
-                    en.freezeUntil = Date.now() + (gun.Bullet?.freezeDuration || 1000);
+                if (gun.Bullet?.pierce) {
+                    if (!b.hitEnemies) b.hitEnemies = [];
+                    b.hitEnemies.push(ei);
                 }
 
-                en.hp -= damage;
+                en.hp -= (b.damage || 1);
                 SFX.explode(0.08);
 
-                if (!gun.Bullet?.pierce) {
-                    bullets.splice(bi, 1);
-                } else {
-                    b.lastHitEnemy = en;
-                }
-
-                if (en.hp <= 0) {
-                    en.isDead = true;
-                    en.deathTimer = en.deathDuration || 30;
-                    break;
-                }
+                if (!gun.Bullet?.pierce) bullets.splice(bi, 1);
+                if (en.hp <= 0) { en.isDead = true; en.deathTimer = 30; }
             }
-        }
-
-        if (Math.hypot(player.x - en.x, player.y - en.y) < player.size + en.size) {
-            if (!player.isInvulnerable) SFX.playerHit(0.3);
-            playerHit(en, true, true, true);
-        }
+        });
     });
 
     // --- 7. ROOM TRANSITIONS ---
     if (!roomLocked) {
-        const threshold = 5;
-        if (player.x < threshold && doors.left?.active) changeRoom(-1, 0);
-        else if (player.x > canvas.width - threshold && doors.right?.active) changeRoom(1, 0);
-        else if (player.y < threshold && doors.top?.active) changeRoom(0, -1);
-        else if (player.y > canvas.height - threshold && doors.bottom?.active) changeRoom(0, 1);
-    }
-
-    if (player.hp <= 0) {
-        if (introMusic) introMusic.pause();
-        gameOver();
+        if (player.x < 5 && doors.left?.active) changeRoom(-1, 0);
+        else if (player.x > canvas.width - 5 && doors.right?.active) changeRoom(1, 0);
     }
 }
-
 async function draw() {
     await updateUI();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
