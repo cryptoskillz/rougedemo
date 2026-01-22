@@ -159,7 +159,8 @@ async function updateUI() {
             ammoEl.innerText = player.ammoMode === 'recharge' ? "RECHARGING..." : "RELOADING...";
             ammoEl.style.color = "red";
         } else {
-            if (player.ammo <= 0 && player.ammoMode === 'finite') {
+            if ((player.ammo <= 0 && player.ammoMode === 'finite') ||
+                (player.ammo <= 0 && player.ammoMode === 'reload' && player.reserveAmmo <= 0)) {
                 ammoEl.innerText = "OUT OF AMMO";
                 ammoEl.style.color = "red";
             } else {
@@ -822,7 +823,10 @@ function fireBullet(direction, speed, vx, vy, angle) {
     if (gun.Bullet?.ammo?.active) {
         if (player.reloading) return; // Cannot fire while reloading
         if (player.ammo <= 0) {
-            if (player.ammoMode !== 'finite') reloadWeapon();
+            if (player.ammoMode === 'finite') return;
+            if (player.ammoMode === 'reload' && player.reserveAmmo <= 0) return;
+
+            reloadWeapon();
             return;
         }
         player.ammo--;
