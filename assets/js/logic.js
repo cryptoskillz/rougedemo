@@ -1142,6 +1142,31 @@ async function draw() {
     ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
     ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
 
+    // --- COOLDOWN PROGRESS BAR ---
+    const fr = gun.Bullet?.fireRate || 0;
+    if (fr >= 5) {
+        const now = Date.now();
+        const elapsed = now - (player.lastShot || 0);
+        const cooldownMs = fr * 1000;
+
+        // Only draw if we are actually waiting for the cooldown
+        if (elapsed < cooldownMs) {
+            const progress = elapsed / cooldownMs;
+            const barWidth = 40;
+            const barHeight = 4;
+            const x = player.x - barWidth / 2;
+            const y = player.y - player.size - 15;
+
+            // Background (Grey)
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+            ctx.fillRect(x, y, barWidth, barHeight);
+
+            // Progress (Cyan/White)
+            ctx.fillStyle = "#00f2ff";
+            ctx.fillRect(x, y, barWidth * progress, barHeight);
+        }
+    }
+
     // 4.5 --- PARTICLE TRAILS ---
     if (typeof particles !== 'undefined') {
         particles.forEach(p => {
