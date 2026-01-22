@@ -5,14 +5,14 @@
             "active": true,
             "frequency": 0.5,
             "life": 0.5,
-            "sizeMult": 0.5
+            "sizeMult": 0.1
         },
         "colour": "yellow",
-        "count": {
+        "ammo": {
             "active": false,
-            "timer": 0,
-            "max": 100,
-            "amount": 100
+            "magazines": 10,
+            "maxMagazine": 100,
+            "magazineSizs": 100
         },
         "geometry": {
             "shape": "circle",
@@ -28,7 +28,7 @@
         "spread": 0,
         "spreadRate": 0,
         "number": 5,
-        "recoil": 0.5,
+        "recoil": 5,
         "homing": false,
         "fireRate": 0.1,
         "wallBounce": false,

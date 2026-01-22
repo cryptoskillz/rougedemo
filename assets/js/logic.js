@@ -891,6 +891,24 @@ async function draw() {
     drawBombs(doors)
     drawEnemies()
     if (screenShake.power > 0) ctx.restore();
+
+    // --- PARTICLES ---
+    if (typeof particles !== 'undefined') {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            ctx.save();
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color || "white";
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            p.life -= 0.05; // Decay
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+    }
+
     drawMinimap();
     drawTutorial();
     drawBossIntro();
@@ -1041,6 +1059,18 @@ function updateBulletsAndShards(aliveEnemies) {
 
         b.x += b.vx;
         b.y += b.vy;
+
+        // --- PARTICLES ---
+        if (gun.Bullet?.particles?.active && Math.random() < (gun.Bullet.particles.frequency || 0.5)) {
+            particles.push({
+                x: b.x,
+                y: b.y,
+                life: 1.0,
+                maxLife: gun.Bullet.particles.life || 0.5,
+                size: (b.size || 5) * (gun.Bullet.particles.sizeMult || 0.5),
+                color: b.colour || "yellow"
+            });
+        }
 
         // --- WALL COLLISION ---
         if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
@@ -1644,23 +1674,9 @@ function drawMinimap() {
         }
     }
 
-    // Inside draw()
-    if (typeof particles !== 'undefined') {
-        particles.forEach(p => {
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.globalAlpha = 1.0;
-    }
 
 
     mctx.restore();
-
-    drawBossIntro();
-    drawDebugLogs();
 }
 
 function drawDebugLogs() {

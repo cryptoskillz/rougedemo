@@ -8,11 +8,12 @@
             "sizeMult": 0.5
         },
         "colour": "yellow",
-        "count": {
+        "ammo": {
             "active": false,
             "timer": 0,
             "max": 100,
-            "amount": 100
+            "amount": 100,
+            "reload"
         },
         "geometry": {
             "shape": "random",
