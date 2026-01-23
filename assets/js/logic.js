@@ -950,24 +950,12 @@ function reloadWeapon() {
     if (player.ammoMode === 'finite') return; // No reload for finite mode
 
     player.reloading = true;
-    log("Reloading...");
+    player.reloadStart = Date.now();
+    player.reloadDuration = player.reloadTime || 1000;
 
+    log("Reloading...");
     // Optional: Add sound here
     // SFX.reload(); 
-
-    setTimeout(() => {
-        if (player.ammoMode === 'recharge') {
-            player.ammo = player.maxMag;
-        } else {
-            const needed = player.maxMag - player.ammo;
-            const take = Math.min(needed, player.reserveAmmo);
-            player.ammo += take;
-            if (player.ammoMode === 'reload') player.reserveAmmo -= take;
-        }
-
-        player.reloading = false;
-        log("Reloaded!");
-    }, player.reloadTime || 1000);
 }
 
 // update loop
@@ -1008,6 +996,7 @@ function update() {
 
     // 3. Combat Logic
     updateShooting();
+    updateReload(); // Add reload state check
     updateBulletsAndShards(aliveEnemies); // Pass enemies for homing check
     updateEnemies(); // Enemy movement + player collision handled inside
 
@@ -1016,6 +1005,26 @@ function update() {
 
     // 5. Game Over Check
     if (player.hp < 1) gameState = STATES.GAMEOVER;
+}
+
+function updateReload() {
+    if (player.reloading) {
+        const now = Date.now();
+        if (now - player.reloadStart >= player.reloadDuration) {
+            // Reload Complete
+            if (player.ammoMode === 'recharge') {
+                player.ammo = player.maxMag;
+            } else {
+                const needed = player.maxMag - player.ammo;
+                const take = Math.min(needed, player.reserveAmmo);
+                player.ammo += take;
+                if (player.ammoMode === 'reload') player.reserveAmmo -= take;
+            }
+
+            player.reloading = false;
+            log("Reloaded!");
+        }
+    }
 }
 
 //draw loop
@@ -1137,31 +1146,58 @@ function drawPlayer() {
     ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
     ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
 
-    // --- COOLDOWN BAR ABOVE PLAYER ---
-    // --- COOLDOWN BAR ABOVE PLAYER ---
-    // const now = Date.now(); // Already declared above
-    const fireDelay = (gun.Bullet?.fireRate || 0.3) * 1000;
-    const timeSinceShot = now - (player.lastShot || 0);
-    const pct = Math.min(timeSinceShot / fireDelay, 1);
-
-    if (pct < 1 && gun.Bullet?.fireRate > 4) { // Only draw if reloading AND long cooldown
+    // --- RELOAD / COOLDOWN BAR ---
+    // If reloading, show reload bar (Blue/Cyan)
+    if (player.reloading) {
+        const reloadPct = Math.min((now - player.reloadStart) / player.reloadDuration, 1);
         const barW = 40;
         const barH = 5;
         const barX = player.x - barW / 2;
-        const barY = player.y - player.size - 15;
+        const barY = player.y - player.size - 25; // Slightly higher or same position
 
         // Background
         ctx.fillStyle = "rgba(0,0,0,0.5)";
         ctx.fillRect(barX, barY, barW, barH);
 
         // Progress
-        ctx.fillStyle = "orange";
-        ctx.fillRect(barX, barY, barW * pct, barH);
+        ctx.fillStyle = "#00ffff"; // Cyan for reload
+        ctx.fillRect(barX, barY, barW * reloadPct, barH);
 
         // Border
         ctx.strokeStyle = "white";
         ctx.lineWidth = 1;
         ctx.strokeRect(barX, barY, barW, barH);
+
+        // Text label (Optional, maybe too small)
+        // ctx.fillStyle = "white";
+        // ctx.font = "10px Arial";
+        // ctx.fillText("RELOAD", barX, barY - 2);
+
+    } else {
+        // --- COOLDOWN BAR ---
+        const fireDelay = (gun.Bullet?.fireRate || 0.3) * 1000;
+        const timeSinceShot = now - (player.lastShot || 0);
+        const pct = Math.min(timeSinceShot / fireDelay, 1);
+
+        if (pct < 1 && gun.Bullet?.fireRate > 4) { // Only draw if reloading AND long cooldown
+            const barW = 40;
+            const barH = 5;
+            const barX = player.x - barW / 2;
+            const barY = player.y - player.size - 15;
+
+            // Background
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(barX, barY, barW, barH);
+
+            // Progress
+            ctx.fillStyle = "orange";
+            ctx.fillRect(barX, barY, barW * pct, barH);
+
+            // Border
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(barX, barY, barW, barH);
+        }
     }
 }
 
@@ -1310,7 +1346,10 @@ function updateShooting() {
     if (shootingKeys) {
         const fireDelay = (gun.Bullet?.fireRate ?? 0.3) * 1000;
         if (Date.now() - (player.lastShot || 0) > fireDelay) {
-            if (!gun.Bullet?.NoBullets) SFX.shoot(0.05);
+            // Check if we can play audio (have ammo and not reloading)
+            const hasAmmo = !gun.Bullet?.ammo?.active || (!player.reloading && player.ammo > 0);
+            if (hasAmmo && !gun.Bullet?.NoBullets) SFX.shoot(0.05);
+
             let centerAngle = 0;
             if (gun.frontLocked) centerAngle = Math.atan2(player.lastMoveY || 0, player.lastMoveX || 1);
             else {
