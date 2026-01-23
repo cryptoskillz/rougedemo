@@ -176,6 +176,8 @@ async function updateUI() {
         ammoEl.style.color = "gray";
     }
 
+
+
     //update cords only if debug mode is enabled otherwise hide this
     if (DEBUG_WINDOW_ENABLED) {
         roomEl.innerText = `Coords: ${player.roomX},${player.roomY}`;
@@ -1120,6 +1122,32 @@ function drawPlayer() {
     ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : '#5dade2';
     ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2); ctx.fill();
 
+    // --- COOLDOWN BAR ABOVE PLAYER ---
+    // --- COOLDOWN BAR ABOVE PLAYER ---
+    // const now = Date.now(); // Already declared above
+    const fireDelay = (gun.Bullet?.fireRate || 0.3) * 1000;
+    const timeSinceShot = now - (player.lastShot || 0);
+    const pct = Math.min(timeSinceShot / fireDelay, 1);
+
+    if (pct < 1) { // Only draw if reloading
+        const barW = 40;
+        const barH = 5;
+        const barX = player.x - barW / 2;
+        const barY = player.y - player.size - 15;
+
+        // Background
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(barX, barY, barW, barH);
+
+        // Progress
+        ctx.fillStyle = "orange";
+        ctx.fillRect(barX, barY, barW * pct, barH);
+
+        // Border
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barW, barH);
+    }
 }
 
 function drawBulletsAndShards() {
