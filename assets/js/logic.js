@@ -1165,6 +1165,13 @@ function updateBulletsAndShards(aliveEnemies) {
             const currMag = Math.hypot(b.vx, b.vy);
             b.vx = (b.vx / currMag) * speed;
             b.vy = (b.vy / currMag) * speed;
+        } else if (b.curve) {
+            // --- GENERIC CURVE ---
+            const currentAngle = Math.atan2(b.vy, b.vx);
+            const newAngle = currentAngle + b.curve;
+            const speed = Math.hypot(b.vx, b.vy);
+            b.vx = Math.cos(newAngle) * speed;
+            b.vy = Math.sin(newAngle) * speed;
         }
 
         b.x += b.vx;
