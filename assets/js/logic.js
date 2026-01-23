@@ -626,6 +626,7 @@ function spawnEnemies() {
                     inst.y = Math.random() * (canvas.height - 60) + 30;
                     inst.frozen = true;
                     inst.freezeEnd = freezeUntil;
+                    inst.invulnerable = true; // Make invulnerable during spawn freeze
                     enemies.push(inst);
                 }
             } else {
@@ -644,6 +645,7 @@ function spawnEnemies() {
             inst.y = Math.random() * (canvas.height - 60) + 30;
             inst.frozen = true;
             inst.freezeEnd = freezeUntil;
+            inst.invulnerable = true; // Make invulnerable during spawn freeze
             enemies.push(inst);
         }
     }
@@ -1488,6 +1490,7 @@ function updateEnemies() {
             en.y += Math.sin(ang) * en.speed;
         } else if (now > en.freezeEnd) {
             en.frozen = false;
+            en.invulnerable = false; // Clear invulnerability when they wake up
         }
 
         // 3. Player Collision
@@ -1498,6 +1501,8 @@ function updateEnemies() {
 
         // 4. BULLET COLLISION (Fixed)
         bullets.forEach((b, bi) => {
+            if (en.invulnerable) return; // Skip collision if invulnerable
+
             const dist = Math.hypot(b.x - en.x, b.y - en.y);
             // Check if bullet overlaps enemy radius
             if (dist < en.size + (b.size || 5)) {
