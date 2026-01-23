@@ -1,10 +1,12 @@
 bugs
+    if music has been toggled off it shouldnt turn back on on restart / going back to main menu
     dotn show portal until there are no enemies left in boos room
     room count at the end is off (maybe same room type in generation)
 
 logic
     reload gun / bomb when they pick up a new item
     if you get hit perfect bonus will reset 
+    show gun name in the UI
 
 bombs
     move the doors to a object
@@ -21,7 +23,8 @@ bombs
     bombs are in the invetroy and can be picked up, when you press the space bar they 
     add collision to bombs
     add remoteControl to bombs
-   
+
+level 1
 
 start room
     if its first time it should just say game complete and unlock door and take you back to the menu
@@ -35,6 +38,8 @@ player
     if you stay in a room for too long show a ghost demon
     draw the weapon in the player draw
     add different players to the menu
+    show gun items on the player
+
 
 
 bullets  
@@ -71,6 +76,7 @@ mini map
     item will show boss
     wds
     whole mini map should be shown always (is this true we have a button which will show the full map)
+    make rooms go green if you follow the golden path as a later level will be random rooms that get harder and harder everytime you go off the golden path and enemies respawn in rooms.
 
 debug window 
     CHEATS_ENABLED

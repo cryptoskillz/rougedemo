@@ -1614,16 +1614,24 @@ function updateEnemies() {
 
                     // Check if Boss
                     if (en.type === 'boss') {
-                        portal.active = true;
-                        portal.x = 400; // Center X
-                        portal.y = 300; // Center Y
-                        log("BOSS DEFEATED! Portal Spawned.");
+                        log("BOSS DEFEATED! Waiting for room clear to spawn portal.");
                         SFX.explode(0.5); // Big Boom
                     }
                 }
             }
         });
     });
+
+    // SPAWN PORTAL IF BOSS IS DEAD AND NO ENEMIES LEFT
+    const currentCoord = `${player.roomX},${player.roomY}`;
+    if (currentCoord === bossCoord && enemies.length === 0 && !portal.active) {
+        // Check if boss was actually defeated (simple check: if room is cleared/enemies empty in boss room)
+        // Since enemies are cleared on death, length 0 means we won.
+        portal.active = true;
+        portal.x = canvas.width / 2;
+        portal.y = canvas.height / 2;
+        log("Room Clear! Spawning Portal.");
+    }
 }
 
 function updatePortal() {
