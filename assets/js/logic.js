@@ -137,6 +137,25 @@ const SFX = {
 };
 
 
+// 2. Global Input Handler
+function handleGlobalInputs() {
+    // Restart
+    if (keys['KeyR']) {
+        if (gameState === STATES.GAMEOVER || gameState === STATES.WIN || gameState === STATES.GAMEMENU) {
+            restartGame();
+            return true;
+        }
+    }
+    // Main Menu
+    if (keys['KeyM']) {
+        if (gameState === STATES.GAMEOVER || gameState === STATES.WIN || gameState === STATES.GAMEMENU) {
+            goToWelcome();
+            return true;
+        }
+    }
+    return false;
+}
+
 async function updateUI() {
     if (player.hp < 0) {
         hpEl.innerText = 0
