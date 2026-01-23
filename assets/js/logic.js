@@ -964,8 +964,11 @@ function reloadWeapon() {
 
 // update loop
 function update() {
+    // 0. Global Inputs (Restart/Menu from non-play states)
+    if (handleGlobalInputs()) return;
+
     // 1. If already dead, stop all logic
-    if (gameState === STATES.GAMEOVER) return;
+    if (gameState === STATES.GAMEOVER || gameState === STATES.WIN) return;
 
     // 2. TRIGGER GAME OVER
     if (player.hp <= 0) {
@@ -1495,12 +1498,13 @@ function updateUse() {
 
 function updateRestart() {
     // --- 1. RESTART & UI CHECKS ---
+    // Moved to handleGlobalInputs to cover all states
     if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
 
     // Check for Space Bar interaction (Key Unlock)
     if (keys["Space"]) {
         updateUse();
-    } if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
+    }
 }
 
 
