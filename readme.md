@@ -80,15 +80,29 @@ Defines weapon behavior and bullet patterns.
 - `Bullet.fireRate`: Cooldown between shots.
 - `Bullet.multiDirectional`: Config for shooting multiple bullets at once (North, South, East, West, 360).
 
-### `json/weapons/bombs/*.json` (e.g., `normal.json`)
-Defines bomb properties.
-- `damage`: Damage to enemies.
-- `radius`: Blast radius.
-- `timer`: Time until explosion.
-- `canDamagePlayer`: If `true`, the player takes damage from their own bombs.
-- `openLockedDoors`: If `true`, opens yellow doors.
-- `openRedDoors`: If `true`, forces open red (enemy-locked) doors.
-- `shootable`: If `true`, bullets can detonate the bomb early.
+### `json/weapons/bombs/*.json` (e.g., `golden.json`)
+Defines bomb properties, explosion effects, and interactions.
+- `bombType`: Unique identifier (e.g., "golden").
+- `size`: Visual size of the bomb sprite.
+- `colour`: Hex color code for the bomb.
+- `damage`: Damage dealt to enemies.
+- `fireRate`: Cooldown/rate for placing bombs.
+- `timer`: Time in ms until explosion.
+- `canShoot`: If `true`, the bomb can be shot by bullets.
+- `explosion`:
+    - `radius`: Blast radius in pixels.
+    - `explosionDuration`: Duration of the explosion hitbox/visual.
+    - `explosionColour`: Hex color for the explosion.
+    - `canDamagePlayer`: If `true`, the player takes damage from their own bombs.
+- `doors`:
+    - `openLockedDoors`: If `true`, opens yellow locked doors.
+    - `openRedDoors`: If `true`, forces open red (enemy-locked) doors.
+    - `openSecretRooms`: If `true`, can reveal hidden rooms.
+- `canInteract`:
+    - `active`: If `true`, the player can interact with the bomb (e.g. kick it).
+    - `type`: Interaction type kick / throw.
+    - `distance`: Distance the bomb travels when kicked.
+    - `explodeOnImpact`: If `true`, explodes immediately when hitting an obstacle.
 
 ### `json/enemies/*.json` (e.g., `grunt.json`)
 Defines individual enemy stats.
