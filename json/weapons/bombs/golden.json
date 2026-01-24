@@ -6,8 +6,9 @@
     "damage": 2,
     "fireRate": 0.1,
     "canShoot": true,
-    "timer": 1000,
+    "timer": 3000,
     "maxDrop": 100,
+    "solid": true,
     "explosion": {
         "radius": 100,
         "explosionDuration": 1000,
@@ -23,6 +24,6 @@
         "active": true,
         "type": "kick",
         "distance": 100,
-        "explodeOnImpact": false,
+        "explodeOnImpact": false
     }
 }

@@ -1,6 +1,5 @@
 bugs
     if music has been toggled off it shouldnt turn back on on restart / going back to main menu
-    dotn show portal until there are no enemies left in boos room
     room count at the end is off (maybe same room type in generation)
 
 

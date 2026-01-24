@@ -1389,7 +1389,7 @@ function updateBulletsAndShards(aliveEnemies) {
         let hitBomb = false;
         for (let j = 0; j < bombs.length; j++) {
             const bomb = bombs[j]; // Renamed 'b' to 'bomb' to avoid conflict with 'bullet'
-            if (bomb.shootable && !bomb.exploding) {
+            if (bomb.canShoot && !bomb.exploding) {
                 const distToBomb = Math.hypot(bomb.x - b.x, bomb.y - b.y);
                 if (distToBomb < (bomb.baseR || 15) + b.size) { // Approximate collision with bomb body
                     bomb.exploding = true;
@@ -1803,14 +1803,26 @@ function updateBombDropping() {
             bombs.push({
                 x: player.x, y: player.y,
                 explodeAt: now + bomb.timer,
-                explosionDuration: bomb.explosionDuration,
-                baseR: bomb.size || 15, maxR: bomb.radius,
-                damage: bomb.damage, colour: bomb.colour,
-                explosionColour: bomb.explosionColour,
-                openLockedDoors: bomb.openLockedDoors, openRedDoors: bomb.openRedDoors, openSecretRooms: bomb.openSecretRooms,
-                openLockedDoors: bomb.openLockedDoors, openRedDoors: bomb.openRedDoors, openSecretRooms: bomb.openSecretRooms,
-                canDamagePlayer: bomb.canDamagePlayer,
-                shootable: bomb.shootable,
+                // Handle nested explosion properties with fallbacks
+                explosionDuration: bomb.explosion?.explosionDuration ?? bomb.explosionDuration,
+                baseR: bomb.size || 15,
+                maxR: bomb.explosion?.radius ?? bomb.radius,
+                explosionColour: bomb.explosion?.explosionColour ?? bomb.explosionColour,
+                canDamagePlayer: bomb.explosion?.canDamagePlayer ?? bomb.canDamagePlayer,
+
+                // Base properties
+                damage: bomb.damage,
+                colour: bomb.colour,
+
+                // Handle nested door properties
+                openLockedDoors: bomb.doors?.openLockedDoors ?? bomb.openLockedDoors,
+                openRedDoors: bomb.doors?.openRedDoors ?? bomb.openRedDoors,
+                openSecretRooms: bomb.doors?.openSecretRooms ?? bomb.openSecretRooms,
+
+                // Interaction
+                canShoot: bomb.canShoot, // Renamed from shootable to match JSON and logic
+                canInteract: bomb.canInteract, // Pass through full object for future use
+
                 exploding: false, didDamage: false, didDoorCheck: false
             });
             SFX.shoot(0.1);
