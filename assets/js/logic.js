@@ -1843,10 +1843,14 @@ function updateBombDropping() {
             player.lastBombTime = now;
 
             // Drop behind the player to avoid trapping
-            // Default to 0 offset if no movement yet
+            // Drop behind the player to avoid trapping
+            // Default to 1 (Down) if no movement yet, so bomb drops Up (Y - 45)
             const dropDist = 45;
-            const dropX = player.x - ((player.lastMoveX || 0) * dropDist);
-            const dropY = player.y - ((player.lastMoveY || 0) * dropDist);
+            const lastX = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 0 : (player.lastMoveX || 0);
+            const lastY = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 1 : (player.lastMoveY || 0);
+
+            const dropX = player.x - (lastX * dropDist);
+            const dropY = player.y - (lastY * dropDist);
 
             bombs.push({
                 x: dropX, y: dropY,
