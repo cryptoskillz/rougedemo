@@ -1562,8 +1562,9 @@ function updateBombsPhysics() {
             b.y += b.vy;
 
             // Friction
-            b.vx *= 0.9;
-            b.vy *= 0.9;
+            const friction = b.physics?.friction ?? 0.9;
+            b.vx *= friction;
+            b.vy *= friction;
 
             // Stop if too slow
             if (Math.abs(b.vx) < 0.1) b.vx = 0;
@@ -1571,10 +1572,11 @@ function updateBombsPhysics() {
 
             // Wall Collisions (Bounce/Stop)
             const r = b.baseR || 15;
-            if (b.x < BOUNDARY + r) { b.x = BOUNDARY + r; b.vx *= -0.5; }
-            if (b.x > canvas.width - BOUNDARY - r) { b.x = canvas.width - BOUNDARY - r; b.vx *= -0.5; }
-            if (b.y < BOUNDARY + r) { b.y = BOUNDARY + r; b.vy *= -0.5; }
-            if (b.y > canvas.height - BOUNDARY - r) { b.y = canvas.height - BOUNDARY - r; b.vy *= -0.5; }
+            const res = -(b.physics?.restitution ?? 0.5);
+            if (b.x < BOUNDARY + r) { b.x = BOUNDARY + r; b.vx *= res; }
+            if (b.x > canvas.width - BOUNDARY - r) { b.x = canvas.width - BOUNDARY - r; b.vx *= res; }
+            if (b.y < BOUNDARY + r) { b.y = BOUNDARY + r; b.vy *= res; }
+            if (b.y > canvas.height - BOUNDARY - r) { b.y = canvas.height - BOUNDARY - r; b.vy *= res; }
         }
     });
 }
@@ -1939,6 +1941,7 @@ function updateBombDropping() {
                 canInteract: bomb.canInteract, // Pass through full object for future use
 
                 vx: 0, vy: 0, // Physics velocity
+                physics: bomb.physics, // Store physics config
 
                 exploding: false, didDamage: false, didDoorCheck: false
             });
@@ -1983,7 +1986,8 @@ function updateMovementAndDoors(doors, roomLocked) {
                             // Check if moveable
                             if (b.moveable) {
                                 // Add impulse instead of setting position
-                                b.vx += dx * 1.5;
+                                const mass = b.physics?.mass ?? 1.5;
+                                b.vx += dx * mass;
                                 hitMoveable = true;
                             }
                         }
@@ -2011,7 +2015,8 @@ function updateMovementAndDoors(doors, roomLocked) {
                             // Check if moveable
                             if (b.moveable) {
                                 // Add impulse
-                                b.vy += dy * 1.5;
+                                const mass = b.physics?.mass ?? 1.5;
+                                b.vy += dy * mass;
                                 hitMoveable = true;
                             }
                         }

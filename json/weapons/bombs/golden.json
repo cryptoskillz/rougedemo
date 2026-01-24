@@ -11,6 +11,11 @@
     "maxDrop": 100,
     "solid": true,
     "moveable": true,
+    "physics": {
+        "friction": 0.9,
+        "mass": 1.5,
+        "restitution": 0.5
+    },
     "remoteDenoate": {
         "active": true,
         "key": "space"
