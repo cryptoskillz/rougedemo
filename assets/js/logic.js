@@ -1568,18 +1568,31 @@ function updateEnemies() {
             let nextY = en.y + Math.sin(ang) * en.speed;
 
             // Simple check against solid bombs
-            let blocked = false;
-            bombs.forEach(b => {
-                if (b.solid && !b.exploding) {
-                    if (Math.hypot(nextX - b.x, nextY - b.y) < en.size + (b.baseR || 15)) {
-                        blocked = true;
+            // Collision Check Helper
+            const isBlocked = (tx, ty) => {
+                let blocked = false;
+                for (const b of bombs) {
+                    if (b.solid && !b.exploding) {
+                        if (Math.hypot(tx - b.x, ty - b.y) < en.size + (b.baseR || 15)) {
+                            return true;
+                        }
                     }
                 }
-            });
+                return false;
+            };
 
-            if (!blocked) {
+            if (!isBlocked(nextX, nextY)) {
                 en.x = nextX;
                 en.y = nextY;
+            } else {
+                // Try sliding X
+                if (!isBlocked(nextX, en.y)) {
+                    en.x = nextX;
+                }
+                // Try sliding Y
+                else if (!isBlocked(en.x, nextY)) {
+                    en.y = nextY;
+                }
             }
         } else if (now > en.freezeEnd) {
             en.frozen = false;
