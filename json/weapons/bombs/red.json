@@ -1,0 +1,34 @@
+{
+    "name": "golden",
+    "description": "The Most powerful or all the bombs",
+    "size": 30,
+    "colour": "#ffff00",
+    "range": 70,
+    "damage": 2,
+    "fireRate": 0.1,
+    "canShoot": false,
+    "timer": 3000,
+    "maxDrop": 3,
+    "solid": true,
+    "remoteDenoate": {
+        "active": true,
+        "key": "space"
+    },
+    "explosion": {
+        "radius": 100,
+        "explosionDuration": 1000,
+        "explosionColour": "#FF0000",
+        "canDamagePlayer": true
+    },
+    "doors": {
+        "openLockedDoors": true,
+        "openRedDoors": true,
+        "openSecretRooms": true
+    },
+    "canInteract": {
+        "active": true,
+        "type": "kick",
+        "distance": 100,
+        "explodeOnImpact": false
+    }
+}
