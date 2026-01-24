@@ -1810,6 +1810,10 @@ function updateBombDropping() {
         const now = Date.now();
         // Uses the fireRate (0.5) from your bomb JSON
         if (bomb && now - (player.lastBombTime || 0) > (bomb.fireRate * 1000)) {
+            // Check max drop limit
+            const maxDrop = bomb.maxDrop || 100;
+            if (bombs.length >= maxDrop) return;
+
             player.inventory.bombs--;
             player.lastBombTime = now;
             bombs.push({
