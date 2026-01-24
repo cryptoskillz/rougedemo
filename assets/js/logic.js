@@ -1852,6 +1852,26 @@ function updateBombDropping() {
             const dropX = player.x - (lastX * dropDist);
             const dropY = player.y - (lastY * dropDist);
 
+            // Check if drop position overlaps with an existing bomb
+            let canDrop = true;
+            for (const b of bombs) {
+                const dist = Math.hypot(dropX - b.x, dropY - b.y);
+                // 30 base radius (approx) + buffer
+                if (dist < (b.baseR || 15) * 2) {
+                    canDrop = false;
+                    break;
+                }
+            }
+            // Also check walls
+            if (dropX < BOUNDARY || dropX > canvas.width - BOUNDARY || dropY < BOUNDARY || dropY > canvas.height - BOUNDARY) {
+                canDrop = false;
+            }
+
+            if (!canDrop) {
+                log("Cannot drop bomb here - blocked");
+                return;
+            }
+
             bombs.push({
                 x: dropX, y: dropY,
                 explodeAt: now + bomb.timer,
