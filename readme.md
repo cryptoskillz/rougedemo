@@ -120,7 +120,7 @@ Defines bomb properties, explosion effects, and interactions.
 - `colour`: Hex color code for the bomb.
 - `damage`: Damage dealt to enemies.
 - `fireRate`: Cooldown/rate for placing bombs.
-- `timer`: Time in ms until explosion.
+- `timer`: {active: bool, time: int}Time in ms until explosion.
 - `canShoot`: If `true`, the bomb can be shot by bullets.
 - `maxDrop`: Maximum number of bombs that can be dropped.
 - `solid`: If `true`, the bomb is solid vs bullets.

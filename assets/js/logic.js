@@ -1037,6 +1037,7 @@ function update() {
 
     // 3. Combat Logic
     updateShooting();
+    updateRemoteDetonation(); // Remote Bombs
     updateReload(); // Add reload state check
     updateBulletsAndShards(aliveEnemies); // Pass enemies for homing check
     updateEnemies(); // Enemy movement + player collision handled inside
@@ -1445,7 +1446,53 @@ function updateShooting() {
             player.lastShot = Date.now();
         }
     }
+}
 
+
+
+function updateRemoteDetonation() {
+    // Check for remote detonation
+    // We scan active bombs to find if any are remote-controlled and if their key is pressed
+
+    // Group by key to avoid multiple triggers per frame per key? 
+    // Simplified: Just iterate bombs
+
+    // Prevent multiple triggers in same frame? 
+    // We'll trust key logic or handle debounce if needed
+
+    let detonated = false;
+
+    // Use a set to track keys pressed this frame to avoid re-checking 'keys' map repeatedly?
+    // Not strictly necessary for performance but clean.
+
+    bombs.forEach(b => {
+        if (!b.exploding && b.remoteDenoate?.active) {
+            const keyName = b.remoteDenoate.key || "space";
+            // Map common names to key codes if needed, or rely on key map being lower/upper case resilient?
+            // Current input maps 'Space', 'KeyW', etc. 
+            // User said "space" in JSON.
+
+            let isPressed = false;
+            if (keyName.toLowerCase() === "space" && keys["Space"]) isPressed = true;
+            else if (keys[keyName]) isPressed = true; // Fallback for specific keys like 'KeyR'
+
+            if (isPressed) {
+                b.exploding = true;
+                b.explosionStartAt = Date.now();
+                detonated = true;
+            }
+        }
+    });
+
+    if (detonated) {
+        SFX.explode(0.3); // One sound for the trigger event? Or rely on individual bomb sounds?
+        // Individual bombs trigger sound in drawBombs when exploding starts? 
+        // drawBombs triggers SFX.explode(0.3) when exploding becomes true.
+        // So we might get a loud stack of sounds. Maybe mute here.
+
+        // Consume input?
+        if (keys["Space"]) keys["Space"] = false;
+    }
 }
 
 
@@ -1915,9 +1962,28 @@ function updateBombDropping() {
                 return;
             }
 
+            // Calculate explosion time based on config
+            let explodeTime = now;
+            let timerDuration = 3000; // default
+
+            // Check if bomb.timer is object or number
+            if (typeof bomb.timer === 'object' && bomb.timer !== null) {
+                if (bomb.timer.active) {
+                    timerDuration = bomb.timer.time || 3000;
+                    explodeTime += timerDuration;
+                } else {
+                    // Timer inactive - won't explode automatically
+                    explodeTime += 999999999;
+                }
+            } else {
+                // Legacy number support
+                timerDuration = bomb.timer || 3000;
+                explodeTime += timerDuration;
+            }
+
             bombs.push({
                 x: dropX, y: dropY,
-                explodeAt: now + bomb.timer,
+                explodeAt: explodeTime,
                 // Handle nested explosion properties with fallbacks
                 explosionDuration: bomb.explosion?.explosionDuration ?? bomb.explosionDuration,
                 baseR: bomb.size || 15,
@@ -1939,6 +2005,7 @@ function updateBombDropping() {
                 // Interaction
                 canShoot: bomb.canShoot, // Renamed from shootable to match JSON and logic
                 canInteract: bomb.canInteract, // Pass through full object for future use
+                remoteDenoate: bomb.remoteDenoate, // Pass remote detonation config
 
                 vx: 0, vy: 0, // Physics velocity
                 physics: bomb.physics, // Store physics config

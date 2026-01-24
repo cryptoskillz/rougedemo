@@ -3,6 +3,7 @@ bugs
     room count at the end is off (maybe same room type in generation)
 the enemies get stuck they should work their way around obstacles
 if you renet a room with enemies it should not spawn new ones
+combine move/kick maybe
 
 next up 
     bombs*

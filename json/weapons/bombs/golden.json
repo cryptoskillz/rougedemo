@@ -7,7 +7,10 @@
     "damage": 2,
     "fireRate": 0.1,
     "canShoot": false,
-    "timer": 3000,
+    "timer": {
+        "active": false,
+        "time": 3000
+    },
     "maxDrop": 100,
     "solid": true,
     "moveable": true,
@@ -15,10 +18,6 @@
         "friction": 0.9,
         "mass": 1.5,
         "restitution": 0.5
-    },
-    "remoteDenoate": {
-        "active": true,
-        "key": "space"
     },
     "explosion": {
         "radius": 100,
@@ -30,6 +29,10 @@
         "openLockedDoors": true,
         "openRedDoors": true,
         "openSecretRooms": true
+    },
+    "remoteDenoate": {
+        "active": true,
+        "key": "space"
     },
     "canInteract": {
         "active": true,
