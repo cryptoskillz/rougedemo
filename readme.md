@@ -60,12 +60,30 @@ Global game settings.
 
 ### `json/player.json`
 Player starting stats.
+- `name`: Player name.
+- `description`: Player description.
 - `hp`: Starting Health Points.
 - `speed`: Movement speed.
+- `size`: Player size in pixels.
+- `physics`:
+    - `strength`: strength of the player.
+- `luck` : luck of the player
+- `roomX`: Starting room X position.
+- `roomY`: Starting room Y position.
+- `x`: Starting X position.
+- `y`: Starting Y position.
 - `invulTimer`: Duration of invulnerability after being hit.
-- `inventory`: Starting `keys` and `bombs`.
-- `gunType`: Reference to the starting gun file (e.g., "geometry" loads `json/weapons/guns/geometry.json`).
+- `invulnUntil`: When invulnerability ends.
+- `invulnColor`: Color of invulnerability effect.
+- `lastShot`: When the last shot was fired.
+- `lastBomb`: When the last bomb was placed.
+- `speedCount`: Number of speed boosts.
+- `speedTotalCount`: Total number of speed boosts.
+- `perfectCount`: Number of perfect rooms.
+- `perfectTotalCount`: Total number of perfect rooms.
 - `bombType`: Reference to the starting bomb file (e.g., "normal").
+- `gunType`: Reference to the starting gun file (e.g., "geometry" loads `json/weapons/guns/geometry.json`).
+- `inventory`: Starting `keys` and `bombs`.
 
 ### `json/weapons/guns/*.json` (e.g., `geometry.json`)
 Defines weapon behavior, bullet patterns, and special effects.
@@ -120,7 +138,7 @@ Defines bomb properties, explosion effects, and interactions.
 - `colour`: Hex color code for the bomb.
 - `damage`: Damage dealt to enemies.
 - `fireRate`: Cooldown/rate for placing bombs.
-- `timer`: {active: bool, time: int}Time in ms until explosion.
+- `timer`: {active: bool, time: int} Time in ms until explosion.
 - `canShoot`: If `true`, the bomb can be shot by bullets.
 - `maxDrop`: Maximum number of bombs that can be dropped.
 - `solid`: If `true`, the bomb is solid vs bullets.
@@ -142,7 +160,7 @@ Defines bomb properties, explosion effects, and interactions.
     - `active`: If `true`, the player can interact with the bomb (e.g. kick it).
     - `type`: Interaction type kick / throw.
     - `distance`: Distance the bomb travels when kicked.
-    - `explodeOnImpact`: If `true`, explodes immediately when hitting an obstacle.
+    - `explodeOnImpact`: If `true`, explodes immediately when hitting an enemy.
 
 ### `json/enemies/*.json` (e.g., `grunt.json`)
 Defines individual enemy stats.

@@ -30,8 +30,7 @@ logic
     show gun name in the UI
 
 bombs
-    explodeOnImpact false should make bombs bounce off enemies
-
+    add an explode on enemy / anything 
 level 1
 
 start room
