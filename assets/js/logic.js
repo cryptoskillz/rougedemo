@@ -1694,6 +1694,20 @@ function updateBombsPhysics() {
             if (b.x > canvas.width - BOUNDARY - r) { b.x = canvas.width - BOUNDARY - r; b.vx *= res; }
             if (b.y < BOUNDARY + r) { b.y = BOUNDARY + r; b.vy *= res; }
             if (b.y > canvas.height - BOUNDARY - r) { b.y = canvas.height - BOUNDARY - r; b.vy *= res; }
+
+            // Explode on Impact (Enemies Only)
+            if (b.canInteract?.explodeOnImpact) {
+                for (const en of enemies) {
+                    if (en.isDead) continue;
+                    const dist = Math.hypot(b.x - en.x, b.y - en.y);
+                    if (dist < r + en.size) {
+                        b.exploding = true;
+                        b.explosionStartAt = Date.now();
+                        b.vx = 0; b.vy = 0; // Stop moving
+                        break; // One explosion is enough
+                    }
+                }
+            }
         }
     });
 }
