@@ -1,40 +1,45 @@
 {
-    "bombType": "golden",
+    "name": "golden",
+    "description": "The Most powerful of all the bombs",
     "size": 30,
     "colour": "#ffff00",
-    "explodeOnImpact": false,
-    "openLockedDoors": true,
-    "openRedDoors": true,
-    "openSecretRooms": true,
-    "radius": 100,
     "range": 70,
     "damage": 2,
     "fireRate": 0.1,
-    "explosionDuration": 1000,
-    "explosionColour": "#FF0000",
-    "canDamagePlayer": true,
-    "timer": 5000,
-    "max": 100,
-    "explodeOnTimer": true,
-    "explodeOnImpactTimer": 0,
-    "explodeOnImpactMax": 100,
-    "explodeOnImpactCount": 0,
-    "explodeOnImpactTotalCount": 0,
-    "explodeOnImpactPerfectCount": 0,
-    "explodeOnImpactPerfectTotalCount": 0,
-    "throwable": false,
-    "throwableTimer": 0,
-    "throwableMax": 100,
-    "throwableCount": 0,
-    "throwableTotalCount": 0,
-    "throwablePerfectCount": 0,
-    "throwablePerfectTotalCount": 0,
-    "kickable": false,
-    "kickableTimer": 0,
-    "kickableMax": 100,
-    "kickableCount": 0,
-    "kickableTotalCount": 0,
-    "kickablePerfectCount": 0,
-    "kickablePerfectTotalCount": 0,
-    "shootable": true
+    "canShoot": true,
+    "timer": {
+        "active": false,
+        "show": true,
+        "time": 3000
+    },
+    "maxDrop": 100,
+    "solid": true,
+    "moveable": false,
+    "physics": {
+        "friction": 0.9,
+        "mass": 1.5,
+        "restitution": 0.5
+    },
+    "explosion": {
+        "radius": 100,
+        "explosionDuration": 1000,
+        "explosionColour": "#ff2a00",
+        "canDamagePlayer": false
+    },
+    "doors": {
+        "openLockedDoors": true,
+        "openRedDoors": true,
+        "openSecretRooms": true
+    },
+    "remoteDenoate": {
+        "active": false,
+        "detonateAll": false,
+        "key": "space"
+    },
+    "canInteract": {
+        "active": true,
+        "type": "kick",
+        "distance": 100,
+        "explodeOnImpact": true
+    }
 }

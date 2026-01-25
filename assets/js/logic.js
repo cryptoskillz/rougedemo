@@ -811,45 +811,93 @@ function changeRoom(dx, dy) {
 }
 
 async function dropBomb() {
-    //check the bomb interval and see if enough time has passed before we can drop another
+    // Parse Timer Config
+    let timerDuration = 1000;
+    let timerShow = false;
+    if (typeof bomb.timer === 'object') {
+        timerDuration = bomb.timer.time || 1000;
+        timerShow = !!bomb.timer.show;
+        if (bomb.timer.active === false) timerDuration = Infinity;
+    } else {
+        timerDuration = bomb.timer || 1000;
+    }
 
-    const baseR = bomb.size || 20;         // visible bomb radius
-    const maxR = bomb.radius || 120;      // explosion max radius
-    const timer = bomb.timer || 1000;
-
-    // direction behind player (use your lastMoveX/lastMoveY logic)
-    const dirX = player.lastMoveX ?? 0;
-    const dirY = player.lastMoveY ?? 1;
+    const baseR = bomb.size || 20;
+    const maxR = bomb.explosion?.radius || bomb.radius || 120;
     const gap = 6;
     const backDist = player.size + baseR + gap;
 
+    // Default to 1 (Down) if no movement yet
+    const lastX = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 0 : (player.lastMoveX || 0);
+    const lastY = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 1 : (player.lastMoveY || 0);
+
+    const dropX = player.x - (lastX * backDist);
+    const dropY = player.y - (lastY * backDist);
+
+    // Check if drop position overlaps with an existing bomb
+    let canDrop = true;
+    for (const b of bombs) {
+        const dist = Math.hypot(dropX - b.x, dropY - b.y);
+        if (dist < (b.baseR || 15) * 2) {
+            canDrop = false;
+            break;
+        }
+    }
+    // Also check walls
+    if (dropX < BOUNDARY || dropX > canvas.width - BOUNDARY || dropY < BOUNDARY || dropY > canvas.height - BOUNDARY) {
+        canDrop = false;
+    }
+
+    if (!canDrop) return false;
+
+    // Check Delay
     const bombDelay = (bomb?.fireRate !== undefined ? bomb?.fireRate : 0.3) * 1000;
     if (Date.now() - (player.lastBomb || 0) > bombDelay) {
-        bombsInRoom++; // for perfecr calcs later
+
+        // Log for debug
+        log(`Dropping Bomb. Show: ${timerShow}, Duration: ${timerDuration}, Active: ${bomb.timer?.active}`);
+
+        bombsInRoom++;
         bombs.push({
-            x: player.x - dirX * backDist,
-            y: player.y - dirY * backDist,
+            x: dropX,
+            y: dropY,
 
             baseR,
             maxR,
 
             colour: bomb.colour || "white",
             damage: bomb.damage || 1,
-            canDamagePlayer: !!bomb.canDamagePlayer,
+            canDamagePlayer: !!(bomb.explosion?.canDamagePlayer ?? bomb.canDamagePlayer),
+            remoteDenoate: bomb.remoteDenoate,
+            canInteract: bomb.canInteract,
+            timerShow: timerShow,
 
+            // Physical Properties
+            solid: bomb.solid,
+            moveable: bomb.moveable,
+            physics: bomb.physics,
+            vx: 0, vy: 0,
 
-            explodeAt: Date.now() + timer,
+            // Doors
+            openLockedDoors: bomb.doors?.openLockedDoors ?? bomb.openLockedDoors,
+            openRedDoors: bomb.doors?.openRedDoors ?? bomb.openRedDoors,
+            openSecretRooms: bomb.doors?.openSecretRooms ?? bomb.openSecretRooms,
+
+            canShoot: bomb.canShoot,
+
+            explodeAt: Date.now() + timerDuration,
             exploding: false,
             explosionStartAt: 0,
-            explosionDuration: bomb.explosionDuration || 300,
-            explosionColour: bomb.explosionColour || bomb.colour || "white",
+            explosionDuration: bomb.explosion?.explosionDuration || bomb.explosionDuration || 300,
+            explosionColour: bomb.explosion?.explosionColour || bomb.explosionColour || bomb.colour || "white",
             didDamage: false,
             id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-            triggeredBy: null, // optional debug
+            triggeredBy: null,
         });
         player.lastBomb = Date.now();
-
+        return true;
     }
+    return false;
 }
 
 function fireBullet(direction, speed, vx, vy, angle) {
@@ -1022,6 +1070,8 @@ function update() {
     // 1. Inputs & Music
     updateRestart();
     updateMusicToggle(); // <--- Added this
+    updateRemoteDetonation(); // Remote Bombs - Check BEFORE Use consumes space
+    updateBombInteraction(); // Kick/Interact with Bombs
     if (keys["Space"]) updateUse();
     if (keys["KeyP"]) {
         keys["KeyP"] = false; // Prevent repeated triggers
@@ -1032,10 +1082,12 @@ function update() {
     // 2. World Logic
     updateRoomLock();
     updateBombDropping();
+    updateBombsPhysics(); // Bomb Physics (Push/Slide)
     updateMovementAndDoors(doors, roomLocked);
 
     // 3. Combat Logic
     updateShooting();
+    // updateRemoteDetonation(); // moved up
     updateReload(); // Add reload state check
     updateBulletsAndShards(aliveEnemies); // Pass enemies for homing check
     updateEnemies(); // Enemy movement + player collision handled inside
@@ -1389,12 +1441,22 @@ function updateBulletsAndShards(aliveEnemies) {
         let hitBomb = false;
         for (let j = 0; j < bombs.length; j++) {
             const bomb = bombs[j]; // Renamed 'b' to 'bomb' to avoid conflict with 'bullet'
-            if (bomb.shootable && !bomb.exploding) {
-                const distToBomb = Math.hypot(bomb.x - b.x, bomb.y - b.y);
-                if (distToBomb < (bomb.baseR || 15) + b.size) { // Approximate collision with bomb body
+            // Collision check for ANY bomb (solid or shootable)
+            const distToBomb = Math.hypot(bomb.x - b.x, bomb.y - b.y);
+            const collisionRadius = (bomb.baseR || 15) + b.size;
+
+            if (distToBomb < collisionRadius && !bomb.exploding) {
+                if (bomb.canShoot) {
+                    // Detonate
                     bomb.exploding = true;
                     bomb.explosionStartAt = Date.now();
                     SFX.explode(0.3);
+                    bullets.splice(i, 1);
+                    hitBomb = true;
+                    break;
+                } else if (bomb.solid) {
+                    // Solid but not shootable = block bullet (destroy bullet)
+                    // Optional: Spawn particles/sparks?
                     bullets.splice(i, 1);
                     hitBomb = true;
                     break;
@@ -1434,7 +1496,74 @@ function updateShooting() {
             player.lastShot = Date.now();
         }
     }
+}
 
+function updateRemoteDetonation() {
+    let detonated = false;
+
+    for (let i = 0; i < bombs.length; i++) {
+        const b = bombs[i];
+        if (!b.exploding && b.remoteDenoate?.active) {
+            const keyName = b.remoteDenoate.key || "space";
+
+            let isPressed = false;
+            if (keyName.toLowerCase() === "space" && keys["Space"]) isPressed = true;
+            else if (keys[keyName]) isPressed = true;
+
+            if (isPressed) {
+                b.exploding = true;
+                b.explosionStartAt = Date.now();
+                detonated = true;
+
+                // Respect detonateAll setting (default to true/undefined behavior acts as true)
+                // If false, only detonate one per press
+                if (b.remoteDenoate.detonateAll === false) {
+                    break;
+                }
+            }
+        }
+    }
+
+    if (detonated) {
+        SFX.explode(0.3);
+        if (keys["Space"]) keys["Space"] = false;
+    }
+}
+
+function updateBombInteraction() {
+    if (!keys["Space"]) return;
+
+    let kicked = false;
+    // Find closest kickable bomb
+    let closestB = null;
+    let minD = Infinity;
+
+    bombs.forEach(b => {
+        if (b.canInteract?.active && b.canInteract.type === 'kick') {
+            const d = Math.hypot(b.x - player.x, b.y - player.y);
+            const kickRange = b.canInteract.distance || 60; // Default range
+
+            if (d < kickRange && d < minD) {
+                minD = d;
+                closestB = b;
+            }
+        }
+    });
+
+    if (closestB) {
+        // Calculate kick angle (from player to bomb)
+        const angle = Math.atan2(closestB.y - player.y, closestB.x - player.x);
+        const force = player.physics?.strength || 15; // Kick strength based on player stats
+
+        // Apply velocity (physics must be enabled on bomb)
+        closestB.vx = Math.cos(angle) * force;
+        closestB.vy = Math.sin(angle) * force;
+
+        log("Bomb Kicked!");
+        kicked = true;
+    }
+
+    if (kicked) keys["Space"] = false; // Consume input
 }
 
 
@@ -1535,11 +1664,81 @@ function updateRestart() {
     if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
 
     // Check for Space Bar interaction (Key Unlock)
-    if (keys["Space"]) {
-        updateUse();
-    }
+    // Check for Space Bar interaction (Key Unlock) -- REMOVED (Handled in main loop)
+
 }
 
+
+function updateBombsPhysics() {
+    bombs.forEach(b => {
+        if (b.exploding) return; // Don't move exploding bombs
+
+        // Apply Velocity
+        if (Math.abs(b.vx) > 0.1 || Math.abs(b.vy) > 0.1) {
+            b.x += b.vx;
+            b.y += b.vy;
+
+            // Friction
+            const friction = b.physics?.friction ?? 0.9;
+            b.vx *= friction;
+            b.vy *= friction;
+
+            // Stop if too slow
+            if (Math.abs(b.vx) < 0.1) b.vx = 0;
+            if (Math.abs(b.vy) < 0.1) b.vy = 0;
+
+            // Wall Collisions (Bounce/Stop)
+            const r = b.baseR || 15;
+            const res = -(b.physics?.restitution ?? 0.5);
+            if (b.x < BOUNDARY + r) { b.x = BOUNDARY + r; b.vx *= res; }
+            if (b.x > canvas.width - BOUNDARY - r) { b.x = canvas.width - BOUNDARY - r; b.vx *= res; }
+            if (b.y < BOUNDARY + r) { b.y = BOUNDARY + r; b.vy *= res; }
+            if (b.y > canvas.height - BOUNDARY - r) { b.y = canvas.height - BOUNDARY - r; b.vy *= res; }
+
+            // Bomb vs Enemy Collision (Explode OR Bounce)
+            if (b.canInteract?.explodeOnImpact || Math.abs(b.vx) > 0.5 || Math.abs(b.vy) > 0.5) {
+                for (const en of enemies) {
+                    if (en.isDead) continue;
+                    const dist = Math.hypot(b.x - en.x, b.y - en.y);
+                    if (dist < r + en.size) {
+                        if (b.canInteract?.explodeOnImpact) {
+                            // Boom
+                            b.exploding = true;
+                            b.explosionStartAt = Date.now();
+                            b.vx = 0; b.vy = 0;
+                            break;
+                        } else {
+                            // Bounce
+                            const dx = b.x - en.x;
+                            const dy = b.y - en.y;
+                            const len = Math.hypot(dx, dy);
+                            // Avoid divide by zero
+                            if (len > 0) {
+                                const nx = dx / len;
+                                const ny = dy / len;
+
+                                // Reflect velocity: v' = v - 2 * (v . n) * n
+                                const dot = b.vx * nx + b.vy * ny;
+                                b.vx -= 2 * dot * nx;
+                                b.vy -= 2 * dot * ny;
+
+                                // Push out to avoid sticking
+                                b.x += nx * 5;
+                                b.y += ny * 5;
+
+                                // Friction/Dampening
+                                b.vx *= 0.8;
+                                b.vy *= 0.8;
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+
+    });
+}
 
 function updateEnemies() {
     const now = Date.now();
@@ -1554,8 +1753,36 @@ function updateEnemies() {
         // 2. Frozen/Movement Logic
         if (!en.frozen) {
             let ang = Math.atan2(player.y - en.y, player.x - en.x);
-            en.x += Math.cos(ang) * en.speed;
-            en.y += Math.sin(ang) * en.speed;
+            let nextX = en.x + Math.cos(ang) * en.speed;
+            let nextY = en.y + Math.sin(ang) * en.speed;
+
+            // Simple check against solid bombs
+            // Collision Check Helper
+            const isBlocked = (tx, ty) => {
+                let blocked = false;
+                for (const b of bombs) {
+                    if (b.solid && !b.exploding) {
+                        if (Math.hypot(tx - b.x, ty - b.y) < en.size + (b.baseR || 15)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            };
+
+            if (!isBlocked(nextX, nextY)) {
+                en.x = nextX;
+                en.y = nextY;
+            } else {
+                // Try sliding X
+                if (!isBlocked(nextX, en.y)) {
+                    en.x = nextX;
+                }
+                // Try sliding Y
+                else if (!isBlocked(en.x, nextY)) {
+                    en.y = nextY;
+                }
+            }
         } else if (now > en.freezeEnd) {
             en.frozen = false;
             en.invulnerable = false; // Clear invulnerability when they wake up
@@ -1764,7 +1991,31 @@ function drawBombs(doors) {
 
             if (!b.didDamage) {
                 b.didDamage = true;
-                enemies.forEach(en => { if (Math.hypot(b.x - en.x, b.y - en.y) < b.maxR) en.hp -= b.damage; });
+                enemies.forEach(en => {
+                    if (Math.hypot(b.x - en.x, b.y - en.y) < b.maxR) {
+                        en.hp -= b.damage;
+                        en.hitTimer = 10; // Visual flash
+                        // Death Logic
+                        if (en.hp <= 0 && !en.isDead) {
+                            en.isDead = true;
+                            en.deathTimer = 30; // Matches bullet logic
+                            log(`Enemy killed by bomb! Type: ${en.type}`);
+                            if (en.type === 'boss') SFX.explode(0.5);
+                        }
+                    }
+                });
+
+                // CHAIN REACTIONS
+                bombs.forEach(otherBomb => {
+                    if (otherBomb !== b && !otherBomb.exploding) {
+                        const dist = Math.hypot(b.x - otherBomb.x, b.y - otherBomb.y);
+                        // Trigger if within explosion radius (plus a small buffer for ease)
+                        if (dist < b.maxR) {
+                            otherBomb.exploding = true;
+                            otherBomb.explosionStartAt = Date.now() + 100; // slight delay for visual ripple
+                        }
+                    }
+                });
 
                 if (b.canDamagePlayer) {
                     const distToPlayer = Math.hypot(b.x - player.x, b.y - player.y);
@@ -1787,35 +2038,29 @@ function drawBombs(doors) {
             // Unexploded bomb glow
             ctx.fillStyle = b.colour; ctx.shadowBlur = 10; ctx.shadowColor = b.colour;
             ctx.beginPath(); ctx.arc(b.x, b.y, b.baseR, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+
+            // Draw Timer Countdown
+            if (b.timerShow && b.explodeAt !== Infinity) {
+                const remaining = Math.max(0, Math.ceil((b.explodeAt - now) / 1000));
+                ctx.fillStyle = "black";
+                ctx.font = "bold 14px Arial"; // Slightly larger
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(remaining, b.x, b.y + 1); // +1 for visual centering
+            }
         }
     }
 }
 
+// --- 3. BOMB DROPPING ---
 function updateBombDropping() {
-
-    // --- 3. BOMB DROPPING ---
     if (keys['KeyB'] && player.inventory?.bombs > 0) {
-        const now = Date.now();
-        // Uses the fireRate (0.5) from your bomb JSON
-        if (bomb && now - (player.lastBombTime || 0) > (bomb.fireRate * 1000)) {
-            player.inventory.bombs--;
-            player.lastBombTime = now;
-            bombs.push({
-                x: player.x, y: player.y,
-                explodeAt: now + bomb.timer,
-                explosionDuration: bomb.explosionDuration,
-                baseR: bomb.size || 15, maxR: bomb.radius,
-                damage: bomb.damage, colour: bomb.colour,
-                explosionColour: bomb.explosionColour,
-                openLockedDoors: bomb.openLockedDoors, openRedDoors: bomb.openRedDoors, openSecretRooms: bomb.openSecretRooms,
-                openLockedDoors: bomb.openLockedDoors, openRedDoors: bomb.openRedDoors, openSecretRooms: bomb.openSecretRooms,
-                canDamagePlayer: bomb.canDamagePlayer,
-                shootable: bomb.shootable,
-                exploding: false, didDamage: false, didDoorCheck: false
-            });
-            SFX.shoot(0.1);
-            updateUI();
-        }
+        // dropBomb handles delay checks, overlap checks, and valid position checks
+        dropBomb().then(dropped => {
+            if (dropped) {
+                player.inventory.bombs--;
+            }
+        });
     }
 }
 
@@ -1841,10 +2086,62 @@ function updateMovementAndDoors(doors, roomLocked) {
 
             if (dx !== 0) {
                 const limit = dx < 0 ? BOUNDARY : canvas.width - BOUNDARY;
-                if ((dx < 0 ? player.x > limit : player.x < limit) || (inDoorRange && canPass)) player.x += dx * player.speed;
+                const nextX = player.x + dx * player.speed;
+                let collided = false;
+                let hitMoveable = false;
+
+                // Bomb Collision (Horizontal)
+                bombs.forEach(b => {
+                    if (b.solid && !b.exploding) {
+                        const dist = Math.hypot(nextX - b.x, player.y - b.y);
+                        if (dist < player.size + (b.baseR || 15)) {
+                            collided = true;
+                            // Check if moveable
+                            if (b.moveable) {
+                                // Add impulse instead of setting position
+                                const mass = b.physics?.mass ?? 1.5;
+                                b.vx += dx * mass;
+                                hitMoveable = true;
+                            }
+                        }
+                    }
+                });
+
+                if (!collided && ((dx < 0 ? player.x > limit : player.x < limit) || (inDoorRange && canPass))) {
+                    player.x = nextX;
+                } else if (collided && !hitMoveable) {
+                    player.x -= dx * 5; // Knockback only if not pushing
+                    player.x = Math.max(BOUNDARY + player.size, Math.min(canvas.width - BOUNDARY - player.size, player.x));
+                }
             } else {
                 const limit = dy < 0 ? BOUNDARY : canvas.height - BOUNDARY;
-                if ((dy < 0 ? player.y > limit : player.y < limit) || (inDoorRange && canPass)) player.y += dy * player.speed;
+                const nextY = player.y + dy * player.speed;
+                let collided = false;
+                let hitMoveable = false;
+
+                // Bomb Collision (Vertical)
+                bombs.forEach(b => {
+                    if (b.solid && !b.exploding) {
+                        const dist = Math.hypot(player.x - b.x, nextY - b.y);
+                        if (dist < player.size + (b.baseR || 15)) {
+                            collided = true;
+                            // Check if moveable
+                            if (b.moveable) {
+                                // Add impulse
+                                const mass = b.physics?.mass ?? 1.5;
+                                b.vy += dy * mass;
+                                hitMoveable = true;
+                            }
+                        }
+                    }
+                });
+
+                if (!collided && ((dy < 0 ? player.y > limit : player.y < limit) || (inDoorRange && canPass))) {
+                    player.y = nextY;
+                } else if (collided && !hitMoveable) {
+                    player.y -= dy * 5; // Knockback only if not pushing
+                    player.y = Math.max(BOUNDARY + player.size, Math.min(canvas.height - BOUNDARY - player.size, player.y));
+                }
             }
         }
     }

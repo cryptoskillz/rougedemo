@@ -60,35 +60,107 @@ Global game settings.
 
 ### `json/player.json`
 Player starting stats.
+- `name`: Player name.
+- `description`: Player description.
 - `hp`: Starting Health Points.
 - `speed`: Movement speed.
+- `size`: Player size in pixels.
+- `physics`:
+    - `strength`: strength of the player.
+- `luck` : luck of the player
+- `roomX`: Starting room X position.
+- `roomY`: Starting room Y position.
+- `x`: Starting X position.
+- `y`: Starting Y position.
 - `invulTimer`: Duration of invulnerability after being hit.
-- `inventory`: Starting `keys` and `bombs`.
-- `gunType`: Reference to the starting gun file (e.g., "geometry" loads `json/weapons/guns/geometry.json`).
+- `invulnUntil`: When invulnerability ends.
+- `invulnColor`: Color of invulnerability effect.
+- `lastShot`: When the last shot was fired.
+- `lastBomb`: When the last bomb was placed.
+- `speedCount`: Number of speed boosts.
+- `speedTotalCount`: Total number of speed boosts.
+- `perfectCount`: Number of perfect rooms.
+- `perfectTotalCount`: Total number of perfect rooms.
 - `bombType`: Reference to the starting bomb file (e.g., "normal").
+- `gunType`: Reference to the starting gun file (e.g., "geometry" loads `json/weapons/guns/geometry.json`).
+- `inventory`: Starting `keys` and `bombs`.
 
 ### `json/weapons/guns/*.json` (e.g., `geometry.json`)
-Defines weapon behavior and bullet patterns.
-- `Bullet.ammo`:
-    - `type`: "reload" (magazine), "recharge" (infinite), "finite".
-    - `amount`: Shots per clip/magazine.
-    - `maxAmount`: Total reserve ammo (for "reload" mode).
-    - `resetTimer`: Time in ms to reload.
-- `Bullet.geometry`:
-    - `shapes`: Array of shapes ("circle", "square", "triangle").
-- `Bullet.damage`: Damage per bullet.
-- `Bullet.fireRate`: Cooldown between shots.
-- `Bullet.multiDirectional`: Config for shooting multiple bullets at once (North, South, East, West, 360).
+Defines weapon behavior, bullet patterns, and special effects.
+- `name`: Human-readable name of the gun (e.g., "Pea Shooter").
+- `Bullet`:
+    - `speed`: Bullet travel speed.
+    - `size`: Bullet size in pixels.
+    - `damage`: Damage per bullet.
+    - `range`: Max distance bullet travels.
+    - `fireRate`: Cooldown between shots.
+    - `number`: Number of bullets fired per shot (e.g. shotgun style).
+    - `spreadRate`: Spread angle for multiple bullets.
+    - `recoil`: Screen shake/recoil intensity.
+    - `curve`: Angular velocity/curving of the bullet path.
+    - `homing`: If `true`, bullets track enemies.
+    - `wallBounce`: If `true`, bullets bounce off walls.
+    - `pierce`: If `true`, bullets pass through enemies.
+    - `reverseFire`: If `true`, shoots backwards.
+    - `critChance`: Probability (0.0 - 1.0) of a critical hit.
+    - `critDamage`: Multiplier for critical hit damage.
+    - `freezeChance`: Probability (0.0 - 1.0) to freeze enemies.
+    - `freezeDuration`: Duration of freeze effect in ms.
+    - `particles`:
+        - `active`: Enable particle trail.
+        - `frequency`, `life`, `sizeMult`: Particle emission settings.
+    - `ammo`:
+        - `active`: Enable ammo system.
+        - `type`: "reload" (magazine), "recharge" (infinite), "finite".
+        - `amount`: Shots per clip/magazine.
+        - `maxAmount`: Total reserve ammo.
+        - `resetTimer`: Time in ms to reload.
+    - `geometry`:
+        - `shape`: "circle", "square", "triangle", or "random".
+        - `shapes`: Array of shapes to cycle if "random".
+        - `animated`: If `true`, shape rotates/animates.
+        - `filled`: If `true`, shape is solid vs outlined.
+    - `multiDirectional`:
+        - `active`: Enable multi-directional firing.
+        - `fireNorth`, `fireEast`, `fireSouth`, `fireWest`: Boolean toggles.
+        - `fire360`: Fires in all directions.
+    - `Explode`:
+        - `active`: Enable bullet explosion on impact.
+        - `shards`: Number of shrapnel shards released.
+        - `size`, `damage`, `shardRange`: Shrapnel properties.
+        - `wallExplode`: If `true`, explodes on striking walls.
 
-### `json/weapons/bombs/*.json` (e.g., `normal.json`)
-Defines bomb properties.
-- `damage`: Damage to enemies.
-- `radius`: Blast radius.
-- `timer`: Time until explosion.
-- `canDamagePlayer`: If `true`, the player takes damage from their own bombs.
-- `openLockedDoors`: If `true`, opens yellow doors.
-- `openRedDoors`: If `true`, forces open red (enemy-locked) doors.
-- `shootable`: If `true`, bullets can detonate the bomb early.
+### `json/weapons/bombs/*.json` (e.g., `golden.json`)
+Defines bomb properties, explosion effects, and interactions.
+- `name`: Unique identifier (e.g., "golden").
+- `description`: Description of the bomb.
+- `size`: Visual size of the bomb sprite.
+- `colour`: Hex color code for the bomb.
+- `damage`: Damage dealt to enemies.
+- `fireRate`: Cooldown/rate for placing bombs.
+- `timer`: {active: bool, time: int} Time in ms until explosion.
+- `canShoot`: If `true`, the bomb can be shot by bullets.
+- `maxDrop`: Maximum number of bombs that can be dropped.
+- `solid`: If `true`, the bomb is solid vs bullets.
+- `moveable`: If `true`, the bomb can be moved.
+- `physics`:
+    - `friction`: Friction of the bomb.
+    - `mass`: Mass of the bomb.
+    - `restitution`: Restitution of the bomb.
+- `explosion`:
+    - `radius`: Blast radius in pixels.
+    - `explosionDuration`: Duration of the explosion hitbox/visual.
+    - `explosionColour`: Hex color for the explosion.
+    - `canDamagePlayer`: If `true`, the player takes damage from their own bombs.
+- `doors`:
+    - `openLockedDoors`: If `true`, opens yellow locked doors.
+    - `openRedDoors`: If `true`, forces open red (enemy-locked) doors.
+    - `openSecretRooms`: If `true`, can reveal hidden rooms.
+- `canInteract`:
+    - `active`: If `true`, the player can interact with the bomb (e.g. kick it).
+    - `type`: Interaction type kick / throw.
+    - `distance`: Distance the bomb travels when kicked.
+    - `explodeOnImpact`: If `true`, explodes immediately when hitting an enemy.
 
 ### `json/enemies/*.json` (e.g., `grunt.json`)
 Defines individual enemy stats.

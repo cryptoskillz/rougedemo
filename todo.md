@@ -1,7 +1,28 @@
 bugs
     if music has been toggled off it shouldnt turn back on on restart / going back to main menu
-    dotn show portal until there are no enemies left in boos room
     room count at the end is off (maybe same room type in generation)
+the enemies get stuck they should work their way around obstacles
+if you renet a room with enemies it should not spawn new ones
+combine move/kick maybe it may complicate things. hve to test it.
+
+next up 
+    player + mini map updates
+    enemies
+    debug window
+    items
+    rooms
+    levels
+
+    enemies become twice as hard if you kill the boss and back track
+    restart / continue / main menu should have hot keys on the main menu
+
+levels
+    level 1 is a basic intro
+    level 2 is golcen path maze
+    level 3 is harder level one
+    level 4 is crazy rooms
+    level 5 is boss rush
+
 
 logic
     reload gun / bomb when they pick up a new item
@@ -9,21 +30,7 @@ logic
     show gun name in the UI
 
 bombs
-    move the doors to a object
-    add a countdown timer to bombs
-    add a fuse to bombs
-    make the bombs not go through walls
-    make the bombs not go through enemies 
-    make the bombs not go through other player 
-    make the bombs not go through other bombs
-    make bombs destroy the bullets
-    make bombs pick up / dropable with space bar
-    make bombs throwable with the space bar 
-    thrown and kicked with items you pick as well as default settings
-    bombs are in the invetroy and can be picked up, when you press the space bar they 
-    add collision to bombs
-    add remoteControl to bombs
-
+    add an explode on enemy / anything 
 level 1
 
 start room
@@ -33,21 +40,21 @@ start room
     each time you finish the game you will unlock more stuff
 
 player 
-    iron man mode (ooe hit dead, all modifiers reset)
+    iron man mode (ooe hit dead, all modifiers reset) (require save first)
     if speed is over 2 x starting speed show a blur effect
     if you stay in a room for too long show a ghost demon
     draw the weapon in the player draw
     add different players to the menu
-    show gun items on the player
-
-
-
-bullets  
+    show gun items on the player 
+        gemoetry gun shows triangle, square etc
+        peashooter shows peashooter
+        gun for each direction you fire
    if a bullet hits you it will cause no damage but disapear
    there will be a mr glass item where your own bullets hurt you 
    bullet co sine
 
 
+bullets  
 
 
 enemies
@@ -66,21 +73,20 @@ key binding
     s = stats
     
 
-next up 
-    enemies become twice as hard if you kill the boss and back track
-    restart / continue / main menu should have hot keys on the main menu
     
 mini map
     item should show the whole mini map
     item suould shou secret rooms
     item will show boss
-    wds
     whole mini map should be shown always (is this true we have a button which will show the full map)
-    make rooms go green if you follow the golden path as a later level will be random rooms that get harder and harder everytime you go off the golden path and enemies respawn in rooms.
+    make rooms go golden if you follow the golden path as a later level will be random rooms that get harder and harder everytime you go off the golden path and enemies respawn in rooms.
 
 debug window 
     CHEATS_ENABLED
     enemies
+    bombs
+    guns
+    items
     updateDebugEditor make it update in realtime when something happens in the game
     when you click off of it it should focus back on the game
     add a export json option
@@ -114,6 +120,7 @@ rooms
         rooms that revers the controls
 
 items
+    golden path shows on map for a few seconds giving a clue how to solve infitte maze later .
 
 
 modifiers
