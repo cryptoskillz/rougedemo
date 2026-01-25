@@ -23,7 +23,7 @@
     "explosion": {
         "radius": 100,
         "explosionDuration": 1000,
-        "explosionColour": "#FF0000",
+        "explosionColour": "#ff2a00",
         "canDamagePlayer": true
     },
     "doors": {

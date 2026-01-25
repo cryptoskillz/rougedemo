@@ -823,7 +823,7 @@ async function dropBomb() {
     }
 
     const baseR = bomb.size || 20;
-    const maxR = bomb.radius || 120;
+    const maxR = bomb.explosion?.radius || bomb.radius || 120;
     const gap = 6;
     const backDist = player.size + baseR + gap;
 
@@ -867,7 +867,7 @@ async function dropBomb() {
 
             colour: bomb.colour || "white",
             damage: bomb.damage || 1,
-            canDamagePlayer: !!bomb.canDamagePlayer,
+            canDamagePlayer: !!(bomb.explosion?.canDamagePlayer ?? bomb.canDamagePlayer),
             remoteDenoate: bomb.remoteDenoate,
             canInteract: bomb.canInteract,
             timerShow: timerShow,
@@ -875,8 +875,8 @@ async function dropBomb() {
             explodeAt: Date.now() + timerDuration,
             exploding: false,
             explosionStartAt: 0,
-            explosionDuration: bomb.explosionDuration || 300,
-            explosionColour: bomb.explosionColour || bomb.colour || "white",
+            explosionDuration: bomb.explosion?.explosionDuration || bomb.explosionDuration || 300,
+            explosionColour: bomb.explosion?.explosionColour || bomb.explosionColour || bomb.colour || "white",
             didDamage: false,
             id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
             triggeredBy: null,
