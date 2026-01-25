@@ -216,7 +216,7 @@ function updateWelcomeScreen() {
                 <span>&gt;</span>
             </div>
         </div>
-        <p>press M to toggle music<br>${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : 'press any key to start'}</p>`;
+        <p>press 0 to toggle music<br>${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : 'press any key to start'}</p>`;
 
     welcomeEl.innerHTML = html;
 }
@@ -478,7 +478,7 @@ const DEBUG_PLAYER = true;
 const CHEATS_ENABLED = false;
 const DEBUG_WINDOW_ENABLED = true;
 
-let musicMuted = true;
+let musicMuted = false;
 let lastMKeyTime = 0;
 
 
@@ -488,9 +488,27 @@ async function initGame(isRestart = false) {
     if (isInitializing) return;
     isInitializing = true;
 
+    // KILL ZOMBIE AUDIO (Fix for duplicate music glitch)
+    // If a legacy window.introMusic exists and is playing, stop it.
+    if (window.introMusic && typeof window.introMusic.pause === 'function') {
+        window.introMusic.pause();
+        window.introMusic = null;
+    }
+    // Also pause the global one just in case we are restarting
+    if (introMusic && !introMusic.paused) {
+        // Don't pause here if we want seamless loop, but given the bugs, let's ensure clean state
+        // introMusic.pause(); 
+    }
+
     if (debugPanel) debugPanel.style.display = DEBUG_WINDOW_ENABLED ? 'flex' : 'none';
+
     // Attempt to start music immediately
-    introMusic.play().catch(() => log("Waiting for interaction to play music..."));
+    // Set muted to FALSE because we ARE trying to play
+    musicMuted = false;
+    introMusic.play().catch(() => {
+        log("Waiting for interaction to play music...");
+        // If failed, we are effectively muted until interaction
+    });
 
     // One-time listener to start music on first click/key if blocked by browser
     const startAudio = () => {
@@ -571,21 +589,19 @@ async function initGame(isRestart = false) {
 
         if (gameData.music) {
             // --- 1. INSTANT AUDIO SETUP ---
-            if (!window.introMusic) {
-                window.introMusic = new Audio('/assets/music/tron.mp3');
-                window.introMusic.loop = true;
-                window.introMusic.volume = 0.4;
-            }
+            // Ensure global audio is ready
+            introMusic.loop = true;
+            introMusic.volume = 0.4;
 
             // This attempts to play immediately.
             // If the browser blocks it, the 'keydown' listener below will catch it.
-            window.introMusic.play().catch(() => {
+            introMusic.play().catch(() => {
                 log("Autoplay blocked: Waiting for first user interaction to start music.");
             });
 
             // Fallback: Start music on the very first key press or click if autoplay failed
             const startAudio = () => {
-                if (window.introMusic.paused) window.introMusic.play();
+                if (introMusic.paused && !musicMuted) introMusic.play();
                 window.removeEventListener('keydown', startAudio);
                 window.removeEventListener('mousedown', startAudio);
             };
@@ -1412,7 +1428,7 @@ function drawPortal() {
 }
 
 function updateMusicToggle() {
-    if (keys['KeyM']) {
+    if (keys['Digit0']) {
         const now = Date.now();
         // 300ms cooldown so it doesn't toggle every frame
         if (now - lastMusicToggle > 300) {
@@ -2583,7 +2599,6 @@ function drawTutorial() {
         const actions = [
             { label: "ITEM", key: "⎵" },
             { label: "PAUSE", key: "P" },
-            { label: "MENU", key: "M" },
             { label: "BOMB", key: "B" }
         ];
 
