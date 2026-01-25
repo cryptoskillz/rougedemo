@@ -13,8 +13,6 @@ next up
     rooms
     levels
 
-    enemies become twice as hard if you kill the boss and back track
-    restart / continue / main menu should have hot keys on the main menu
 
 levels
     level 1 is a basic intro
@@ -46,16 +44,16 @@ player
     iron man mode (ooe hit dead, all modifiers reset) (require save first)
     if speed is over 2 x starting speed show a blur effect
     if you stay in a room for too long show a ghost demon
-    draw the weapon in the player draw
-    show gun items on the player 
-        gemoetry gun shows triangle, square etc
-        peashooter shows peashooter
-        gun for each direction you fire
-   bullet co sine
+    gemoetry gun shows triangle, square etc
+    peashooter shows peashooter
    shield
 
 
 bullets  
+    cosine gun
+    if no bullets is actile barrels should be disabled?
+    if no bullets and you press fire you should get a broken gun sound
+
 
 
 enemies

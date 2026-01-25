@@ -91,6 +91,7 @@ let levelMap = {}; // Pre-generated level structure
 let bossCoord = "";
 let enemyTemplates = {};
 let bossIntroEndTime = 0;
+let bossKilled = false; // Track if boss is dead for difficulty spike
 let gameLoopStarted = false;
 let keyUsedForRoom = false;
 
@@ -790,7 +791,14 @@ function spawnEnemies() {
                     inst.y = Math.random() * (canvas.height - 60) + 30;
                     inst.frozen = true;
                     inst.freezeEnd = freezeUntil;
-                    inst.invulnerable = true; // Make invulnerable during spawn freeze
+                    inst.invulnerable = true;
+
+                    if (bossKilled) {
+                        inst.hp = (inst.hp || 1) * 2;
+                        inst.speed = (inst.speed || 1) * 2;
+                        inst.damage = (inst.damage || 1) * 2;
+                    }
+
                     enemies.push(inst);
                 }
             } else {
@@ -809,7 +817,17 @@ function spawnEnemies() {
             inst.y = Math.random() * (canvas.height - 60) + 30;
             inst.frozen = true;
             inst.freezeEnd = freezeUntil;
-            inst.invulnerable = true; // Make invulnerable during spawn freeze
+            inst.invulnerable = true;
+
+            // DIFFICULTY SPIKE: If Boss is Dead, 2x Stats
+            if (bossKilled) {
+                inst.hp = (inst.hp || 1) * 2;
+                inst.speed = (inst.speed || 1) * 2;
+                inst.damage = (inst.damage || 1) * 2;
+                // Optional: visual indicator?
+                inst.color = "red"; // Make them look angry? or just keep same.
+            }
+
             enemies.push(inst);
         }
     }
@@ -2120,24 +2138,42 @@ function updateEnemies() {
 
                     // Check if Boss
                     if (en.type === 'boss') {
-                        log("BOSS DEFEATED! Waiting for room clear to spawn portal.");
+                        log("BOSS DEFEATED! The Curse Strengthens... Resetting Rooms!");
                         SFX.explode(0.5); // Big Boom
-                    }
+
+                        // BOSS KILLED LOGIC
+                        bossKilled = true;
+
+                        // Reset all visited rooms (except current boss room) to force respawns
+                        if (key !== `${player.roomX},${player.roomY}`) {
+                            // 1. Remove from visitedRooms to reset Fog of War (and prevent minimap render)
+                            delete visitedRooms[key];
+
+                            // 2. Mark as uncleared in the persistent LevelMap so spawnEnemies() triggers on re-entry
+                            if (levelMap[key]) {
+                                levelMap[key].cleared = false;
+                            }
+                        }
+                    });
+
+        // Optional: Visual cue?
+        // maybe shake screen or flash red
+    }
                 }
             }
         });
     });
 
-    // SPAWN PORTAL IF BOSS IS DEAD AND NO ENEMIES LEFT
-    const currentCoord = `${player.roomX},${player.roomY}`;
-    if (currentCoord === bossCoord && enemies.length === 0 && !portal.active) {
-        // Check if boss was actually defeated (simple check: if room is cleared/enemies empty in boss room)
-        // Since enemies are cleared on death, length 0 means we won.
-        portal.active = true;
-        portal.x = canvas.width / 2;
-        portal.y = canvas.height / 2;
-        log("Room Clear! Spawning Portal.");
-    }
+// SPAWN PORTAL IF BOSS IS DEAD AND NO ENEMIES LEFT
+const currentCoord = `${player.roomX},${player.roomY}`;
+if (currentCoord === bossCoord && enemies.length === 0 && !portal.active) {
+    // Check if boss was actually defeated (simple check: if room is cleared/enemies empty in boss room)
+    // Since enemies are cleared on death, length 0 means we won.
+    portal.active = true;
+    portal.x = canvas.width / 2;
+    portal.y = canvas.height / 2;
+    log("Room Clear! Spawning Portal.");
+}
 }
 
 function updatePortal() {
