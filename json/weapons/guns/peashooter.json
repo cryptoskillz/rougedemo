@@ -35,7 +35,7 @@
         "fireRate": 0.1,
         "wallBounce": false,
         "pierce": false,
-        "backfire": false,
+        "reverseFire": false,
         "frontLocked": false,
         "NoBullets": false,
         "critChance": 0.2,

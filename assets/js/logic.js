@@ -206,11 +206,11 @@ function updateWelcomeScreen() {
 }
 
 async function updateUI() {
-    if (player.hp < 0) {
-        hpEl.innerText = 0
+    if (player.hp < 1) {
+        hpEl.innerText = 0;
     }
     else {
-        hpEl.innerText = player.hp;
+        hpEl.innerText = Math.floor(player.hp);
     }
     keysEl.innerText = player.inventory.keys;
     //check if bomb type is golden and if so set the count colour to gold 
@@ -1438,6 +1438,50 @@ function drawDoors() {
 function drawPlayer() {
     const now = Date.now();
     // 4. --- PLAYER ---
+    // Gun Rendering (Barrels)
+
+    // Helper to draw a single barrel at a given angle
+    const drawBarrel = (angle, color = "#555") => {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(angle);
+        ctx.fillStyle = color;
+        ctx.fillRect(0, -4, player.size + 10, 8); // Extend 10px beyond center
+        ctx.restore();
+    };
+
+    // 1. Main Barrel (Based on movement)
+    let aimAngle = 0;
+    if (player.lastMoveX || player.lastMoveY) {
+        aimAngle = Math.atan2(player.lastMoveY, player.lastMoveX);
+    }
+
+    // Front Locked? (If gun has frontLocked, maybe force angle? ignoring for now as per plan to stick to movement)
+    // Draw Main
+    drawBarrel(aimAngle);
+
+    // 2. Reverse Fire
+    if (gun.Bullet?.reverseFire) {
+        drawBarrel(aimAngle + Math.PI);
+    }
+
+    // 3. Multi-Directional (Cardinal Directions)
+    if (gun.Bullet?.multiDirectional?.active) {
+        const md = gun.Bullet.multiDirectional;
+        // North (-PI/2), East (0), South (PI/2), West (PI)
+        if (md.fireNorth) drawBarrel(-Math.PI / 2);
+        if (md.fireEast) drawBarrel(0);
+        if (md.fireSouth) drawBarrel(Math.PI / 2);
+        if (md.fireWest) drawBarrel(Math.PI);
+
+        // 360 Mode (Visual: Draw 8 barrels every 45 degrees)
+        if (md.fire360) {
+            for (let i = 0; i < 8; i++) {
+                drawBarrel(i * (Math.PI / 4));
+            }
+        }
+    }
+
     const isInv = player.invuln || now < (player.invulnUntil || 0);
     ctx.fillStyle = isInv ? 'rgba(255,255,255,0.7)' : (player.color || '#5dade2');
 

@@ -51,12 +51,11 @@ player
         gemoetry gun shows triangle, square etc
         peashooter shows peashooter
         gun for each direction you fire
-   if a bullet hits you it will cause no damage but disapear
-   there will be a mr glass item where your own bullets hurt you 
    bullet co sine
 
 
 bullets  
+    make the bullets start at the tip of the barrel
 
 
 enemies
