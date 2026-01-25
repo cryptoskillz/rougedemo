@@ -31,7 +31,6 @@ logic
     show gun name in the UI
 
 bombs
-    add a countdown timer to bombs
     thrown and kicked with items you pick as well as default settings
 
 level 1

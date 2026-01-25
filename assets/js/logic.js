@@ -872,6 +872,19 @@ async function dropBomb() {
             canInteract: bomb.canInteract,
             timerShow: timerShow,
 
+            // Physical Properties
+            solid: bomb.solid,
+            moveable: bomb.moveable,
+            physics: bomb.physics,
+            vx: 0, vy: 0,
+
+            // Doors
+            openLockedDoors: bomb.doors?.openLockedDoors ?? bomb.openLockedDoors,
+            openRedDoors: bomb.doors?.openRedDoors ?? bomb.openRedDoors,
+            openSecretRooms: bomb.doors?.openSecretRooms ?? bomb.openSecretRooms,
+
+            canShoot: bomb.canShoot,
+
             explodeAt: Date.now() + timerDuration,
             exploding: false,
             explosionStartAt: 0,
