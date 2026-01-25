@@ -1557,6 +1557,8 @@ function spawnShards(b) {
             size: ex.size,
             isShard: true,
             colour: b.colour,
+            canDamagePlayer: b.canDamagePlayer || false,
+            hasLeftPlayer: true, // Shards hurt immediately (no safety buffer)
             shape: 'circle' // Shards are usually simple circles
         });
     }
