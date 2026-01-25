@@ -18,10 +18,11 @@ next up
 
 levels
     level 1 is a basic intro
-    level 2 is golcen path maze
+    level 2 is golcen path maze (it will say room name followed by dejavu)
     level 3 is harder level one
     level 4 is crazy rooms
     level 5 is boss rush
+    level 6 unlocks permanance (if enable permeane mode you can do the sweet modifiers but the whole game becomes harder as a result)
 
 
 logic
@@ -31,6 +32,8 @@ logic
 
 bombs
     add an explode on enemy / anything 
+    if you are not moving the bomb should drop in front of you if you are moving it should follow you
+
 level 1
 
 start room

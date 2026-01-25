@@ -2380,3 +2380,11 @@ function drawBossIntro() {
         ctx.restore();
     }
 }
+
+
+// Expose to window for testing
+if (typeof window !== 'undefined') {
+    window.player = player;
+    window.bombs = bombs;
+    window.enemies = enemies;
+}
