@@ -82,6 +82,8 @@ let roomData = {
 let roomManifest = { rooms: [] };
 let roomStartTime = Date.now();
 let goldenPath = [];
+let goldenPathIndex = 0; // Tracks progress along the path
+let goldenPathFailed = false; // Tracks if player deviated
 let roomTemplates = {};
 let levelMap = {}; // Pre-generated level structure
 let bossCoord = "";
@@ -312,6 +314,8 @@ function generateLevel(length) {
         path.push(`${cx},${cy}`);
     }
     goldenPath = path;
+    goldenPathIndex = 0;
+    goldenPathFailed = false;
     bossCoord = path[path.length - 1];
 
     // 2. Add Side Rooms
@@ -742,6 +746,30 @@ function changeRoom(dx, dy) {
     const nextCoord = `${player.roomX},${player.roomY}`;
     roomEl.innerText = nextCoord;
 
+    // --- GOLDEN PATH LOGIC ---
+    if (nextCoord === "0,0") {
+        // Reset if back at start
+        goldenPathIndex = 0;
+        goldenPathFailed = false;
+        log("Returned to Start. Golden Path Reset.");
+    } else if (!goldenPathFailed) {
+        // Check if this is the next step in the path
+        // path[0] is "0,0". path[1] is the first real step.
+        // We want to be at path[goldenPathIndex + 1]
+        const expectedCoord = goldenPath[goldenPathIndex + 1];
+
+        if (nextCoord === expectedCoord) {
+            goldenPathIndex++;
+            log("Golden Path Progress:", goldenPathIndex);
+        } else if (goldenPath.includes(nextCoord) && goldenPath.indexOf(nextCoord) <= goldenPathIndex) {
+            // Just backtracking along the known path, do nothing
+        } else {
+            // Deviated!
+            goldenPathFailed = true;
+            log("Golden Path FAILED. Return to start to reset.");
+        }
+    }
+
     bullets = []; // Clear bullets on room entry
     bombs = []; // Clear bombs on room entry
     bulletsInRoom = 0;
@@ -793,6 +821,29 @@ function changeRoom(dx, dy) {
         }
         if (roomData.isBoss && !nextEntry.cleared) {
             bossIntroEndTime = Date.now() + 2000;
+        }
+
+        // --- GOLDEN PATH BONUS ---
+        if (roomData.isBoss && !goldenPathFailed && !nextEntry.goldenBonusAwarded) {
+            nextEntry.goldenBonusAwarded = true;
+            log("GOLDEN PATH BONUS AWARDED!");
+
+            perfectEl.innerText = "GOLDEN PATH BONUS!";
+            perfectEl.style.color = "gold";
+            perfectEl.style.display = 'block';
+            perfectEl.style.animation = 'none';
+            perfectEl.offsetHeight; /* trigger reflow */
+            perfectEl.style.animation = null;
+
+            // Reward
+            player.inventory.bombs += 10;
+            player.inventory.keys += 3;
+            player.hp = Math.min(player.hp + 2, 10); // Heal
+
+            setTimeout(() => {
+                perfectEl.style.display = 'none';
+                perfectEl.style.color = '#e74c3c'; // Reset
+            }, 4000);
         }
 
         if (!nextEntry.cleared) {
@@ -2304,6 +2355,19 @@ function drawMinimap() {
             // Special Colors
             if (rx === 0 && ry === 0) color = "#f1c40f"; // Yellow for Start
             if (visitedRooms[coord].roomData.isBoss) color = "#c0392b"; // Dark Red for Boss
+
+            // --- GOLDEN PATH VISUALS ---
+            if (!goldenPathFailed && goldenPath.includes(coord)) {
+                // If this room is part of the path we have successfully traversed so far
+                // We show it as Gold to indicate "Methodical Progress"
+                // goldenPathIndex is the index of the *current* room we are in (or highest reached)
+                // Actually, goldenPathIndex is incremented when we enter a new correct room
+                // So if we are at index 2, rooms at index 0, 1, 2 of goldenPath should be gold
+                const pathIdx = goldenPath.indexOf(coord);
+                if (pathIdx <= goldenPathIndex && pathIdx !== -1) {
+                    color = "#ffd700"; // Gold
+                }
+            }
 
             mctx.fillStyle = isCurrent ? "#fff" : color;
             mctx.fillRect(dx - roomSize / 2, dy - roomSize / 2, roomSize, roomSize);
