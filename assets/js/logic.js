@@ -836,6 +836,8 @@ async function dropBomb() {
             colour: bomb.colour || "white",
             damage: bomb.damage || 1,
             canDamagePlayer: !!bomb.canDamagePlayer,
+            remoteDenoate: bomb.remoteDenoate,
+            canInteract: bomb.canInteract,
 
 
             explodeAt: Date.now() + timer,
@@ -1022,6 +1024,7 @@ function update() {
     // 1. Inputs & Music
     updateRestart();
     updateMusicToggle(); // <--- Added this
+    updateRemoteDetonation(); // Remote Bombs - Check BEFORE Use consumes space
     if (keys["Space"]) updateUse();
     if (keys["KeyP"]) {
         keys["KeyP"] = false; // Prevent repeated triggers
@@ -1037,7 +1040,7 @@ function update() {
 
     // 3. Combat Logic
     updateShooting();
-    updateRemoteDetonation(); // Remote Bombs
+    // updateRemoteDetonation(); // moved up
     updateReload(); // Add reload state check
     updateBulletsAndShards(aliveEnemies); // Pass enemies for homing check
     updateEnemies(); // Enemy movement + player collision handled inside
@@ -1451,32 +1454,33 @@ function updateShooting() {
 
 
 function updateRemoteDetonation() {
-    // Check for remote detonation
-    // We scan active bombs to find if any are remote-controlled and if their key is pressed
-
-    // Group by key to avoid multiple triggers per frame per key? 
-    // Simplified: Just iterate bombs
-
-    // Prevent multiple triggers in same frame? 
-    // We'll trust key logic or handle debounce if needed
-
     let detonated = false;
 
-    // Use a set to track keys pressed this frame to avoid re-checking 'keys' map repeatedly?
-    // Not strictly necessary for performance but clean.
+    // DEBUG: Diagnose why space isn't working
+    if (keys["Space"]) {
+        if (bombs.length === 0) {
+            // log("Space pressed, no bombs.");
+        }
+        bombs.forEach((b, i) => {
+            if (!b.remoteDenoate) {
+                log(`Bomb ${i} MISSING remote data!`);
+            } else if (!b.remoteDenoate.active) {
+                log(`Bomb ${i} remote inactive.`);
+            }
+        });
+    }
 
     bombs.forEach(b => {
         if (!b.exploding && b.remoteDenoate?.active) {
             const keyName = b.remoteDenoate.key || "space";
-            // Map common names to key codes if needed, or rely on key map being lower/upper case resilient?
-            // Current input maps 'Space', 'KeyW', etc. 
-            // User said "space" in JSON.
 
             let isPressed = false;
             if (keyName.toLowerCase() === "space" && keys["Space"]) isPressed = true;
-            else if (keys[keyName]) isPressed = true; // Fallback for specific keys like 'KeyR'
-
+            else if (keys[keyName]) isPressed = true;
+            log("is pressed: " + isPressed + " | key name: " + keyName + " | keys: " + keys["Space"])
+            console.log("is pressed: " + isPressed + " | key name: " + keyName + " | keys: " + keys["Space"])
             if (isPressed) {
+                log("Detonation Triggered!");
                 b.exploding = true;
                 b.explosionStartAt = Date.now();
                 detonated = true;
@@ -1485,12 +1489,7 @@ function updateRemoteDetonation() {
     });
 
     if (detonated) {
-        SFX.explode(0.3); // One sound for the trigger event? Or rely on individual bomb sounds?
-        // Individual bombs trigger sound in drawBombs when exploding starts? 
-        // drawBombs triggers SFX.explode(0.3) when exploding becomes true.
-        // So we might get a loud stack of sounds. Maybe mute here.
-
-        // Consume input?
+        SFX.explode(0.3);
         if (keys["Space"]) keys["Space"] = false;
     }
 }
@@ -1593,9 +1592,8 @@ function updateRestart() {
     if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED && keys['KeyR']) restartGame();
 
     // Check for Space Bar interaction (Key Unlock)
-    if (keys["Space"]) {
-        updateUse();
-    }
+    // Check for Space Bar interaction (Key Unlock) -- REMOVED (Handled in main loop)
+
 }
 
 
