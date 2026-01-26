@@ -41,7 +41,7 @@ start room
     each time you finish the game you will unlock more stuff
 
 player 
-    shield
+    triangle should rotate to be the point the way you are moving
     iron man mode (ooe hit dead, all modifiers reset) (require save first)
     if speed is over 2 x starting speed show a blur effect
     gemoetry gun shows triangle, square etc

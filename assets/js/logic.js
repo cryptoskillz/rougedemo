@@ -1745,7 +1745,8 @@ function drawPlayer() {
     }
 
     // --- SHIELD BAR (Above Reload/Cooldown) ---
-    if (player.shield?.active) {
+    // Hide bar if shield is broken (hp <= 0)
+    if (player.shield?.active && player.shield.hp > 0) {
         const barW = 40;
         const barH = 5;
         const barX = player.x - barW / 2;
