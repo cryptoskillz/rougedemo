@@ -164,7 +164,17 @@ Defines bomb properties, explosion effects, and interactions.
 
 ### `json/enemies/*.json` (e.g., `grunt.json`)
 Defines individual enemy stats.
+- `type`: Enemy type.
+- `description`: Description of the enemy.
+- `damage`: Damage dealt to player on contact.
+- `knockback`: Knockback force on contact.
+- `shake`: Screen shake intensity on contact.
 - `hp`: Enemy health.
 - `speed`: Movement speed.
-- `damage`: Damage dealt to player on contact.
+- `size`: Visual size of the enemy sprite.
+- `color`: Hex color code for the enemy.
+- `hitColor`: Color when hit.
 - `deathType`: specific behavior on death (e.g., "fadeaway").
+- `deathDuration`: Duration of death animation.
+- `special`: If `true`, the enemy is special (e.g., boss, ghost).
+

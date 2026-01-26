@@ -33,6 +33,7 @@ logic
 bombs
     add an explode on enemy / anything 
     if you are not moving the bomb should drop in front of you if you are moving it should follow you
+    use music in game.json to control music
 
 level 1
 
@@ -43,12 +44,12 @@ start room
     each time you finish the game you will unlock more stuff
 
 player 
+    shield
     iron man mode (ooe hit dead, all modifiers reset) (require save first)
     if speed is over 2 x starting speed show a blur effect
-    if you stay in a room for too long show a ghost demon
     gemoetry gun shows triangle, square etc
     peashooter shows peashooter
-   shield
+    
 
 
 bullets  

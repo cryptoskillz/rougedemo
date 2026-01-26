@@ -97,6 +97,7 @@ let keyUsedForRoom = false;
 
 let portal = { active: false, x: 0, y: 0 };
 let isInitializing = false;
+let ghostSpawned = false;
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -155,6 +156,24 @@ const SFX = {
 
         osc.connect(gain); gain.connect(audioCtx.destination);
         osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+    },
+
+    // Spooky wail for Ghost
+    ghost: (vol = 0.3) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        // Eerie wail: 150Hz sliding up to 400Hz
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 1.5);
+
+        // Fade in/out
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.2);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 1.5);
     }
 };
 
@@ -546,6 +565,7 @@ async function initGame(isRestart = false) {
     perfectStreak = 0;
     perfectEl.style.display = 'none';
     roomStartTime = Date.now();
+    ghostSpawned = false; // Reset Ghost
     visitedRooms = {};
     levelMap = {};
 
@@ -838,9 +858,14 @@ function spawnEnemies() {
         });
     } else {
         // Fallback: Random Grunts
+        // FILTER: Don't spawn special enemies (Boss, Ghost) as randoms
+        const validKeys = Object.keys(enemyTemplates).filter(k => !enemyTemplates[k].special);
+        const randomType = validKeys.length > 0 ? validKeys[Math.floor(Math.random() * validKeys.length)] : "grunt";
+
         let count = 3 + Math.floor(Math.random() * 3);
         if (gameData.difficulty) count += gameData.difficulty;
-        const template = enemyTemplates["grunt"] || { hp: 2, speed: 1, size: 25 };
+
+        const template = enemyTemplates[randomType] || { hp: 2, speed: 1, size: 25 };
 
         for (let i = 0; i < count; i++) {
             const inst = JSON.parse(JSON.stringify(template));
@@ -1306,8 +1331,10 @@ function update() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     //const now = Date.now();
-    const aliveEnemies = enemies.filter(en => !en.isDead);
-    const roomLocked = aliveEnemies.length > 0;
+    // const aliveEnemies = enemies.filter(en => !en.isDead);
+    // const roomLocked = aliveEnemies.length > 0;
+    const roomLocked = isRoomLocked();
+    const aliveEnemies = enemies.filter(en => !en.isDead); // Keep for homing logic
     const doors = roomData.doors || {};
 
     // 1. Inputs & Music
@@ -1338,6 +1365,7 @@ function update() {
     // 4. Transitions
     updateRoomTransitions(doors, roomLocked);
     updatePortal();
+    updateGhost(); // Check for ghost spawn
 }
 
 function updateReload() {
@@ -1363,7 +1391,7 @@ function updateReload() {
 //draw loop
 async function draw() {
     const aliveEnemies = enemies.filter(en => !en.isDead);
-    const roomLocked = aliveEnemies.length > 0;
+    const roomLocked = isRoomLocked();
     const doors = roomData.doors || {};
     await updateUI();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1460,10 +1488,29 @@ function updateRoomTransitions(doors, roomLocked) {
     else if (player.y > canvas.height - t && doors.bottom?.active && !doors.bottom?.locked && (!roomLocked || doors.bottom?.forcedOpen)) changeRoom(0, 1);
 }
 
+function isRoomLocked() {
+    const aliveEnemies = enemies.filter(en => !en.isDead);
+    let isLocked = false;
+    const nonGhostEnemies = aliveEnemies.filter(en => en.type !== 'ghost');
+
+    if (nonGhostEnemies.length > 0) {
+        // Normal enemies always lock
+        isLocked = true;
+    } else if (aliveEnemies.length > 0) {
+        // Only ghosts remain
+        const ghostConfig = gameData.ghost || { spawn: true, roomGhostTimer: 10000 };
+        const now = Date.now();
+        // Lock if time > 2x ghost timer
+        if (now - roomStartTime > (ghostConfig.roomGhostTimer * 2)) {
+            isLocked = true;
+        }
+    }
+    return isLocked;
+}
+
 function updateRoomLock() {
     // --- 2. ROOM & LOCK STATUS ---
-    const aliveEnemies = enemies.filter(en => !en.isDead);
-    const roomLocked = aliveEnemies.length > 0;
+    const roomLocked = isRoomLocked();
     const doors = roomData.doors || {};
 
     if (!roomLocked && !roomData.cleared) {
@@ -1484,7 +1531,7 @@ function drawShake() {
 }
 
 function drawDoors() {
-    const roomLocked = enemies.filter(en => !en.isDead).length > 0;
+    const roomLocked = isRoomLocked();
     const doors = roomData.doors || {};
     Object.entries(doors).forEach(([dir, door]) => {
         if (!door.active || door.hidden) return;
@@ -1933,7 +1980,7 @@ function updateUse() {
         audioCtx.resume();
     }
 
-    const roomLocked = enemies.length > 0;
+    const roomLocked = isRoomLocked();
     const doors = roomData.doors || {};
     if (roomLocked) return; // keep your existing rule: can't unlock while enemies alive
 
@@ -2049,6 +2096,14 @@ function updateBombsPhysics() {
                     if (dist < r + en.size) {
                         if (b.canInteract?.explodeOnImpact) {
                             // Boom
+                            bullets = [];
+                            bombs = [];
+                            particles = [];
+                            roomStartTime = Date.now();
+                            ghostSpawned = false; // Reset Ghost Timer
+
+                            // Check if visited before
+                            const coord = `${player.roomX},${player.roomY}`;
                             b.exploding = true;
                             b.explosionStartAt = Date.now();
                             b.vx = 0; b.vy = 0;
@@ -2153,7 +2208,8 @@ function updateEnemies() {
 
                 // CRIT & DAMAGE
                 let finalDamage = b.damage || 1;
-                if (Math.random() < (gun.Bullet?.critChance || 0)) {
+                // Ghost Immunity to Crits
+                if (en.type !== 'ghost' && Math.random() < (gun.Bullet?.critChance || 0)) {
                     finalDamage *= (gun.Bullet?.critDamage || 2);
                 }
                 en.hp -= finalDamage;
@@ -2161,7 +2217,8 @@ function updateEnemies() {
                 SFX.explode(0.08);
 
                 // FREEZE MECHANIC
-                if (Math.random() < (gun.Bullet?.freezeChance || 0)) {
+                // Ghost Immunity to Freeze
+                if (en.type !== 'ghost' && Math.random() < (gun.Bullet?.freezeChance || 0)) {
                     en.frozen = true;
                     en.freezeEnd = now + (gun.Bullet?.freezeDuration || 1000);
                 }
@@ -2245,6 +2302,50 @@ function updatePortal() {
         gameState = STATES.WIN;
         updateUI();
         gameOver();
+    }
+}
+
+function updateGhost() {
+    // Check if Ghost should spawn
+    const now = Date.now();
+    // Use config from gameData, default if missing
+    const ghostConfig = gameData.ghost || { spawn: true, roomGhostTimer: 10000 };
+
+    // Only spawn if:
+    // 1. Config enabled
+    // 2. Not already spawned in this room
+    // 3. Time exceeded
+    if (ghostConfig.spawn && !ghostSpawned && (now - roomStartTime > ghostConfig.roomGhostTimer)) {
+        if (player.roomX === 0 && player.roomY === 0) return; // No ghost in start room
+
+        log("THE GHOST APPEARS!");
+        ghostSpawned = true;
+
+        // Spawn Ghost
+        const template = enemyTemplates["ghost"] || {
+            hp: 2000, speed: 1.2, damage: 1000, size: 50, color: "rgba(231, 76, 60, 0.8)", type: "ghost"
+        };
+
+        const inst = JSON.parse(JSON.stringify(template));
+
+        // Spawn away from player
+        // Simple: Opposite corner or random edge
+        if (Math.random() > 0.5) {
+            inst.x = player.x > canvas.width / 2 ? 50 : canvas.width - 50;
+            inst.y = Math.random() * canvas.height;
+        } else {
+            inst.x = Math.random() * canvas.width;
+            inst.y = player.y > canvas.height / 2 ? 50 : canvas.height - 50;
+        }
+
+        inst.frozen = false; // active immediately
+        inst.invulnerable = false; // Ghost is killable? Or maybe super tanky (high HP in json)
+
+        // Ghost specific: pass through walls? (Needs logic update in updateEnemies if so)
+        // For now, standard movement
+
+        enemies.push(inst);
+        SFX.ghost(); // Spooky sound!
     }
 }
 
