@@ -1744,6 +1744,28 @@ function drawPlayer() {
         ctx.restore();
     }
 
+    // --- SHIELD BAR (Above Reload/Cooldown) ---
+    if (player.shield?.active) {
+        const barW = 40;
+        const barH = 5;
+        const barX = player.x - barW / 2;
+        const barY = player.y - player.size - 30; // Above the reload/cooldown bar
+
+        // Background
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(barX, barY, barW, barH);
+
+        // Progress (HP)
+        const shieldPct = Math.max(0, Math.min(player.shield.hp / player.shield.maxHp, 1));
+        ctx.fillStyle = player.shield.colour || "blue"; // Use shield color
+        ctx.fillRect(barX, barY, barW * shieldPct, barH);
+
+        // Border
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barW, barH);
+    }
+
     // --- RELOAD / COOLDOWN BAR ---
     // If reloading, show reload bar (Blue/Cyan)
     if (player.reloading) {
@@ -2521,19 +2543,32 @@ function takeDamage(amount) {
 }
 
 function updateShield() {
-    if (!player.shield?.active || !player.shield.regenActive) return;
+    if (!player.shield?.active) return;
+
+    // Debug only occasionally
+    if (Math.random() < 0.005) {
+        // log(`Shield Debug: Active=${player.shield.active}, HP=${player.shield.hp}/${player.shield.maxHp}, RegenActive=${player.shield.regenActive}, TimeSinceHit=${Math.round(now - (player.shield.lastHit || 0))}`);
+    }
+
+    if (!player.shield.regenActive) return;
 
     const now = Date.now();
     const regenDelay = player.shield.regenTimer || 1000;
     const lastHit = player.shield.lastHit || 0;
+    const timeSinceHit = now - lastHit;
 
     // Only regen if we haven't been hit recently AND HP is not full
-    if (now - lastHit > 2000 && player.shield.hp < player.shield.maxHp) {
-        // Regen tick
-        if (!player.shield.lastRegen || now - player.shield.lastRegen > regenDelay) {
-            player.shield.hp = Math.min(player.shield.hp + (player.shield.regen || 1), player.shield.maxHp);
-            player.shield.lastRegen = now;
+    if (timeSinceHit > 2000) {
+        if (player.shield.hp < player.shield.maxHp) {
+            // Regen tick
+            if (!player.shield.lastRegen || now - player.shield.lastRegen > regenDelay) {
+                player.shield.hp = Math.min(player.shield.hp + (player.shield.regen || 1), player.shield.maxHp);
+                player.shield.lastRegen = now;
+                // log(`Shield Regen Tick: +${player.shield.regen || 1} -> ${player.shield.hp}`);
+            }
         }
+    } else {
+        // if (Math.random() < 0.01) log(`Shield Regen Paused: Hit ${Math.round(timeSinceHit)}ms ago`);
     }
 }
 
