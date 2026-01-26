@@ -55,8 +55,43 @@ The game is highly data-driven. You can modify the JSON files in the `json/` dir
 ### `json/game.json`
 Global game settings.
 - `perfectGoal`: Number of "perfect" rooms (no damage taken) required for a reward.
-- `enterRoomFreezeTime`: ms to freeze enemies when entering a new room.
+- `NoRooms`: Number of rooms to clear.
 - `music`: Default music state (`true`/`false`).
+- `enterRoomFreezeTime`: ms to freeze enemies when entering a new room.
+- `ghost`: Ghost settings.
+    - `spawn`: Whether the ghost should spawn.
+    - `roomGhostTimer`: ms to wait before the ghost appears in a room.
+    - `roomFollow`: Whether the ghost should follow the player.
+
+### `json/player.json`
+Player starting stats.
+- `name`: Player name.
+- `description`: Player description.
+- `hp`: Starting Health Points.
+- `speed`: Movement speed.
+- `size`: Player size in pixels.
+- `physics`:
+    - `strength`: strength of the player.
+- `luck` : luck of the player
+- `roomX`: Starting room X position.
+- `roomY`: Starting room Y position.
+- `x`: Starting X position.
+- `y`: Starting Y position.
+- `invulTimer`: Duration of invulnerability after being hit.
+- `invulnUntil`: When invulnerability ends.
+- `invulnColor`: Color of invulnerability effect.
+- `lastShot`: When the last shot was fired.
+- `lastBomb`: When the last bomb was placed.
+- `speedCount`: Number of speed boosts.
+- `speedTotalCount`: Total number of speed boosts.
+- `perfectCount`: Number of perfect rooms.
+- `perfectTotalCount`: Total number of perfect rooms.
+- `bombType`: Reference to the starting bomb file (e.g., "normal").
+- `gunType`: Reference to the starting gun file (e.g., "geometry" loads `json/weapons/guns/geometry.json`).
+- `inventory`: Starting `keys` and `bombs`.
+        "roomGhostTimer": 10000,
+        "roomFollow": true
+    }
 
 ### `json/player.json`
 Player starting stats.

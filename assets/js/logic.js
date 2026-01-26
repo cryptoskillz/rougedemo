@@ -971,6 +971,12 @@ function changeRoom(dx, dy) {
 
     bullets = []; // Clear bullets on room entry
     bombs = []; // Clear bombs on room entry
+
+    // Check if Ghost should follow
+    const ghostConfig = gameData.ghost || { spawn: true, roomGhostTimer: 10000, roomFollow: false };
+    const shouldFollow = ghostSpawned && ghostConfig.roomFollow;
+
+    ghostSpawned = false; // Reset Ghost flag (will respawn via timer hack if following)
     bulletsInRoom = 0;
     hitsInRoom = 0;
     perfectEl.style.display = 'none';
@@ -992,6 +998,16 @@ function changeRoom(dx, dy) {
         if (roomData.isBoss) freezeDelay = 2000;
 
         roomStartTime = Date.now() + freezeDelay; // Start timer after freeze
+
+        // GHOST FOLLOW LOGIC
+        // If ghost was chasing and follow is on, fast-forward the timer so he appears immediately
+        if (shouldFollow && !(player.roomX === 0 && player.roomY === 0) && !roomData.isBoss) {
+            log("The Ghost follows you...");
+            // Set start time back so (now - start) > ghostTimer
+            // We add 1s buffer so he spawns basically instantly
+            roomStartTime = Date.now() - (ghostConfig.roomGhostTimer + 100);
+        }
+
         keyUsedForRoom = keyWasUsedForThisRoom; // Apply key usage penalty to next room
 
         // Immediate Room Bonus if key used
