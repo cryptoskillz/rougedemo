@@ -98,6 +98,7 @@ let keyUsedForRoom = false;
 let portal = { active: false, x: 0, y: 0 };
 let isInitializing = false;
 let ghostSpawned = false;
+let ghostEntry = null;
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -974,7 +975,24 @@ function changeRoom(dx, dy) {
 
     // Check if Ghost should follow
     const ghostConfig = gameData.ghost || { spawn: true, roomGhostTimer: 10000, roomFollow: false };
-    const shouldFollow = ghostSpawned && ghostConfig.roomFollow;
+    const activeGhost = enemies.find(e => e.type === 'ghost' && !e.isDead);
+    const shouldFollow = ghostSpawned && ghostConfig.roomFollow && activeGhost;
+
+    // Calculate Travel Time relative to the door we are exiting
+    let travelTime = 0;
+    if (shouldFollow) {
+        // Determine exit door coordinates (where player is going)
+        let doorX = player.x, doorY = player.y;
+        if (dx === 1) { doorX = canvas.width; doorY = canvas.height / 2; } // Right
+        else if (dx === -1) { doorX = 0; doorY = canvas.height / 2; } // Left
+        else if (dy === 1) { doorX = canvas.width / 2; doorY = canvas.height; } // Bottom
+        else if (dy === -1) { doorX = canvas.width / 2; doorY = 0; } // Top
+
+        const dist = Math.hypot(activeGhost.x - doorX, activeGhost.y - doorY);
+        // Speed ~1.2px/frame @ 60fps ~ 0.072px/ms -> ms = dist / 0.072 = dist * 13.8
+        travelTime = dist * 14;
+        log(`Ghost chasing! Distance: ${Math.round(dist)}, Travel Delay: ${Math.round(travelTime)}ms`);
+    }
 
     ghostSpawned = false; // Reset Ghost flag (will respawn via timer hack if following)
     bulletsInRoom = 0;
@@ -1003,9 +1021,31 @@ function changeRoom(dx, dy) {
         // If ghost was chasing and follow is on, fast-forward the timer so he appears immediately
         if (shouldFollow && !(player.roomX === 0 && player.roomY === 0) && !roomData.isBoss) {
             log("The Ghost follows you...");
-            // Set start time back so (now - start) > ghostTimer
-            // We add 1s buffer so he spawns basically instantly
-            roomStartTime = Date.now() - (ghostConfig.roomGhostTimer + 100);
+            // Trigger time = desired spawn time
+            // roomStartTime = Now - (ConfigTime - TravelTime)
+            // Example: Config=10s, Travel=2s. We want spawn in 2s.
+            // Timer checks: (Now - Start) > 10s.
+            // (Now - Start) should start at 8s.
+            // Start = Now - 8s = Now - (10s - 2s).
+            // We add 100ms buffer to ensure it triggers after the frame update
+            // Actually, if we want it to spawn AFTER travel time, we set the accumulator to (Target - Travel).
+
+            const timeAlreadyElapsed = ghostConfig.roomGhostTimer - travelTime;
+            // Clamp so we don't wait forever if travel is huge (max delay 3x timer?) or negative?
+            // If travelTime > ghostTimer, timeAlreadyElapsed is negative, so we wait longer than usual. Correct.
+
+            roomStartTime = Date.now() - timeAlreadyElapsed;
+
+            // Set Ghost Entry Point (The door we just came through)
+            // Player is currently AT the door (spawnPlayer just ran)
+            ghostEntry = {
+                x: player.x,
+                y: player.y,
+                vx: dx * 2, // Move in the same direction player entered
+                vy: dy * 2
+            };
+        } else {
+            ghostEntry = null;
         }
 
         keyUsedForRoom = keyWasUsedForThisRoom; // Apply key usage penalty to next room
@@ -2344,14 +2384,25 @@ function updateGhost() {
 
         const inst = JSON.parse(JSON.stringify(template));
 
-        // Spawn away from player
-        // Simple: Opposite corner or random edge
-        if (Math.random() > 0.5) {
-            inst.x = player.x > canvas.width / 2 ? 50 : canvas.width - 50;
-            inst.y = Math.random() * canvas.height;
+        // Spawn Location
+        if (ghostEntry) {
+            // Spawn at the door the player entered
+            inst.x = ghostEntry.x;
+            inst.y = ghostEntry.y;
+            // Give it some momentum into the room
+            inst.vx = ghostEntry.vx || 0;
+            inst.vy = ghostEntry.vy || 0;
+            ghostEntry = null; // Consume
         } else {
-            inst.x = Math.random() * canvas.width;
-            inst.y = player.y > canvas.height / 2 ? 50 : canvas.height - 50;
+            // Default: Spawn away from player
+            // Simple: Opposite corner or random edge
+            if (Math.random() > 0.5) {
+                inst.x = player.x > canvas.width / 2 ? 50 : canvas.width - 50;
+                inst.y = Math.random() * canvas.height;
+            } else {
+                inst.x = Math.random() * canvas.width;
+                inst.y = player.y > canvas.height / 2 ? 50 : canvas.height - 50;
+            }
         }
 
         inst.frozen = false; // active immediately
