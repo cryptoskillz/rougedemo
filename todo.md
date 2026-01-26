@@ -3,8 +3,8 @@ bugs
     room count at the end is off (maybe same room type in generation)
 the enemies get stuck they should work their way around obstacles
 if you renter a room with enemies it should not spawn new ones
-    portal shows in other room when you back track
-    rooms are locked when you back track is should just be the enemies that respawn
+    use music in game.json to control music
+
 
 
 next up 
@@ -33,7 +33,6 @@ logic
 bombs
     add an explode on enemy / anything 
     if you are not moving the bomb should drop in front of you if you are moving it should follow you
-    use music in game.json to control music
 
 level 1
 

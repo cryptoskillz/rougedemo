@@ -827,6 +827,29 @@ function spawnEnemies() {
         player.invulnUntil = freezeUntil;
     }
 
+    // CHECK HAUNTED STATUS
+    // If room is haunted, skip normal enemies and spawn Ghost immediately
+    const currentCoord = `${player.roomX},${player.roomY}`;
+    if (levelMap[currentCoord] && levelMap[currentCoord].haunted) {
+        log("The room is Haunted! The Ghost returns...");
+
+        // Ensure ghostSpawned is true so we don't spawn another one later via timer
+        ghostSpawned = true;
+
+        const template = enemyTemplates["ghost"] || { hp: 2000, speed: 1.2, size: 50, type: "ghost" };
+        const inst = JSON.parse(JSON.stringify(template));
+
+        // Standard random placement or center
+        inst.x = Math.random() * (canvas.width - 60) + 30;
+        inst.y = Math.random() * (canvas.height - 60) + 30;
+        inst.frozen = false; // Active immediately
+        inst.invulnerable = false;
+
+        enemies.push(inst);
+        SFX.ghost();
+        return; // Skip normal spawns
+    }
+
     // Skip if explicitly set to 0 enemies
     if (roomData.enemyCount === 0) return;
 
@@ -2376,6 +2399,12 @@ function updateGhost() {
 
         log("THE GHOST APPEARS!");
         ghostSpawned = true;
+
+        // Mark room as Haunted (Persistent)
+        const currentCoord = `${player.roomX},${player.roomY}`;
+        if (levelMap[currentCoord]) {
+            levelMap[currentCoord].haunted = true;
+        }
 
         // Spawn Ghost
         const template = enemyTemplates["ghost"] || {
