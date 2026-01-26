@@ -38,7 +38,7 @@
         "homing": true,
         "fireRate": 0.1,
         "wallBounce": false,
-        "pierce": true,
+        "pierce": false,
         "reverseFire": false,
         "frontLocked": false,
         "NoBullets": false,

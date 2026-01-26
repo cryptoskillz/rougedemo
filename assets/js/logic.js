@@ -917,20 +917,23 @@ function spawnPlayer(dx, dy, data) {
 
     const door = (data.doors && data.doors[requiredDoor]) || { x: (data.width || 800) / 2, y: (data.height || 600) / 2 };
 
+    // Use a safe offset > the door trigger threshold (t=50)
+    const SAFE_OFFSET = 70; // Must be > 50
+
     if (dx === 1) {
-        player.x = BOUNDARY + 10;
+        player.x = BOUNDARY + SAFE_OFFSET;
         player.y = door.y !== undefined ? door.y : (data.height || 600) / 2;
     }
     if (dx === -1) {
-        player.x = (data.width || 800) - BOUNDARY - 10;
+        player.x = (data.width || 800) - BOUNDARY - SAFE_OFFSET;
         player.y = door.y !== undefined ? door.y : (data.height || 600) / 2;
     }
     if (dy === 1) {
-        player.y = BOUNDARY + 10;
+        player.y = BOUNDARY + SAFE_OFFSET;
         player.x = door.x !== undefined ? door.x : (data.width || 800) / 2;
     }
     if (dy === -1) {
-        player.y = (data.height || 600) - BOUNDARY - 10;
+        player.y = (data.height || 600) - BOUNDARY - SAFE_OFFSET;
         player.x = door.x !== undefined ? door.x : (data.width || 800) / 2;
     }
 }
