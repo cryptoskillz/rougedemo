@@ -790,6 +790,7 @@ window.addEventListener('keydown', e => {
             // Actually initGame reset player.x/y already.
             const defaults = { x: 300, y: 200, roomX: 0, roomY: 0 };
             player = { ...defaults, ...JSON.parse(JSON.stringify(p)) };
+            if (!player.maxHp) player.maxHp = player.hp || 3;
             if (!player.inventory) player.inventory = { keys: 0, bombs: 0 };
         }
 
@@ -3424,8 +3425,9 @@ async function pickupItem(item, index) {
             if (mods.hp !== undefined) {
                 const val = parseFloat(mods.hp);
                 if (!isNaN(val)) {
-                    player.hp = Math.min(player.hp + val, 3); // Max HP cap?
-                    log(`HP: ${val > 0 ? '+' : ''}${val}`);
+                    const maxHp = player.maxHp || 3;
+                    player.hp = Math.min(player.hp + val, maxHp);
+                    log(`HP: ${val > 0 ? '+' : ''}${val} (Max: ${maxHp})`);
                 }
             }
 
