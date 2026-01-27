@@ -589,6 +589,25 @@ async function initGame(isRestart = false) {
             );
             const allItems = await Promise.all(itemPromises);
 
+            // ENHANCE: Fetch color from target config
+            await Promise.all(allItems.map(async (item) => {
+                if (!item || !item.location) return;
+                try {
+                    const res = await fetch(`json/${item.location}?t=` + Date.now());
+                    const config = await res.json();
+
+                    // Check Top Level (Bombs/Modifiers) OR Bullet Level (Guns)
+                    const color = config.colour || config.color ||
+                        (config.Bullet && (config.Bullet.colour || config.Bullet.color));
+
+                    if (color) {
+                        item.colour = color;
+                    }
+                } catch (e) {
+                    // console.warn("Could not load config for color:", item.name);
+                }
+            }));
+
             // Filter starters
             // User: "starter: false" means it spawns in the room. "starter: true" means player already has it.
             const starters = allItems.filter(i => i && i.starter === false);

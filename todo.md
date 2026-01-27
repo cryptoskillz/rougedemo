@@ -7,6 +7,7 @@ bugs
     ghost does not seem to be following you he seems to be stuck frozen in the room
     when you reenter the guardian room it shows the intro 
     ghost time should not start until the enemies are dead
+    reload gun when you enter a new room should not reset
 
 
 next up 
