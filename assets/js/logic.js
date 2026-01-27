@@ -3350,7 +3350,8 @@ async function pickupItem(item, index) {
                         type: "gun",
                         location: `weapons/guns/${oldName}.json`,
                         rarity: "common",
-                        starter: false
+                        starter: false,
+                        colour: (gun.Bullet && (gun.Bullet.colour || gun.Bullet.color)) || gun.colour || gun.color
                     }
                 });
             }
@@ -3385,7 +3386,8 @@ async function pickupItem(item, index) {
                         type: "bomb",
                         location: `weapons/bombs/${oldName}.json`,
                         rarity: "common",
-                        starter: false
+                        starter: false,
+                        colour: bomb.colour || bomb.color
                     }
                 });
             }
@@ -3400,13 +3402,49 @@ async function pickupItem(item, index) {
         }
         else if (type === 'modifier') {
             // APPLY MODIFIER
-            const target = config.modify; // "gun" or "bomb"
+            const target = config.modify;
+            const mods = config.modifiers;
+            let appliedStatMod = false;
+
+            // 1. Handle Inventory / Consumables (Global, Instant)
+            if (mods.bombs !== undefined) {
+                const val = parseFloat(mods.bombs);
+                if (!isNaN(val)) {
+                    player.inventory.bombs = (player.inventory.bombs || 0) + val;
+                    log(`Ammo: ${val > 0 ? '+' : ''}${val} Bomb(s)`);
+                }
+            }
+            if (mods.keys !== undefined) {
+                const val = parseFloat(mods.keys);
+                if (!isNaN(val)) {
+                    player.inventory.keys = (player.inventory.keys || 0) + val;
+                    log(`Keys: ${val > 0 ? '+' : ''}${val}`);
+                }
+            }
+            if (mods.hp !== undefined) {
+                const val = parseFloat(mods.hp);
+                if (!isNaN(val)) {
+                    player.hp = Math.min(player.hp + val, 3); // Max HP cap?
+                    log(`HP: ${val > 0 ? '+' : ''}${val}`);
+                }
+            }
+
+            // 2. Handle Persistent Stat Modifiers (Gun/Bomb Configs)
+            // Filter out inventory keys from stat application if needed, 
+            // but for now, assuming modifiers are either consumable OR stat mods.
+            // If verify keys commonly used for stats... 
 
             if (target === 'gun') {
-                // Store for future guns
-                activeModifiers.push(config);
-                applyModifierToGun(gun, config);
+                // Check if there are actual gun stats (excluding inventory keys)
+                const hasGunStats = Object.keys(mods).some(k => !['bombs', 'keys', 'hp'].includes(k));
+
+                if (hasGunStats) {
+                    activeModifiers.push(config);
+                    applyModifierToGun(gun, config);
+                    appliedStatMod = true;
+                }
             }
+
             log(`Applied Modifier: ${config.name || "Unknown"}`);
         }
 

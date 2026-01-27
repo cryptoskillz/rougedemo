@@ -5,6 +5,8 @@
         "bomb_normal",
         "bomb_golden",
         "bomb_red",
-        "modifier_homing"
+        "modifier_homing",
+        "inventory_addbomb",
+        "modifier_addhealth"
     ]
 }
