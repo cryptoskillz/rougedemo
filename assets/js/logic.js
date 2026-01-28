@@ -3613,7 +3613,10 @@ async function pickupItem(item, index) {
 
         // Remove from floor 
         // (Optional: Drop CURRENT item? For now, just destroy old)
-        groundItems.splice(index, 1);
+        // Check if item should be consumed (Default: true)
+        if (item.data.consumed !== false) {
+            groundItems.splice(index, 1);
+        }
         SFX.click(0.5); // Pickup sound
 
     } catch (e) {
