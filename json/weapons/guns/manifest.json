@@ -2,6 +2,9 @@
     "guns": [
         "peashooter",
         "geometry",
-        "shotgun"
+        "shotgun",
+        "2way",
+        "4way",
+        "360"
     ]
 }

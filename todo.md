@@ -15,7 +15,11 @@ bugs
     perfect item drop
     angry enemies do not restart on new game
     enemies should move through ghost enemies and try not stay inside them 
-    
+    dont spawn items on top of one another
+    360 modifier does not work
+    items should moce away from doors as they cannot be picked up
+    mini map does not show up on debug mode, should be an item to show it
+    explode modifier does not work     
 
 
 next up 
@@ -31,7 +35,7 @@ items
     luck+
     randomstat+
     kick bombs
-    bullet explode
+    
 
 
 levels

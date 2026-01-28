@@ -505,7 +505,7 @@ const DOOR_THICKNESS = 15;
 const DEBUG_START_BOSS = false; // TOGGLE THIS FOR DEBUGGING
 const DEBUG_PLAYER = true;
 const CHEATS_ENABLED = false;
-const DEBUG_WINDOW_ENABLED = true;
+const DEBUG_WINDOW_ENABLED = false;
 const DEBUG_SPAWN_ALL_ITEMS = true;
 
 let musicMuted = false;
