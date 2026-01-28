@@ -5,6 +5,7 @@
     "locked": false,
     "shape": "square",
     "hp": 10,
+    "maxHp": 10,
     "speed": 10,
     "size": 20,
     "physics": {

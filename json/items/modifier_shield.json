@@ -1,0 +1,9 @@
+{
+    "name": "Shield",
+    "description": "the Basic shiled",
+    "location": "weapons/modifiers/player/shield.json",
+    "type": "modifier",
+    "starter": false,
+    "consumed": false,
+    "rarity": "uncommon"
+}

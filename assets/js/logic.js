@@ -256,6 +256,7 @@ async function updateUI() {
     else {
         hpEl.innerText = Math.floor(player.hp);
     }
+    hpEl.innerText += ` / ${player.maxHp}`;
     keysEl.innerText = player.inventory.keys;
     //check if bomb type is golden and if so set the count colour to gold 
     if (player.bombType === "golden") {
@@ -1650,22 +1651,34 @@ function updateRoomTransitions(doors, roomLocked) {
         // log(`Left Door Check: X=${Math.round(player.x)} < ${t}? Locked=${doors.left.locked}, RoomLocked=${roomLocked}`);
     }
 
+    // Constraint for center alignment
+    // Only allow transition if player is roughly in front of the door
+    const doorW = 50; // Half-width tolerance (Total 100px)
+
     // Allow transition if room is unlocked OR if the specific door is forced open (red door blown)
     if (player.x < t && doors.left?.active) {
-        if (!doors.left.locked && (!roomLocked || doors.left.forcedOpen)) changeRoom(-1, 0);
-        else log("Left Door Blocked: Locked or Room Locked");
+        if (Math.abs(player.y - canvas.height / 2) < doorW) {
+            if (!doors.left.locked && (!roomLocked || doors.left.forcedOpen)) changeRoom(-1, 0);
+            else log("Left Door Blocked: Locked or Room Locked");
+        }
     }
     else if (player.x > canvas.width - t && doors.right?.active) {
-        if (!doors.right.locked && (!roomLocked || doors.right.forcedOpen)) changeRoom(1, 0);
-        else log("Right Door Blocked: Locked or Room Locked");
+        if (Math.abs(player.y - canvas.height / 2) < doorW) {
+            if (!doors.right.locked && (!roomLocked || doors.right.forcedOpen)) changeRoom(1, 0);
+            else log("Right Door Blocked: Locked or Room Locked");
+        }
     }
     else if (player.y < t && doors.top?.active) {
-        if (!doors.top.locked && (!roomLocked || doors.top.forcedOpen)) changeRoom(0, -1);
-        else log("Top Door Blocked: Locked or Room Locked");
+        if (Math.abs(player.x - canvas.width / 2) < doorW) {
+            if (!doors.top.locked && (!roomLocked || doors.top.forcedOpen)) changeRoom(0, -1);
+            else log("Top Door Blocked: Locked or Room Locked");
+        }
     }
     else if (player.y > canvas.height - t && doors.bottom?.active) {
-        if (!doors.bottom.locked && (!roomLocked || doors.bottom.forcedOpen)) changeRoom(0, 1);
-        else log("Bottom Door Blocked: Locked or Room Locked");
+        if (Math.abs(player.x - canvas.width / 2) < doorW) {
+            if (!doors.bottom.locked && (!roomLocked || doors.bottom.forcedOpen)) changeRoom(0, 1);
+            else log("Bottom Door Blocked: Locked or Room Locked");
+        }
     }
 }
 
@@ -3492,6 +3505,29 @@ async function pickupItem(item, index) {
                     log(`HP: ${val > 0 ? '+' : ''}${val} (Max: ${maxHp})`);
                 }
             }
+            if (mods.maxHp !== undefined) {
+                const val = parseFloat(mods.maxHp);
+                if (!isNaN(val)) {
+                    player.maxHp = (player.maxHp || 3) + val;
+                    // Optional: Heal by the amount increased? Or just add empty container?
+                    // Typically 'Heart Container' heals you fully or adds empty container.
+                    // Let's heal the amount added so you feel the effect immediately.
+                    player.hp += val;
+                    log(`Max HP Increased! +${val}`);
+                }
+            }
+            // SHIELD MODIFIERS
+            if (mods["shield.active"] !== undefined) {
+                if (!player.shield) player.shield = { active: false, hp: 0, maxHp: 5 };
+                player.shield.active = !!mods["shield.active"];
+                if (player.shield.active && player.shield.hp <= 0) player.shield.hp = player.shield.maxHp; // Restore HP on activation
+                log("Shield Activated!");
+            }
+            if (mods["shield.regenActive"] !== undefined) {
+                if (!player.shield) player.shield = { active: false, hp: 0, maxHp: 5 };
+                player.shield.regenActive = !!mods["shield.regenActive"];
+                log("Shield Regen Enabled!");
+            }
 
             // 2. Handle Persistent Stat Modifiers (Gun/Bomb Configs)
             // Filter out inventory keys from stat application if needed, 
@@ -3500,7 +3536,7 @@ async function pickupItem(item, index) {
 
             if (target === 'gun') {
                 // Check if there are actual gun stats (excluding inventory keys)
-                const hasGunStats = Object.keys(mods).some(k => !['bombs', 'keys', 'hp'].includes(k));
+                const hasGunStats = Object.keys(mods).some(k => !['bombs', 'keys', 'hp', 'maxHp'].includes(k));
 
                 if (hasGunStats) {
                     activeModifiers.push(config);

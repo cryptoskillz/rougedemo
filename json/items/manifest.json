@@ -7,6 +7,8 @@
         "bomb_red",
         "modifier_homing",
         "inventory_addbomb",
-        "modifier_addhealth"
+        "modifier_addhp",
+        "modifier_addmaxhp",
+        "modifier_shield"
     ]
 }

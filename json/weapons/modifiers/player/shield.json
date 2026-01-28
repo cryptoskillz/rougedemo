@@ -1,0 +1,6 @@
+{
+    "colour": "#000000",
+    "description": "the Basic shield",
+    "modify": "player",
+    "shield.regenActive": false
+}

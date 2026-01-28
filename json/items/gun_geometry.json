@@ -1,8 +1,10 @@
 {
     "name": "geometry",
+    "description": "Maths is fun",
     "location": "weapons/guns/geometry.json",
     "type": "gun",
     "starter": false,
+    "consumed": false,
     "modifier": {
         "active": false,
         "modify": ""
