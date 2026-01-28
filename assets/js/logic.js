@@ -505,7 +505,7 @@ const DOOR_THICKNESS = 15;
 const DEBUG_START_BOSS = false; // TOGGLE THIS FOR DEBUGGING
 const DEBUG_PLAYER = true;
 const CHEATS_ENABLED = false;
-const DEBUG_WINDOW_ENABLED = false;;
+const DEBUG_WINDOW_ENABLED = true;
 
 let musicMuted = false;
 let lastMKeyTime = 0;
@@ -3603,21 +3603,49 @@ function applyModifierToGun(gunObj, modConfig) {
     const mods = modConfig.modifiers;
     for (const key in mods) {
         let val = mods[key];
+        let isRelative = false;
+
+        // Check for relative modifiers (String starting with + or -)
+        if (typeof val === 'string') {
+            if (val.startsWith('+') || val.startsWith('-')) {
+                isRelative = true;
+            }
+        }
+
         // Type conversion
         if (val === "true") val = true;
         else if (val === "false") val = false;
         else if (!isNaN(val)) val = parseFloat(val);
 
+        // Helper to apply
+        const applyTo = (obj, prop, value, relative) => {
+            if (obj[prop] !== undefined) {
+                // log(`Applying ${prop} to ${JSON.stringify(obj)}. Rel: ${relative}, Val: ${value}, Old: ${obj[prop]}`);
+                if (relative && typeof obj[prop] === 'number' && typeof value === 'number') {
+                    let old = obj[prop];
+                    obj[prop] += value;
+                    // Prevent negative stats where inappropriate (heuristic)
+                    if (obj[prop] < 0 && prop !== 'startX' && prop !== 'startY') obj[prop] = 0.05; // Cap fireRate at 0.05 (20/sec)
+                    log(`Adjusted ${prop}: ${old} -> ${obj[prop]}`);
+                } else {
+                    obj[prop] = value;
+                    log(`Set ${prop}: ${value}`);
+                }
+                return true;
+            }
+            return false;
+        };
+
         // Check Gun Root
-        if (gunObj[key] !== undefined) {
-            gunObj[key] = val;
+        if (applyTo(gunObj, key, val, isRelative)) continue;
+
+        // Check Bullet
+        if (gunObj.Bullet) {
+            applyTo(gunObj.Bullet, key, val, isRelative);
         }
-        // Check Bullet (Most likely)
-        else if (gunObj.Bullet && gunObj.Bullet[key] !== undefined) {
-            gunObj.Bullet[key] = val;
-        }
+
         // Handle special deep keys if flat (e.g. homing)
-        else if (key === 'homing') {
+        if (key === 'homing') {
             // Ensure homing exists or force it
             if (!gunObj.Bullet) gunObj.Bullet = {};
             gunObj.Bullet.homing = val;

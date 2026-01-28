@@ -9,6 +9,7 @@
         "inventory_addbomb",
         "modifier_addhp",
         "modifier_addmaxhp",
-        "modifier_shield"
+        "modifier_shield",
+        "modifier_decreasefirerate"
     ]
 }

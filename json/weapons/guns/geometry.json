@@ -7,7 +7,7 @@
             "life": 0.5,
             "sizeMult": 0.5
         },
-        "colour": "#FFFF00",
+        "colour": "#000000",
         "ammo": {
             "active": false,
             "type": "finite",
@@ -33,7 +33,7 @@
         "range": 100,
         "curve": 0,
         "spreadRate": 1,
-        "number": 5,
+        "number": 1,
         "recoil": 0,
         "homing": false,
         "fireRate": 0.5,
