@@ -2580,6 +2580,15 @@ function updateEnemies() {
             en.frozen = true;
             en.invulnerable = true;
             // Visuals: Maybe draw them blue or static? handled in drawEnemies by frozen flag
+        } else {
+            // Only unfreeze if we are NOT currently frozen by a bullet/effect
+            // If freezeEnd is set and we are still within it, keep frozen.
+            // If freezeEnd is undefined (room freeze legacy) or expired, unfreeze.
+            const isEffectFrozen = en.freezeEnd && now < en.freezeEnd;
+            if (!isEffectFrozen) {
+                en.frozen = false;
+                en.invulnerable = false;
+            }
         }
 
         // 2. Frozen/Movement Logic

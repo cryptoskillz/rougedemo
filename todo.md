@@ -1,20 +1,11 @@
 bugs
-  
-    solid false does make you invul when you are hit  
-    check freezeDuration works below 1 second.  
-    if ghost appears and hyou leave a room with enemies when you go back only the ghost remaims 
-    ghost does not seem to be following you he seems to be stuck frozen in the room
-    when you reenter the guardian room it shows the intro 
-    ghost time should not start until the enemies are dead
     reload gun when you enter a new room should not reset
     if an enemy hits you do they take damage?
-    room tweaking
     rooom bonus item drop
     speedy item drop
     perfect item drop
     angry enemies do not restart on new game
     enemies should move through ghost enemies and try not stay inside them 
-    dont spawn items on top of one another
     360 modifier does not work
     items should moce away from doors when they are pushed as they cannot be picked up
     explode modifier does not work  
@@ -22,6 +13,8 @@ bugs
     use bonuses from game.json to reward the user they should be 100% and these 
     should be considered as special binuses
     special items should get from a special folder in items
+    when you reenter the guardian room it shows the intro 
+    dont spawn items on top of one another*
 
 
 
@@ -88,6 +81,7 @@ server
     store permant modiifers
 
 items
+    solid false
     coin item
     start room in a 10000 chance to drop a legendary item 
     room bonus
