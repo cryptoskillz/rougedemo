@@ -9,20 +9,15 @@
         },
         "colour": "#000000",
         "ammo": {
-            "active": false,
-            "type": "finite",
+            "active": true,
+            "type": "recharge",
             "resetTimer": 1000,
             "amount": 10,
             "maxAmount": 50
         },
         "geometry": {
-            "shape": "random",
-            "shapes": [
-                "square",
-                "triangle",
-                "square",
-                "circle"
-            ],
+            "shape": "circle",
+            "shapes": [],
             "animated": false,
             "filled": false
         },
