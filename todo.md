@@ -37,6 +37,7 @@ server
     store permant modiifers
 
 items
+    start room in a 10000 chance to drop a legendary item 
     room bonus
     key bonus
     speedy bonus

@@ -5,6 +5,10 @@
     "type": "gun",
     "starter": true,
     "consumed": true,
+    "unlocked": {
+        "active": true,
+        "modifyType": "perm"
+    },
     "modifier": {
         "active": false,
         "modify": ""

@@ -5,5 +5,9 @@
     "type": "modifier",
     "starter": false,
     "consumed": true,
+    "unlocked": {
+        "active": false,
+        "modifyType": "session"
+    },
     "rarity": "legendary"
 }
