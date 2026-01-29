@@ -2,6 +2,6 @@
     "modify": "gun",
     "colour": "#000000",
     "modifiers": {
-        "pierce": "true"
+        "critChance": "+0.1"
     }
 }

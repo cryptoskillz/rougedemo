@@ -17,10 +17,11 @@ bugs
     enemies should move through ghost enemies and try not stay inside them 
     dont spawn items on top of one another
     360 modifier does not work
-    items should moce away from doors as they cannot be picked up
-    mini map does not show up on debug mode, should be an item to show it
+    items should moce away from doors when they are pushed as they cannot be picked up
     explode modifier does not work  
     update game.json vars to implemnt various switches   
+    use bonuses from game.json to reward the user they should be 100% and these 
+    should be considered as special binuses
 
 
 next up 
