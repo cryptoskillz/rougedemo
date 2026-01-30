@@ -19,10 +19,122 @@
     "showWelcome": true,
     "ghost": {
         "spawn": true,
-        "roomGhostTimer": 60000,
+        "roomGhostTimer": 10000,
         "roomFollow": true
     },
     "room": {
         "freezeTimer": 100
+    },
+    "bonuses": {
+        "key": {
+            "maxDrop": 1,
+            "common": {
+                "count": 1,
+                "dropChance": 0.3
+            },
+            "uncommon": {
+                "count": 1,
+                "dropChance": 0.2
+            },
+            "rare": {
+                "count": 1,
+                "dropChance": 0.1
+            },
+            "legendary": {
+                "count": 0,
+                "dropChance": 0
+            },
+            "special": {
+                "item": ""
+            }
+        },
+        "startroom": {
+            "maxDrop": 1,
+            "common": {
+                "count": 0,
+                "dropChance": 0
+            },
+            "uncommon": {
+                "count": 0,
+                "dropChance": 0
+            },
+            "rare": {
+                "count": 0,
+                "dropChance": 0
+            },
+            "legendary": {
+                "count": 1,
+                "dropChance": 0.01
+            },
+            "special": {
+                "item": ""
+            }
+        },
+        "perfect": {
+            "maxDrop": 1,
+            "common": {
+                "count": 0,
+                "dropChance": 0
+            },
+            "uncommon": {
+                "count": 0,
+                "dropChance": 0
+            },
+            "rare": {
+                "count": 1,
+                "dropChance": 1
+            },
+            "legendary": {
+                "count": 1,
+                "dropChance": 0
+            },
+            "special": {
+                "item": ""
+            }
+        },
+        "speedy": {
+            "maxDrop": 1,
+            "common": {
+                "count": 1,
+                "dropChance": 1
+            },
+            "uncommon": {
+                "count": 1,
+                "dropChance": 0
+            },
+            "rare": {
+                "count": 0,
+                "dropChance": 0
+            },
+            "legendary": {
+                "count": 0,
+                "dropChance": 0
+            },
+            "special": {
+                "item": ""
+            }
+        },
+        "ghost": {
+            "maxDrop": 1,
+            "common": {
+                "count": 1,
+                "dropChance": 0
+            },
+            "uncommon": {
+                "count": 1,
+                "dropChance": 0
+            },
+            "rare": {
+                "count": 1,
+                "dropChance": 0
+            },
+            "legendary": {
+                "count": 1,
+                "dropChance": 1
+            },
+            "special": {
+                "item": "/items/gun_ghost.json"
+            }
+        }
     }
 }

@@ -1,7 +1,7 @@
 {
-    "name": "4 way gun",
-    "description": "the 4 way gun",
-    "location": "weapons/guns/4way.json",
+    "name": "ghost gun",
+    "description": "the ghost gun, super powerful",
+    "location": "weapons/guns/ghost.json",
     "type": "gun",
     "starter": false,
     "consumed": true,

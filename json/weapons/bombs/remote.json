@@ -1,6 +1,6 @@
 {
-    "name": "normal",
-    "description": "A standard bomb",
+    "name": "remote",
+    "description": "A remote bomb",
     "size": 30,
     "colour": "#ffffff",
     "range": 70,
@@ -8,7 +8,7 @@
     "fireRate": 0.1,
     "canShoot": false,
     "timer": {
-        "active": true,
+        "active": false,
         "show": true,
         "time": 3000
     },
@@ -21,7 +21,7 @@
         "restitution": 0.5
     },
     "remoteDenoate": {
-        "active": false,
+        "active": true,
         "key": "space"
     },
     "explosion": {
@@ -32,11 +32,11 @@
     },
     "doors": {
         "openLockedDoors": true,
-        "openRedDoors": true,
+        "openRedDoors": false,
         "openSecretRooms": true
     },
     "canInteract": {
-        "active": false,
+        "active": true,
         "type": "kick",
         "distance": 100,
         "explodeOnImpact": false

@@ -30,6 +30,50 @@ let lastMusicToggle = 0;
 let debugLogs = [];
 const MAX_DEBUG_LOGS = 10;
 
+// --- FLOATING TEXT SYSTEM ---
+let floatingTexts = [];
+
+function spawnFloatingText(x, y, text, color = "white") {
+    floatingTexts.push({
+        x: x,
+        y: y,
+        text: text,
+        color: color,
+        life: 1.0, // 100% opacity start
+        vy: -1.0 // Float up speed
+    });
+}
+
+
+function updateFloatingTexts() {
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const ft = floatingTexts[i];
+        ft.y += ft.vy;
+        ft.life -= 0.015; // Slow fade
+        if (ft.life <= 0) {
+            floatingTexts.splice(i, 1);
+        }
+    }
+}
+
+function drawFloatingTexts() {
+    floatingTexts.forEach(ft => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, ft.life);
+        ctx.fillStyle = ft.color;
+        ctx.font = "bold 16px monospace";
+        ctx.textAlign = "center";
+
+        // Shadow for readability
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 4;
+        ctx.strokeText(ft.text, ft.x, ft.y);
+        ctx.fillText(ft.text, ft.x, ft.y);
+
+        ctx.restore();
+    });
+}
+
 function log(...args) {
     if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED) {
         const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
@@ -270,7 +314,7 @@ async function updateUI() {
     //console.log(gun);
     if (gun.Bullet?.ammo?.active) {
         if (player.reloading) {
-            ammoEl.innerText = player.ammoMode === 'recharge' ? "RECHARGING..." : "RELOADING...";
+            ammoEl.innerText = player.ammoMode === 'recharge' ? player.ammo : "RELOADING...";
             ammoEl.style.color = "red";
         } else {
             if ((player.ammo <= 0 && player.ammoMode === 'finite') ||
@@ -569,6 +613,7 @@ async function initGame(isRestart = false) {
     perfectEl.style.display = 'none';
     roomStartTime = Date.now();
     ghostSpawned = false; // Reset Ghost
+    bossKilled = false;   // Reset Boss Kill State
     visitedRooms = {};
     levelMap = {};
 
@@ -719,9 +764,11 @@ async function initGame(isRestart = false) {
 
             // This attempts to play immediately.
             // If the browser blocks it, the 'keydown' listener below will catch it.
-            introMusic.play().catch(() => {
-                log("Autoplay blocked: Waiting for first user interaction to start music.");
-            });
+            if (!musicMuted) {
+                introMusic.play().catch(() => {
+                    log("Autoplay blocked: Waiting for first user interaction to start music.");
+                });
+            }
 
             // Fallback: Start music on the very first key press or click if autoplay failed
             const startAudio = () => {
@@ -800,7 +847,18 @@ async function initGame(isRestart = false) {
         canvas.width = roomData.width || 800;
         canvas.height = roomData.height || 600;
 
-        if (gameState === STATES.PLAY) spawnEnemies();
+        if (gameState === STATES.PLAY) {
+            spawnEnemies();
+
+            // Check for Start Room Bonus
+            if (gameData.bonuses && gameData.bonuses.startroom) {
+                const dropped = spawnRoomRewards(gameData.bonuses.startroom);
+                if (dropped) {
+                    perfectEl.innerText = "START BONUS!";
+                    triggerPerfectText();
+                }
+            }
+        }
 
         if (!gameLoopStarted) {
             gameLoopStarted = true;
@@ -881,6 +939,16 @@ window.addEventListener('keydown', e => {
                 }
 
                 spawnEnemies();
+
+                // Check for Start Room Bonus (First Start)
+                if (gameData.bonuses && gameData.bonuses.startroom) {
+                    const dropped = spawnRoomRewards(gameData.bonuses.startroom);
+                    if (dropped) {
+                        perfectEl.innerText = "START BONUS!";
+                        triggerPerfectText();
+                    }
+                }
+
                 renderDebugForm();
                 updateUI();
             } catch (err) {
@@ -951,8 +1019,11 @@ function spawnEnemies() {
 
         enemies.push(inst);
         SFX.ghost();
-        return; // Skip normal spawns
+        // return; // Don't skip normal spawns - user wants enemies + ghost
     }
+
+    // FIX: If room is cleared, do NOT spawn normal enemies (but Ghost still spawns if haunted)
+    if (roomData.cleared) return;
 
     // Skip if explicitly set to 0 enemies
     if (roomData.enemyCount === 0) return;
@@ -1056,6 +1127,9 @@ function changeRoom(dx, dy) {
     if (levelMap[currentCoord]) {
         levelMap[currentCoord].cleared = (enemies.length === 0);
     }
+
+    // Reset Room Specific Flags
+    player.tookDamageInRoom = false;
 
     // Check if door was locked or recently unlocked by a key
     let doorUsed = null;
@@ -1196,17 +1270,19 @@ function changeRoom(dx, dy) {
         // Immediate Room Bonus if key used
         // Immediate Room Bonus if key used (First visit only)
         if (keyUsedForRoom && !levelMap[nextCoord].bonusAwarded) {
-            const baseChance = roomData.keyBonus !== undefined ? roomData.keyBonus : 1.0;
-            const finalChance = baseChance + (player.luck || 0);
-            log(`Bonus Roll - Base: ${baseChance}, Luck: ${player.luck}, Final: ${finalChance}`);
-            if (Math.random() < finalChance) {
-                levelMap[nextCoord].bonusAwarded = true; // Mark bonus as awarded
-                perfectEl.innerText = "ROOM BONUS!";
-                perfectEl.style.display = 'block';
-                perfectEl.style.animation = 'none';
-                perfectEl.offsetHeight; /* trigger reflow */
-                perfectEl.style.animation = null;
-                setTimeout(() => perfectEl.style.display = 'none', 2000);
+            // Use game.json bonuses.key config
+            if (gameData.bonuses && gameData.bonuses.key) {
+                const dropped = spawnRoomRewards(gameData.bonuses.key); // Try to spawn rewards
+
+                if (dropped) {
+                    levelMap[nextCoord].bonusAwarded = true; // Mark bonus as awarded
+                    perfectEl.innerText = "KEY BONUS!"; // Renamed from Room Bonus
+                    perfectEl.style.display = 'block';
+                    perfectEl.style.animation = 'none';
+                    perfectEl.offsetHeight; /* trigger reflow */
+                    perfectEl.style.animation = null;
+                    setTimeout(() => perfectEl.style.display = 'none', 2000);
+                }
             }
         }
 
@@ -1366,6 +1442,32 @@ async function dropBomb() {
             id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
             triggeredBy: null,
         });
+
+        // --- NUDGE LOGIC ---
+        // If we spawned inside an enemy, push it out!
+        const lastBomb = bombs[bombs.length - 1];
+        enemies.forEach(en => {
+            if (en.isDead) return;
+            const dx = lastBomb.x - en.x;
+            const dy = lastBomb.y - en.y;
+            const dist = Math.hypot(dx, dy);
+            // Check overlap
+            if (dist < (lastBomb.baseR || 15) + en.size) {
+                // Push Away
+                const pushForce = 5.0; // Strong nudge
+                if (dist > 0) {
+                    lastBomb.vx += (dx / dist) * pushForce;
+                    lastBomb.vy += (dy / dist) * pushForce;
+                } else {
+                    // Perfectly centered? Randomize
+                    lastBomb.vx += (Math.random() - 0.5) * pushForce;
+                    lastBomb.vy += (Math.random() - 0.5) * pushForce;
+                }
+                log("Bomb nuked away from enemy overlap!");
+            }
+        });
+
+        SFX.click(0.1);
         player.lastBomb = Date.now();
         return true;
     }
@@ -1553,6 +1655,7 @@ function update() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     updateItems(); // Check for item pickups
+    updateFloatingTexts(); // Animate floating texts
 
     //const now = Date.now(); // Check for item pickups
 
@@ -1661,6 +1764,7 @@ async function draw() {
     drawTutorial();
     drawBossIntro();
     drawPortal();
+    drawFloatingTexts(); // Draw notification texts on top
     drawDebugLogs();
     requestAnimationFrame(() => { update(); draw(); });
 }
@@ -1798,82 +1902,166 @@ function updateRoomLock() {
 
     if (!roomLocked && !roomData.cleared) {
         roomData.cleared = true;
-        const currentCoord = `${player.roomX}, ${player.roomY}`;
+        const currentCoord = `${player.roomX},${player.roomY}`; // Fixed space typo
         if (visitedRooms[currentCoord]) visitedRooms[currentCoord].cleared = true;
 
         // Trigger Room Rewards
         if (roomData.item) {
             spawnRoomRewards(roomData.item);
         }
+
+        // --- SPEEDY BONUS ---
+        // Check if room cleared quickly (e.g. within 5 seconds)
+        // Hardcoded to 5s if speedyGoal not in logic (using local var here)
+        const timeTakenMs = Date.now() - roomStartTime;
+        // Default to 5000 if undefined, but explicit 0 means 0 (no bonus)
+        const speedyLimitMs = (roomData.speedGoal !== undefined) ? roomData.speedGoal : 5000;
+
+        if (speedyLimitMs > 0 && timeTakenMs <= speedyLimitMs) {
+            if (gameData.bonuses && gameData.bonuses.speedy) {
+                const dropped = spawnRoomRewards(gameData.bonuses.speedy);
+                if (dropped) {
+                    perfectEl.innerText = "SPEEDY BONUS!";
+                    triggerPerfectText();
+                }
+            }
+        }
+
+        // --- PERFECT BONUS (STREAK) ---
+        // Check if no damage taken in this room
+        if (!player.tookDamageInRoom) {
+            perfectStreak++;
+            const goal = gameData.perfectGoal || 3;
+
+            if (perfectStreak >= goal) {
+                // Check drop config
+                if (gameData.bonuses && gameData.bonuses.perfect) {
+                    const dropped = spawnRoomRewards(gameData.bonuses.perfect);
+                    if (dropped) {
+                        perfectEl.innerText = "PERFECT BONUS!";
+                        triggerPerfectText();
+                        // Reset or Reduce? "only kick in if this is met" likely means reset to start new streak
+                        perfectStreak = 0;
+                    }
+                }
+            }
+        } else {
+            perfectStreak = 0; // Reset streak if hit
+        }
     }
 }
 
-function spawnRoomRewards(dropConfig) {
-    if (!window.allItemTemplates) return;
+// Helper to show/hide the big text
+function triggerPerfectText() {
+    perfectEl.style.display = 'block';
+    perfectEl.style.animation = 'none';
+    perfectEl.offsetHeight;
+    perfectEl.style.animation = null;
+    setTimeout(() => perfectEl.style.display = 'none', 2000);
+}
 
-    // Iterate rarities (uncommon, common, rare, legendary)
+
+function spawnRoomRewards(dropConfig, label = null) {
+    if (!window.allItemTemplates) return false;
+    // Debug MaxDrop
+    if (dropConfig.maxDrop !== undefined) {
+        log(`spawnRoomRewards: maxDrop=${dropConfig.maxDrop} for`, dropConfig);
+    }
+
+    let anyDropped = false;
+    const pendingDrops = [];
+
+    // 1. Collect all POTENTIAL drops based on chances
     Object.keys(dropConfig).forEach(rarity => {
+        // Skip special keys like "maxDrop"
+        if (rarity === "maxDrop") return;
+
         const conf = dropConfig[rarity];
         if (!conf) return;
 
         // Roll for drop
         if (Math.random() < (conf.dropChance || 0)) {
             // Find items of this rarity
-            // Ensure we handle case sensitivity if needed, usually lowercase.
-            // Exclude STARTER items (starter: true) from loot pool
             const candidates = window.allItemTemplates.filter(i => (i.rarity || 'common').toLowerCase() === rarity.toLowerCase() && i.starter === false);
 
             if (candidates.length > 0) {
                 const count = conf.count || 1;
-                log(`Room Clear Reward: Dropping ${count} ${rarity} items!`);
-
                 for (let i = 0; i < count; i++) {
                     const item = candidates[Math.floor(Math.random() * candidates.length)];
-
-                    // Drop Logic (Clamp to Safe Zone & Prevent Overlap)
-                    const marginX = canvas.width * 0.2;
-                    const marginY = canvas.height * 0.2;
-                    const safeW = canvas.width - (marginX * 2);
-                    const safeH = canvas.height - (marginY * 2);
-
-                    let dropX, dropY;
-                    let valid = false;
-                    const minDist = 40; // Avoid overlapping items
-
-                    for (let attempt = 0; attempt < 10; attempt++) {
-                        dropX = marginX + Math.random() * safeW;
-                        dropY = marginY + Math.random() * safeH;
-
-                        // Check collision with existing items in this room
-                        const overlap = groundItems.some(existing => {
-                            if (existing.roomX !== player.roomX || existing.roomY !== player.roomY) return false;
-                            const dx = dropX - existing.x;
-                            const dy = dropY - existing.y;
-                            return Math.hypot(dx, dy) < minDist;
-                        });
-
-                        if (!overlap) {
-                            valid = true;
-                            break;
-                        }
-                    }
-
-                    groundItems.push({
-                        x: dropX, y: dropY,
-                        data: item,
-                        roomX: player.roomX, roomY: player.roomY,
-                        vx: (Math.random() - 0.5) * 5,
-                        vy: (Math.random() - 0.5) * 5,
-                        friction: 0.9,
-                        solid: true, moveable: true, size: 15,
-                        floatOffset: Math.random() * 100
-                    });
+                    pendingDrops.push({ item: item, rarity: rarity }); // Store for later
                 }
-            } else {
-                // log(`No candidates found for rarity: ${rarity}`);
             }
         }
     });
+
+    // 2. Apply maxDrop limit
+    if (dropConfig.maxDrop !== undefined && pendingDrops.length > dropConfig.maxDrop) {
+        // Shuffle pendingDrops to randomly select which ones pass
+        for (let i = pendingDrops.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pendingDrops[i], pendingDrops[j]] = [pendingDrops[j], pendingDrops[i]];
+        }
+        // Trim to maxDrop
+        pendingDrops.length = dropConfig.maxDrop;
+    }
+
+    if (dropConfig.maxDrop !== undefined) {
+        log(`spawnRoomRewards: Final pending count: ${pendingDrops.length}`);
+    }
+
+    // 3. Spawn the final list
+    pendingDrops.forEach(drop => {
+        const item = drop.item;
+        log(`Room Clear Reward: Dropping ${drop.rarity} item: ${item.name}`);
+
+        // Drop Logic (Clamp to Safe Zone & Prevent Overlap)
+        const marginX = canvas.width * 0.2;
+        const marginY = canvas.height * 0.2;
+        const safeW = canvas.width - (marginX * 2);
+        const safeH = canvas.height - (marginY * 2);
+
+        let dropX, dropY;
+        let valid = false;
+        const minDist = 40; // Avoid overlapping items
+
+        for (let attempt = 0; attempt < 10; attempt++) {
+            dropX = marginX + Math.random() * safeW;
+            dropY = marginY + Math.random() * safeH;
+
+            // Check collision with existing items in this room
+            const overlap = groundItems.some(existing => {
+                if (existing.roomX !== player.roomX || existing.roomY !== player.roomY) return false;
+                const dx = dropX - existing.x;
+                const dy = dropY - existing.y;
+                return Math.hypot(dx, dy) < minDist;
+            });
+
+            if (!overlap) {
+                valid = true;
+                break;
+            }
+        }
+
+        groundItems.push({
+            x: dropX, y: dropY,
+            data: item,
+            roomX: player.roomX, roomY: player.roomY,
+            vx: (Math.random() - 0.5) * 5,
+            vy: (Math.random() - 0.5) * 5,
+            friction: 0.9,
+            solid: true, moveable: true, size: 15,
+            floatOffset: Math.random() * 100
+        });
+
+        anyDropped = true;
+
+        // If a label was passed (e.g. "KEY BONUS"), show it!
+        if (label) {
+            spawnFloatingText(dropX, dropY - 20, label, "#FFD700"); // Gold text
+        }
+    });
+
+    return anyDropped;
 }
 
 function drawShake() {
@@ -2552,41 +2740,119 @@ function updateEnemies() {
             en.frozen = true;
             en.invulnerable = true;
             // Visuals: Maybe draw them blue or static? handled in drawEnemies by frozen flag
+        } else {
+            // Only unfreeze if we are NOT currently frozen by a bullet/effect
+            // If freezeEnd is set and we are still within it, keep frozen.
+            // If freezeEnd is undefined (room freeze legacy) or expired, unfreeze.
+            const isEffectFrozen = en.freezeEnd && now < en.freezeEnd;
+            if (!isEffectFrozen) {
+                en.frozen = false;
+                en.invulnerable = false;
+            }
         }
 
         // 2. Frozen/Movement Logic
+        // 2. Frozen/Movement Logic
         if (!en.frozen) {
-            let ang = Math.atan2(player.y - en.y, player.x - en.x);
-            let nextX = en.x + Math.cos(ang) * en.speed;
-            let nextY = en.y + Math.sin(ang) * en.speed;
+            // --- STEERING BEHAVIORS ---
+            // 1. Seek Player (Base desire)
+            let dx = player.x - en.x;
+            let dy = player.y - en.y;
+            const distToPlayer = Math.hypot(dx, dy);
 
-            // Simple check against solid bombs
-            // Collision Check Helper
-            const isBlocked = (tx, ty) => {
-                let blocked = false;
-                for (const b of bombs) {
-                    if (b.solid && !b.exploding) {
-                        if (Math.hypot(tx - b.x, ty - b.y) < en.size + (b.baseR || 15)) {
-                            return true;
+            let dirX = 0;
+            let dirY = 0;
+
+            if (distToPlayer > 0) {
+                dirX = dx / distToPlayer;
+                dirY = dy / distToPlayer;
+            }
+
+            // 2. Avoid Obstacles (Bombs)
+            // Push away from bombs that are close
+            const AVOID_WEIGHT = 4.0; // Strong repulsion
+            const DETECT_RADIUS = 50; // How early to start turning
+
+            for (const b of bombs) {
+                if (b.solid && !b.exploding) {
+                    const bdx = en.x - b.x;
+                    const bdy = en.y - b.y;
+                    const bDist = Math.hypot(bdx, bdy);
+                    const minDist = en.size + (b.baseR || 15);
+                    const checkDist = minDist + DETECT_RADIUS;
+
+                    if (bDist < checkDist) {
+                        // Calculate repulsion force
+                        // The closer we are, the stronger the push
+                        // Prevent divide by zero
+                        const pushFactor = (checkDist - bDist) / checkDist; // 0 to 1
+
+                        if (bDist > 0) {
+                            dirX += (bdx / bDist) * pushFactor * AVOID_WEIGHT;
+                            dirY += (bdy / bDist) * pushFactor * AVOID_WEIGHT;
                         }
                     }
                 }
-                return false;
-            };
+            }
 
-            if (!isBlocked(nextX, nextY)) {
-                en.x = nextX;
-                en.y = nextY;
-            } else {
-                // Try sliding X
-                if (!isBlocked(nextX, en.y)) {
-                    en.x = nextX;
+            // 3. Separation (Avoid Crowding)
+            const SEP_WEIGHT = 2.5;
+
+            enemies.forEach((other, oi) => {
+                if (ei === oi || other.isDead) return;
+
+                const dx = en.x - other.x;
+                const dy = en.y - other.y;
+                const dist = Math.hypot(dx, dy);
+
+                // Define a "personal space" slightly larger than physical size
+                const minDist = (en.size + other.size) * 0.8;
+                const checkDist = minDist + 20;
+
+                if (dist < checkDist) {
+                    if (dist === 0) {
+                        // Random push if exact overlap
+                        dirX += (Math.random() - 0.5) * SEP_WEIGHT * 5;
+                        dirY += (Math.random() - 0.5) * SEP_WEIGHT * 5;
+                    } else {
+                        const pushFactor = (checkDist - dist) / checkDist; // 1.0 at center, 0.0 at edge
+                        dirX += (dx / dist) * pushFactor * SEP_WEIGHT;
+                        dirY += (dy / dist) * pushFactor * SEP_WEIGHT;
+                    }
                 }
-                // Try sliding Y
-                else if (!isBlocked(en.x, nextY)) {
+            });
+
+            // 4. Normalize and Apply Speed
+            const finalMag = Math.hypot(dirX, dirY);
+            if (finalMag > 0) {
+                const vx = (dirX / finalMag) * en.speed;
+                const vy = (dirY / finalMag) * en.speed;
+
+                // 4. Hard Collision Check (Fallback)
+                // Even with steering, we might hit a wall if trapped.
+                // Maintain the slide logic for the final step.
+                const isBlocked = (tx, ty) => {
+                    for (const b of bombs) {
+                        if (b.solid && !b.exploding) {
+                            if (Math.hypot(tx - b.x, ty - b.y) < en.size + (b.baseR || 15)) return true;
+                        }
+                    }
+                    return false;
+                };
+
+                const nextX = en.x + vx;
+                const nextY = en.y + vy;
+
+                if (!isBlocked(nextX, nextY)) {
+                    en.x = nextX;
                     en.y = nextY;
+                } else {
+                    // Try sliding
+                    if (!isBlocked(nextX, en.y)) en.x = nextX;
+                    else if (!isBlocked(en.x, nextY)) en.y = nextY;
                 }
             }
+
         } else if (!isRoomFrozen && now > en.freezeEnd) { // Only wake up if room is NOT frozen by game event
             en.frozen = false;
             en.invulnerable = false; // Clear invulnerability when they wake up
@@ -2595,6 +2861,24 @@ function updateEnemies() {
         // 3. Player Collision
         const distToPlayer = Math.hypot(player.x - en.x, player.y - en.y);
         if (distToPlayer < en.size + player.size) {
+
+            // --- THORNS LOGIC: Damage enemy on contact ---
+            // Damage is half of the current gun's per-bullet damage
+            const baseDmg = gun.Bullet?.damage || 1;
+            const thornsDmg = baseDmg / 2;
+
+            if (thornsDmg > 0) {
+                en.hp -= thornsDmg;
+                en.hitTimer = 5; // Visual flash
+
+                if (en.hp <= 0 && !en.isDead) {
+                    en.isDead = true;
+                    en.deathTimer = 30; // Fade out
+                    log(`Enemy killed by contact damage (Thorns): ${en.type}`);
+                    if (en.type === 'boss') SFX.explode(0.5);
+                }
+            }
+
             playerHit(en, true, true, true);
         }
 
@@ -2654,7 +2938,6 @@ function updateEnemies() {
                         bossKilled = true;
 
                         // Reset all visited rooms (except current boss room) to force respawns
-                        // Reset all visited rooms (except current boss room) to force respawns
                         Object.keys(visitedRooms).forEach(key => {
                             if (key !== `${player.roomX},${player.roomY}`) {
                                 // 1. Do NOT delete visitedRooms. This keeps the minimap visible (Fog of War cleared).
@@ -2673,6 +2956,51 @@ function updateEnemies() {
                                 }
                             }
                         });
+                    } else if (en.type === 'ghost') {
+                        log("Ghost Defeated!");
+                        // GHOST BONUS
+                        if (gameData.bonuses && gameData.bonuses.ghost) {
+                            // 1. Standard Drops (Common/Uncommon etc)
+                            const dropped = spawnRoomRewards(gameData.bonuses.ghost, "GHOST BONUS");
+                            if (dropped) {
+                                perfectEl.innerText = "GHOST BONUS!";
+                                triggerPerfectText();
+                            }
+
+                            // 2. Special Guaranteed Item
+                            const specialPath = gameData.bonuses.ghost.special?.item;
+                            if (specialPath && specialPath.length > 0) {
+                                (async () => {
+                                    try {
+                                        // Assume path is relative to json root or absolute. 
+                                        // User example: "/items/gun_ghost.json"
+                                        // fetch url: "json" + path
+                                        const url = "json" + (specialPath.startsWith('/') ? specialPath : '/' + specialPath);
+                                        const res = await fetch(`${url}?t=${Date.now()}`);
+                                        if (res.ok) {
+                                            const itemData = await res.json();
+                                            // Spawn it
+                                            groundItems.push({
+                                                x: en.x, y: en.y,
+                                                data: itemData, // The fetched JSON becomes the item data
+                                                roomX: player.roomX, roomY: player.roomY,
+                                                vx: (Math.random() - 0.5) * 5,
+                                                vy: (Math.random() - 0.5) * 5,
+                                                friction: 0.9,
+                                                solid: true, moveable: true, size: 15,
+                                                floatOffset: Math.random() * 100
+                                            });
+                                            log("Spawned Special Ghost Item:", itemData.name);
+                                            spawnFloatingText(en.x, en.y - 40, "SPECIAL DROP!", "#e74c3c");
+                                        } else {
+                                            log("Failed to fetch special ghost item:", url);
+                                        }
+                                    } catch (e) {
+                                        console.error("Error spawning special ghost item:", e);
+                                    }
+                                })();
+                            }
+                        }
                     }
 
                     // Optional: Visual cue?
@@ -2713,6 +3041,18 @@ function updateGhost() {
     const now = Date.now();
     // Use config from gameData, default if missing
     const ghostConfig = gameData.ghost || { spawn: true, roomGhostTimer: 10000 };
+
+    // DELAY: If enemies are still alive (locking the room), hold the timer at zero.
+    // This allows the player to fight without the ghost timer ticking down.
+    // Check purely for combat enemies to avoid circular dependency with isRoomLocked()
+    // EXCEPTION: If ghostEntry is set (ghost is following), we IGNORE this check and spawn immediately.
+    const aliveEnemies = enemies.filter(en => !en.isDead);
+    const combatMock = aliveEnemies.filter(en => en.type !== 'ghost');
+
+    if (!ghostEntry && combatMock.length > 0) {
+        roomStartTime = now;
+        return;
+    }
 
     // Only spawn if:
     // 1. Config enabled
@@ -2776,7 +3116,7 @@ function takeDamage(amount) {
     const now = Date.now();
     const until = player.invulnUntil || 0;
 
-    if (now < until) {
+    if (player.invuln || now < until) {
         log(`BLOCKED DAMAGE! (Shield/HP Safe). Rem Invul: ${until - now}ms`);
         return;
     }
@@ -2801,6 +3141,7 @@ function takeDamage(amount) {
 
     // 2. Health Damage
     player.hp -= amount;
+    player.tookDamageInRoom = true;
     SFX.playerHit();
 
     // Trigger I-Frames
@@ -2897,7 +3238,7 @@ function playerHit(en, checkInvuln = true, applyKnockback = false, shakescreen =
     if (checkInvuln) {
         const now = Date.now();
         const until = player.invulnUntil || 0;
-        if (now < until) {
+        if (player.invuln || now < until) {
             applyDamage = false;
             // log("Invuln Active - Damage Blocked");
         }
@@ -3506,6 +3847,29 @@ function updateItems() {
         if (item.y < margin) { item.y = margin; item.vy *= -0.5; }
         if (item.y > canvas.height - margin) { item.y = canvas.height - margin; item.vy *= -0.5; }
 
+        // Door Repulsion: Push items away from doors so they don't block exit / become unpickable
+        const DOOR_ZONE = 80;
+        const PUSH_STRENGTH = 0.5;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+
+        // Top Door Zone
+        if (item.y < DOOR_ZONE && Math.abs(item.x - cx) < DOOR_ZONE) {
+            item.vy += PUSH_STRENGTH;
+        }
+        // Bottom Door Zone
+        if (item.y > canvas.height - DOOR_ZONE && Math.abs(item.x - cx) < DOOR_ZONE) {
+            item.vy -= PUSH_STRENGTH;
+        }
+        // Left Door Zone
+        if (item.x < DOOR_ZONE && Math.abs(item.y - cy) < DOOR_ZONE) {
+            item.vx += PUSH_STRENGTH;
+        }
+        // Right Door Zone
+        if (item.x > canvas.width - DOOR_ZONE && Math.abs(item.y - cy) < DOOR_ZONE) {
+            item.vx -= PUSH_STRENGTH;
+        }
+
         // Player Collision (Push)
         if (item.solid && item.moveable) {
             const dx = item.x - player.x;
@@ -3603,6 +3967,7 @@ async function pickupItem(item, index) {
                 player.gunType = filename;
             }
             log(`Equipped Gun: ${config.name}`);
+            spawnFloatingText(player.x, player.y - 30, config.name.toUpperCase(), config.colour || "gold");
         }
         else if (type === 'bomb') {
             // Drop Helper
@@ -3647,6 +4012,7 @@ async function pickupItem(item, index) {
                 player.bombType = filename;
             }
             log(`Equipped Bomb: ${config.name}`);
+            spawnFloatingText(player.x, player.y - 30, config.name.toUpperCase(), config.colour || "gold");
         }
         else if (type === 'modifier') {
             // APPLY MODIFIER
@@ -3723,6 +4089,7 @@ async function pickupItem(item, index) {
             }
 
             log(`Applied Modifier: ${config.name || "Unknown"}`);
+            spawnFloatingText(player.x, player.y - 30, (config.name || "BONUS").toUpperCase(), config.colour || "#3498db");
         }
 
         // Remove from floor 

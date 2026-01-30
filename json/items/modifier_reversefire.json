@@ -1,9 +1,13 @@
 {
-    "name": "Wall Bounce",
+    "name": "Reverse Fire",
     "description": "bullets that bounce off walls",
-    "location": "weapons/modifiers/bullets/wallbounce.json",
+    "location": "weapons/modifiers/bullets/reversefire.json",
     "type": "modifier",
     "starter": false,
     "consumed": true,
+    "unlocked": {
+        "active": false,
+        "modifyType": "session"
+    },
     "rarity": "uncommon"
 }
