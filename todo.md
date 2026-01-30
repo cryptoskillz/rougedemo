@@ -1,11 +1,9 @@
 bugs
-    start room bonus
     360 modifier does not work
     explode modifier does not work  
     update game.json vars to implemnt various switches   
     should be considered as special binuses
     special items should get from a special folder in items
-    dont spawn items on top of one another*
     if you hit a frozen enemy when you enter a room you can cause it damage
    
 

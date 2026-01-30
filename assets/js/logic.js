@@ -847,7 +847,18 @@ async function initGame(isRestart = false) {
         canvas.width = roomData.width || 800;
         canvas.height = roomData.height || 600;
 
-        if (gameState === STATES.PLAY) spawnEnemies();
+        if (gameState === STATES.PLAY) {
+            spawnEnemies();
+
+            // Check for Start Room Bonus
+            if (gameData.bonuses && gameData.bonuses.startroom) {
+                const dropped = spawnRoomRewards(gameData.bonuses.startroom);
+                if (dropped) {
+                    perfectEl.innerText = "START BONUS!";
+                    triggerPerfectText();
+                }
+            }
+        }
 
         if (!gameLoopStarted) {
             gameLoopStarted = true;
@@ -928,6 +939,16 @@ window.addEventListener('keydown', e => {
                 }
 
                 spawnEnemies();
+
+                // Check for Start Room Bonus (First Start)
+                if (gameData.bonuses && gameData.bonuses.startroom) {
+                    const dropped = spawnRoomRewards(gameData.bonuses.startroom);
+                    if (dropped) {
+                        perfectEl.innerText = "START BONUS!";
+                        triggerPerfectText();
+                    }
+                }
+
                 renderDebugForm();
                 updateUI();
             } catch (err) {
