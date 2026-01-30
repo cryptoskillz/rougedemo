@@ -954,8 +954,11 @@ function spawnEnemies() {
 
         enemies.push(inst);
         SFX.ghost();
-        return; // Skip normal spawns
+        // return; // Don't skip normal spawns - user wants enemies + ghost
     }
+
+    // FIX: If room is cleared, do NOT spawn normal enemies (but Ghost still spawns if haunted)
+    if (roomData.cleared) return;
 
     // Skip if explicitly set to 0 enemies
     if (roomData.enemyCount === 0) return;
@@ -1827,7 +1830,7 @@ function updateRoomLock() {
 
     if (!roomLocked && !roomData.cleared) {
         roomData.cleared = true;
-        const currentCoord = `${player.roomX}, ${player.roomY}`;
+        const currentCoord = `${player.roomX},${player.roomY}`; // Fixed space typo
         if (visitedRooms[currentCoord]) visitedRooms[currentCoord].cleared = true;
 
         // Trigger Room Rewards
