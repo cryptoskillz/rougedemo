@@ -27,6 +27,7 @@
     },
     "bonuses": {
         "key": {
+            "maxDrop": 1,
             "common": {
                 "count": 1,
                 "dropChance": 1
@@ -48,6 +49,7 @@
             }
         },
         "startroom": {
+            "maxDrop": 1,
             "common": {
                 "count": 1,
                 "dropChance": 1
@@ -69,6 +71,7 @@
             }
         },
         "perfect": {
+            "maxDrop": 1,
             "common": {
                 "count": 0,
                 "dropChance": 0
@@ -90,27 +93,29 @@
             }
         },
         "speedy": {
+            "maxDrop": 1,
             "common": {
                 "count": 1,
                 "dropChance": 1
             },
             "uncommon": {
                 "count": 1,
-                "dropChance": 0.4
+                "dropChance": 0
             },
             "rare": {
                 "count": 0,
                 "dropChance": 0
             },
             "legendary": {
-                "count": 1,
-                "dropChance": 0.1
+                "count": 0,
+                "dropChance": 0
             },
             "special": {
                 "item": ""
             }
         },
         "ghost": {
+            "maxDrop": 1,
             "common": {
                 "count": 1,
                 "dropChance": 0

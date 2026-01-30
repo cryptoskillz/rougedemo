@@ -1893,9 +1893,10 @@ function updateRoomLock() {
         // Check if room cleared quickly (e.g. within 5 seconds)
         // Hardcoded to 5s if speedyGoal not in logic (using local var here)
         const timeTakenMs = Date.now() - roomStartTime;
-        const speedyLimitMs = roomData.speedGoal || 5000;
+        // Default to 5000 if undefined, but explicit 0 means 0 (no bonus)
+        const speedyLimitMs = (roomData.speedGoal !== undefined) ? roomData.speedGoal : 5000;
 
-        if (timeTakenMs <= speedyLimitMs) {
+        if (speedyLimitMs > 0 && timeTakenMs <= speedyLimitMs) {
             if (gameData.bonuses && gameData.bonuses.speedy) {
                 const dropped = spawnRoomRewards(gameData.bonuses.speedy);
                 if (dropped) {
@@ -1941,76 +1942,101 @@ function triggerPerfectText() {
 
 function spawnRoomRewards(dropConfig, label = null) {
     if (!window.allItemTemplates) return false;
-    let anyDropped = false;
+    // Debug MaxDrop
+    if (dropConfig.maxDrop !== undefined) {
+        log(`spawnRoomRewards: maxDrop=${dropConfig.maxDrop} for`, dropConfig);
+    }
 
-    // Iterate rarities (uncommon, common, rare, legendary)
+    let anyDropped = false;
+    const pendingDrops = [];
+
+    // 1. Collect all POTENTIAL drops based on chances
     Object.keys(dropConfig).forEach(rarity => {
+        // Skip special keys like "maxDrop"
+        if (rarity === "maxDrop") return;
+
         const conf = dropConfig[rarity];
         if (!conf) return;
 
         // Roll for drop
         if (Math.random() < (conf.dropChance || 0)) {
             // Find items of this rarity
-            // Ensure we handle case sensitivity if needed, usually lowercase.
-            // Exclude STARTER items (starter: true) from loot pool
             const candidates = window.allItemTemplates.filter(i => (i.rarity || 'common').toLowerCase() === rarity.toLowerCase() && i.starter === false);
 
             if (candidates.length > 0) {
                 const count = conf.count || 1;
-                log(`Room Clear Reward: Dropping ${count} ${rarity} items!`);
-
                 for (let i = 0; i < count; i++) {
                     const item = candidates[Math.floor(Math.random() * candidates.length)];
-
-                    // Drop Logic (Clamp to Safe Zone & Prevent Overlap)
-                    const marginX = canvas.width * 0.2;
-                    const marginY = canvas.height * 0.2;
-                    const safeW = canvas.width - (marginX * 2);
-                    const safeH = canvas.height - (marginY * 2);
-
-                    let dropX, dropY;
-                    let valid = false;
-                    const minDist = 40; // Avoid overlapping items
-
-                    for (let attempt = 0; attempt < 10; attempt++) {
-                        dropX = marginX + Math.random() * safeW;
-                        dropY = marginY + Math.random() * safeH;
-
-                        // Check collision with existing items in this room
-                        const overlap = groundItems.some(existing => {
-                            if (existing.roomX !== player.roomX || existing.roomY !== player.roomY) return false;
-                            const dx = dropX - existing.x;
-                            const dy = dropY - existing.y;
-                            return Math.hypot(dx, dy) < minDist;
-                        });
-
-                        if (!overlap) {
-                            valid = true;
-                            break;
-                        }
-                    }
-
-                    groundItems.push({
-                        x: dropX, y: dropY,
-                        data: item,
-                        roomX: player.roomX, roomY: player.roomY,
-                        vx: (Math.random() - 0.5) * 5,
-                        vy: (Math.random() - 0.5) * 5,
-                        friction: 0.9,
-                        solid: true, moveable: true, size: 15,
-                        floatOffset: Math.random() * 100
-                    });
-
-                    anyDropped = true;
-
-                    // If a label was passed (e.g. "KEY BONUS"), show it!
-                    if (label) {
-                        spawnFloatingText(dropX, dropY - 20, label, "#FFD700"); // Gold text
-                    }
+                    pendingDrops.push({ item: item, rarity: rarity }); // Store for later
                 }
-            } else {
-                // log(`No candidates found for rarity: ${rarity}`);
             }
+        }
+    });
+
+    // 2. Apply maxDrop limit
+    if (dropConfig.maxDrop !== undefined && pendingDrops.length > dropConfig.maxDrop) {
+        // Shuffle pendingDrops to randomly select which ones pass
+        for (let i = pendingDrops.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pendingDrops[i], pendingDrops[j]] = [pendingDrops[j], pendingDrops[i]];
+        }
+        // Trim to maxDrop
+        pendingDrops.length = dropConfig.maxDrop;
+    }
+
+    if (dropConfig.maxDrop !== undefined) {
+        log(`spawnRoomRewards: Final pending count: ${pendingDrops.length}`);
+    }
+
+    // 3. Spawn the final list
+    pendingDrops.forEach(drop => {
+        const item = drop.item;
+        log(`Room Clear Reward: Dropping ${drop.rarity} item: ${item.name}`);
+
+        // Drop Logic (Clamp to Safe Zone & Prevent Overlap)
+        const marginX = canvas.width * 0.2;
+        const marginY = canvas.height * 0.2;
+        const safeW = canvas.width - (marginX * 2);
+        const safeH = canvas.height - (marginY * 2);
+
+        let dropX, dropY;
+        let valid = false;
+        const minDist = 40; // Avoid overlapping items
+
+        for (let attempt = 0; attempt < 10; attempt++) {
+            dropX = marginX + Math.random() * safeW;
+            dropY = marginY + Math.random() * safeH;
+
+            // Check collision with existing items in this room
+            const overlap = groundItems.some(existing => {
+                if (existing.roomX !== player.roomX || existing.roomY !== player.roomY) return false;
+                const dx = dropX - existing.x;
+                const dy = dropY - existing.y;
+                return Math.hypot(dx, dy) < minDist;
+            });
+
+            if (!overlap) {
+                valid = true;
+                break;
+            }
+        }
+
+        groundItems.push({
+            x: dropX, y: dropY,
+            data: item,
+            roomX: player.roomX, roomY: player.roomY,
+            vx: (Math.random() - 0.5) * 5,
+            vy: (Math.random() - 0.5) * 5,
+            friction: 0.9,
+            solid: true, moveable: true, size: 15,
+            floatOffset: Math.random() * 100
+        });
+
+        anyDropped = true;
+
+        // If a label was passed (e.g. "KEY BONUS"), show it!
+        if (label) {
+            spawnFloatingText(dropX, dropY - 20, label, "#FFD700"); // Gold text
         }
     });
 

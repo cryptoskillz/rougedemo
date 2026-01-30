@@ -1,6 +1,5 @@
 bugs
-    speedy item drop [DONE]
-    perfect item drop [DONE]
+    start room bonus
     360 modifier does not work
     explode modifier does not work  
     update game.json vars to implemnt various switches   
@@ -94,6 +93,7 @@ items
     luck+
     randomstat+
     kick bombs
+    speical item is game.json
 
     guns
         max ammo
