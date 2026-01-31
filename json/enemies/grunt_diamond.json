@@ -1,0 +1,17 @@
+{
+    "type": "grunt_diamond",
+    "hp": 1,
+    "damage": 2,
+    "knockback": 80,
+    "shake": 1,
+    "speed": 2.0,
+    "size": 15,
+    "color": "#3498db",
+    "description": "A sharp diamond enemy.",
+    "hitColor": "#ffffff",
+    "deathType": "fadeaway",
+    "deathDuration": 30,
+    "invulColour": "#ffffff",
+    "shape": "diamond",
+    "special": false
+}

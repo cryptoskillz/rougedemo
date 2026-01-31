@@ -141,7 +141,7 @@
         "startBoss": false,
         "player": true,
         "cheats": false,
-        "windowEnabled": false,
+        "windowEnabled": true,
         "log": false,
         "spawn": {
             "allItems": false,

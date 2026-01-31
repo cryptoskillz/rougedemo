@@ -3522,8 +3522,77 @@ function drawEnemies() {
             ctx.fillStyle = en.color || "#e74c3c";
         }
 
+        // DRAWING SHAPE
+        const shape = en.shape || "circle";
+
         ctx.beginPath();
-        ctx.arc(en.x, en.y + bounceY, en.size + sizeMod, 0, Math.PI * 2);
+
+        if (shape === "square") {
+            // Draw Square (centered)
+            const s = (en.size + sizeMod) * 2; // Diameter to side length roughly? Or just size as half-width?
+            // Existing logic uses size as radius. So square side should be roughly 2*radius?
+            // Let's use size as "radius equivalent" so side = size * 2
+            const side = (en.size + sizeMod); // actually let's stick to the visual expectation. radius 50 = 100 wide.
+            // If I use rect from x-size, y-size to w=size*2, h=size*2
+            ctx.rect(en.x - side, en.y + bounceY - side, side * 2, side * 2);
+        } else if (shape === "triangle") {
+            const r = en.size + sizeMod;
+            const yOffset = en.y + bounceY;
+            // Upward pointing triangle
+            ctx.moveTo(en.x, yOffset - r);
+            ctx.lineTo(en.x + r, yOffset + r);
+            ctx.lineTo(en.x - r, yOffset + r);
+            ctx.closePath();
+        } else if (shape === "star") {
+            const spikes = 5;
+            const outerRadius = en.size + sizeMod;
+            const innerRadius = outerRadius / 2;
+            let rot = Math.PI / 2 * 3;
+            let x = en.x;
+            let y = en.y + bounceY;
+            let step = Math.PI / spikes;
+
+            ctx.moveTo(0, 0 - outerRadius); // Start at top
+            for (let i = 0; i < spikes; i++) {
+                x = en.x + Math.cos(rot) * outerRadius;
+                y = en.y + bounceY + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = en.x + Math.cos(rot) * innerRadius;
+                y = en.y + bounceY + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(en.x, en.y + bounceY - outerRadius);
+            ctx.closePath();
+        } else if (shape === "hexagon" || shape === "pentagon") {
+            const sides = shape === "hexagon" ? 6 : 5;
+            const r = en.size + sizeMod;
+            const angleStep = (Math.PI * 2) / sides;
+            // Rotate hexagon 30 deg (PI/6) to have flat top? Or 0 for pointy top.
+            // Let's do -PI/2 to start at top center like circle/triangle expectations roughly
+            const startAngle = -Math.PI / 2;
+
+            ctx.moveTo(en.x + r * Math.cos(startAngle), (en.y + bounceY) + r * Math.sin(startAngle));
+            for (let i = 1; i <= sides; i++) {
+                const angle = startAngle + i * angleStep;
+                ctx.lineTo(en.x + r * Math.cos(angle), (en.y + bounceY) + r * Math.sin(angle));
+            }
+            ctx.closePath();
+        } else if (shape === "diamond") {
+            const r = en.size + sizeMod;
+            // Rhombus / Rotated Square
+            ctx.moveTo(en.x, (en.y + bounceY) - r); // Top
+            ctx.lineTo(en.x + r, (en.y + bounceY)); // Right
+            ctx.lineTo(en.x, (en.y + bounceY) + r); // Bottom
+            ctx.lineTo(en.x - r, (en.y + bounceY)); // Left
+            ctx.closePath();
+        } else {
+            // Default: "circle"
+            ctx.arc(en.x, en.y + bounceY, en.size + sizeMod, 0, Math.PI * 2);
+        }
+
         ctx.fill();
         ctx.restore();
     });

@@ -1,13 +1,30 @@
 bugs
-   
+    is the player cheat in game.json doing anything?
 
 next up 
-    debug window
     enemies
     rooms
     items 5
     server
     levels
+
+
+enemies
+    have enemies be able to use bullets
+    have swarm enemies that run away unless there are x of them
+    have run away enemies
+    last enemy tougher
+    add enemy hit and enemy death sound  from json
+    boss hit boss death  from json
+    death shake from json
+    maybe if ghost is x rooms away we just spawn him in the new room
+    add new shapers
+    static enemies (gun turrets)
+    add pyshics to the enemies json instead of having them hard coded in logic.js
+    add more shapes
+    transformer boss square, circle, 4 rectnagles for legs and you have to take out each limb
+    
+
 
 ghost
 
@@ -198,17 +215,6 @@ bullets
 
 
 
-enemies
-    have enemies be able to use bullets
-    have swarm enemies that run away unless there are x of them
-    have run away enemies
-    last enemy tougher
-    add enemy hit and enemy death sound   from json
-    boss hit boss death   from json
-    death shake  from json
-    maybe if ghost is x rooms away we just spawn him in the new room
-
-
 
 key binding
     i = inventory
@@ -225,14 +231,9 @@ mini map
     make rooms go golden if you follow the golden path as a later level will be random rooms that get harder and harder everytime you go off the golden path and enemies respawn in rooms.
 
 debug window 
-    enemies
-    bombs
-    guns
     updateDebugEditor make it update in realtime when something happens in the game
     when you click off of it it should focus back on the game
     add a export json option
-    move the cords into this 
-    go to room (renders it in)
 
 
 

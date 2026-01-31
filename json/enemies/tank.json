@@ -12,5 +12,6 @@
     "deathType": "fadeaway",
     "deathDuration": 30,
     "invulColour": "#ffffff",
+    "shape": "square",
     "special": false
 }

@@ -46,7 +46,15 @@
     "height": 600,
     "enemies": [
         {
-            "type": "grunt",
+            "type": "grunt_circle",
+            "count": 10
+        },
+        {
+            "type": "grunt_square",
+            "count": 1
+        },
+        {
+            "type": "grunt_triangle",
             "count": 10
         },
         {
