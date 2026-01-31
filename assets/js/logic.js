@@ -505,6 +505,13 @@ function renderDebugForm() {
             const currentEntry = levelMap[`${player.roomX},${player.roomY}`];
             if (currentEntry && currentEntry.roomData.doors) {
                 newRoomData.doors = JSON.parse(JSON.stringify(currentEntry.roomData.doors));
+                // Resnap doors to center of new room width/height
+                ['top', 'bottom', 'left', 'right'].forEach(dir => {
+                    if (newRoomData.doors[dir]) {
+                        delete newRoomData.doors[dir].x;
+                        delete newRoomData.doors[dir].y;
+                    }
+                });
             }
 
             // 3. Update Level Map & Active Data
