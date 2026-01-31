@@ -377,6 +377,88 @@ function renderDebugForm() {
     if (!debugForm || !debugSelect) return;
     debugForm.innerHTML = '';
     const type = debugSelect.value;
+
+    // SPAWN LOGIC REFACTOR
+    if (type === 'spawn') {
+        if (!window.allItemTemplates) {
+            debugForm.innerText = "No items loaded.";
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.style.padding = "10px";
+
+        // Filter / Search
+        const searchInput = document.createElement('input');
+        searchInput.placeholder = "Search items...";
+        searchInput.style.width = "100%";
+        searchInput.style.marginBottom = "10px";
+        searchInput.style.background = "#333";
+        searchInput.style.color = "#fff";
+        searchInput.style.border = "1px solid #555";
+
+        const select = document.createElement('select');
+        select.style.width = "100%";
+        select.style.marginBottom = "10px";
+        select.style.background = "#333";
+        select.style.color = "#fff";
+        select.style.border = "1px solid #555";
+        select.size = 10; // Show multiple lines
+
+        function populate(filter = "") {
+            select.innerHTML = "";
+            window.allItemTemplates.forEach((item, idx) => {
+                if (!item) return;
+                const name = item.name || item.id || "Unknown";
+                if (filter && !name.toLowerCase().includes(filter.toLowerCase())) return;
+
+                const opt = document.createElement('option');
+                opt.value = idx;
+                const rarity = item.rarity ? `[${item.rarity.toUpperCase()}] ` : "";
+                opt.innerText = `${rarity}${name} (${item.type})`;
+                select.appendChild(opt);
+            });
+        }
+        populate();
+
+        searchInput.addEventListener('input', (e) => populate(e.target.value));
+
+        const spawnBtn = document.createElement('button');
+        spawnBtn.innerText = "SPAWN";
+        spawnBtn.style.width = "100%";
+        spawnBtn.style.padding = "10px";
+        spawnBtn.style.background = "#27ae60";
+        spawnBtn.style.color = "white";
+        spawnBtn.style.border = "none";
+        spawnBtn.style.cursor = "pointer";
+        spawnBtn.style.fontWeight = "bold";
+
+        spawnBtn.onclick = () => {
+            const idx = select.value;
+            if (idx === "") return;
+            const itemTemplate = window.allItemTemplates[idx];
+
+            // Spawn logic
+            groundItems.push({
+                x: player.x + (Math.random() * 60 - 30),
+                y: player.y + (Math.random() * 60 - 30),
+                data: JSON.parse(JSON.stringify(itemTemplate)), // Deep copy
+                roomX: player.roomX,
+                roomY: player.roomY,
+                vx: 0, vy: 0,
+                solid: true, moveable: true, friction: 0.9, size: 15,
+                floatOffset: Math.random() * 100
+            });
+            log("Spawned:", itemTemplate.name);
+        };
+
+        container.appendChild(searchInput);
+        container.appendChild(select);
+        container.appendChild(spawnBtn);
+        debugForm.appendChild(container);
+        return;
+    }
+
     const target = type === 'player' ? player : roomData;
 
     function createFields(parent, obj, path) {
