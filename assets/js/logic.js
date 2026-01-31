@@ -3141,6 +3141,15 @@ function updateEnemies() {
                     }
                 }
 
+                // 2.5 Avoid Walls (Stay in Room)
+                const WALL_DETECT_DIST = 50;
+                const WALL_PUSH_WEIGHT = 6.0; // Stronger than RunAway to keep them in
+
+                if (en.x < BOUNDARY + WALL_DETECT_DIST) dirX += WALL_PUSH_WEIGHT * ((BOUNDARY + WALL_DETECT_DIST - en.x) / WALL_DETECT_DIST);
+                if (en.x > canvas.width - BOUNDARY - WALL_DETECT_DIST) dirX -= WALL_PUSH_WEIGHT * ((en.x - (canvas.width - BOUNDARY - WALL_DETECT_DIST)) / WALL_DETECT_DIST);
+                if (en.y < BOUNDARY + WALL_DETECT_DIST) dirY += WALL_PUSH_WEIGHT * ((BOUNDARY + WALL_DETECT_DIST - en.y) / WALL_DETECT_DIST);
+                if (en.y > canvas.height - BOUNDARY - WALL_DETECT_DIST) dirY -= WALL_PUSH_WEIGHT * ((en.y - (canvas.height - BOUNDARY - WALL_DETECT_DIST)) / WALL_DETECT_DIST);
+
                 // 3. Separation
                 const SEP_WEIGHT = 2.5;
                 enemies.forEach((other, oi) => {
@@ -3166,9 +3175,17 @@ function updateEnemies() {
                         return false;
                     };
                     const nextX = en.x + vx; const nextY = en.y + vy;
-                    if (!isBlocked(nextX, nextY)) { en.x = nextX; en.y = nextY; }
-                    else if (!isBlocked(nextX, en.y)) en.x = nextX;
-                    else if (!isBlocked(en.x, nextY)) en.y = nextY;
+
+                    // Helper to clamp
+                    const clampX = (v) => Math.max(BOUNDARY + en.size / 2, Math.min(canvas.width - BOUNDARY - en.size / 2, v));
+                    const clampY = (v) => Math.max(BOUNDARY + en.size / 2, Math.min(canvas.height - BOUNDARY - en.size / 2, v));
+
+                    if (!isBlocked(nextX, nextY)) {
+                        en.x = clampX(nextX);
+                        en.y = clampY(nextY);
+                    }
+                    else if (!isBlocked(nextX, en.y)) { en.x = clampX(nextX); }
+                    else if (!isBlocked(en.x, nextY)) { en.y = clampY(nextY); }
                 }
             } // End !isStatic
 

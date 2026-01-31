@@ -3,6 +3,8 @@ bugs
     is 2way used atall whats the difference beween this and 2way
     check each enemy in span enemy
     when you restart with a ghost the ghost is still there
+    enemies cant get you in the corner
+    bullet remain on trestart
 
 next up 
     enemies
@@ -14,8 +16,6 @@ next up
 
 enemies
     enemy move types
-        run away
-        swarm > x enemies
         pattern
 
 
