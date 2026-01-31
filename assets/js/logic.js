@@ -4304,7 +4304,7 @@ async function pickupItem(item, index) {
                     data: {
                         name: "gun_" + oldName,
                         type: "gun",
-                        location: `weapons/guns/${oldName}.json`,
+                        location: `weapons/guns/player/${oldName}.json`,
                         rarity: "common",
                         starter: false,
                         colour: (gun.Bullet && (gun.Bullet.colour || gun.Bullet.color)) || gun.colour || gun.color

@@ -1,11 +1,15 @@
 bugs
-    is the player cheat in game.json doing anything?
-    is 2way used atall whats the difference beween this and 2way
-    check each enemy in span enemy
+
     when you restart with a ghost the ghost is still there
     enemies cant get you in the corner
     bullet remain on trestart
-
+    ghost does not always seem to kill you if it hots i think if there are other emenuies something is going wrong witht he collision
+    if a static / invul enemy is in the room when you leave it sghould still be there when you come back
+       check each enemy in span enemy
+    is the player cheat in game.json doing anything?
+    is 2way used atall whats the difference beween this and 2way and num of rooms
+    gun turret should use the x y override 
+ 
 next up 
     enemies
     rooms
@@ -15,23 +19,18 @@ next up
 
 
 enemies
-    enemy move types
-        pattern
 
-
-    have swarm enemies that run away unless there are x of them
-    have run away enemies
-    last enemy tougher
     add enemy hit and enemy death sound  from json
     boss hit boss death  from json
     death shake from json
     maybe if ghost is x rooms away we just spawn him in the new room
-    add new shapers
-    static enemies (gun turrets)
     add pyshics to the enemies json instead of having them hard coded in logic.js
     add more shapes
     transformer boss square, circle, 4 rectnagles for legs and you have to take out each limb
+        have swarm enemies that run away unless there are x of them
 
+    enemy move types
+        pattern
 
 
 ghost
