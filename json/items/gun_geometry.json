@@ -1,7 +1,7 @@
 {
     "name": "geometry gun",
     "description": "Maths is fun",
-    "location": "weapons/guns/geometry.json",
+    "location": "weapons/guns/player/geometry.json",
     "type": "gun",
     "starter": false,
     "special": false,
