@@ -1,0 +1,8 @@
+{
+    "name": "Pause Screen",
+    "description": "Unlocks pause screen",
+    "unlock": "pause",
+    "json": "game.json",
+    "attr": "pause",
+    "value": "true"
+}

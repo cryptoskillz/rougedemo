@@ -1,0 +1,12 @@
+{
+    "name": "Tooling Up",
+    "NoRooms": 2,
+    "startRoom": "json/rooms/start/room.json",
+    "bossRoom": "json/rooms/bosses/boss2/room.json",
+    "avalibleroons": [
+        ""
+    ],
+    "specialrooms": [
+        ""
+    ]
+}
