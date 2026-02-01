@@ -1495,6 +1495,11 @@ function startGame() {
             welcomeEl.style.display = 'none';
             uiEl.style.display = (gameData.showUI !== false) ? 'block' : 'none';
 
+            // Show Level Title
+            if (gameData.name) {
+                showLevelTitle(gameData.name);
+            }
+
             // Minimap Visibility
             if (mapCanvas) mapCanvas.style.display = (gameData.showMinimap !== false) ? 'block' : 'none';
 
@@ -5052,4 +5057,33 @@ function saveUnlockOverride(file, attr, value) {
     } catch (e) {
         console.error("Failed to save unlock persistence", e);
     }
+}
+
+function showLevelTitle(title) {
+    let titleEl = document.getElementById('level-title-overlay');
+    if (!titleEl) {
+        titleEl = document.createElement('div');
+        titleEl.id = 'level-title-overlay';
+        titleEl.style.cssText = `
+            position: fixed; top: 30%; left: 50%; transform: translate(-50%, -50%);
+            color: white; font-family: 'Courier New', monospace; text-align: center;
+            pointer-events: none; z-index: 3000; text-transform: uppercase;
+            text-shadow: 0 0 10px black; opacity: 0; transition: opacity 1s;
+        `;
+        document.body.appendChild(titleEl);
+    }
+
+    titleEl.innerHTML = `<h1 style="font-size: 4em; margin: 0; color: #f1c40f;">${title}</h1>`;
+    titleEl.style.display = 'block';
+
+    // Animation Sequence
+    requestAnimationFrame(() => {
+        titleEl.style.opacity = '1';
+        setTimeout(() => {
+            titleEl.style.opacity = '0';
+            setTimeout(() => {
+                titleEl.style.display = 'none';
+            }, 1000);
+        }, 3000); // Show for 3 seconds
+    });
 }
