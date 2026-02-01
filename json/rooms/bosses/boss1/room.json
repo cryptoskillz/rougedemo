@@ -2,7 +2,7 @@
     "name": "Boss Room 1",
     "description": "",
     "keyBonus": 1.0,
-    "speedGoal": 10000,
+    "speedGoal": 0,
     "item": {
         "common": {
             "count": 1,
@@ -22,16 +22,7 @@
         }
     },
     "isBoss": true,
-    "enemies": [
-        {
-            "type": "boss",
-            "count": 1
-        },
-        {
-            "type": "grunt_turret",
-            "count": 5
-        }
-    ],
+    "enemies": [],
     "doors": {
         "top": {
             "locked": 0,
@@ -52,8 +43,18 @@
             "locked": 0,
             "active": 0,
             "y": 300
-        }
+        },
+        "special": []
     },
     "width": 800,
-    "height": 600
+    "height": 600,
+    "unlocks": [
+        "music",
+        "soundEffects",
+        "pause",
+        "firstboss",
+        "startlevel2"
+    ],
+    "nextLevel": "",
+    "endGame": true
 }

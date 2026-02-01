@@ -1,13 +1,13 @@
 {
     "type": "boss",
-    "name": "The Guardian!",
-    "description": "The big bad.",
-    "hp": 20,
-    "damage": 2,
+    "name": "The First Boss",
+    "description": "He doesn't like it up him!",
+    "hp": 2,
+    "damage": 1,
     "knockback": 100,
     "shake": 2,
     "speed": 0.5,
-    "size": 50,
+    "size": 20,
     "color": "rgba(192, 57, 43, 0.9)",
     "hitColor": "#ffffff",
     "deathType": "fadeaway",
@@ -16,7 +16,7 @@
     "gun": "",
     "solid": true,
     "moveType": {
-        "type": "track",
+        "type": "runAway",
         "x": 0,
         "y": 0
     },

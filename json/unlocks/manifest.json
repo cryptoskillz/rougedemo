@@ -1,0 +1,13 @@
+{
+    "unlocls": [
+        "soundEffects",
+        "music",
+        "welcome",
+        "rooms",
+        "text",
+        "victory",
+        "startlevel1",
+        "startlevel2",
+        "startlevel3"
+    ]
+}

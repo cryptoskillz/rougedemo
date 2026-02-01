@@ -13,7 +13,7 @@ const roomNameEl = document.getElementById('roomName');
 const bombsEl = document.getElementById('bombs');
 const ammoEl = document.getElementById('ammo');
 const mapCanvas = document.getElementById('minimapCanvas');
-const mctx = mapCanvas.getContext('2d');
+const mctx = mapCanvas ? mapCanvas.getContext('2d') : null;
 const debugSelect = document.getElementById('debug-select');
 const debugForm = document.getElementById('debug-form');
 const debugPanel = document.getElementById('debug-panel');
@@ -171,8 +171,9 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 const SFX = {
     // A quick high-to-low "pew"
-    shoot: (vol = 0.05) => {
+    shoot: (vol = 0.2) => {
         if (gameData.soundEffects === false) return;
+        // console.log("SFX: Shoot triggered"); // Debug
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'square'; // Classic NES sound
@@ -297,8 +298,10 @@ function updateWelcomeScreen() {
     if (!p) return;
 
     // Update Welcome UI dynamically
-    let html = `<h1>rogue demo</h1>
-        <div id="player-select-ui" style="margin: 20px; padding: 10px; border: 2px solid #555;">
+    // Conditional Character Select
+    let charSelectHtml = '';
+    if (gameData.showCharacterSelect !== false) {
+        charSelectHtml = `<div id="player-select-ui" style="margin: 20px; padding: 10px; border: 2px solid #555;">
             <h2 style="color: ${p.locked ? 'gray' : '#0ff'}">${p.name} ${p.locked ? '(LOCKED)' : ''}</h2>
             <p>${p.Description || "No description"}</p>
             <p style="font-size: 0.8em; color: #aaa;">Speed: ${p.speed} | HP: ${p.hp}</p>
@@ -307,10 +310,19 @@ function updateWelcomeScreen() {
                 <span style="margin: 0 20px;">${selectedPlayerIndex + 1} / ${availablePlayers.length}</span> 
                 <span>&gt;</span>
             </div>
-        </div>
-        <p>press 0 to toggle music<br>${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : 'press any key to start'}</p>`;
+        </div>`;
+    }
+
+    let html = `<h1>rogue demo</h1>
+        ${charSelectHtml}
+        <p>${gameData.music ? 'press 0 to toggle music<br>' : ''}${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : 'press any key to start'}</p>`;
 
     welcomeEl.innerHTML = html;
+
+    // Only show if enabled
+    if (gameData.showWelcome !== false) {
+        welcomeEl.style.display = 'flex';
+    }
 }
 
 async function updateUI() {
@@ -761,34 +773,82 @@ function generateLevel(length) {
 
     // 3. Initialize levelMap with room data
     levelMap = {};
+
+    // Helper to find specific types
+    const findStartTemplate = () => {
+        // 0. Explicit loaded start room (tagged with _type = 'start')
+        const explicitStart = Object.keys(roomTemplates).find(k => roomTemplates[k]._type === 'start');
+        if (explicitStart) return roomTemplates[explicitStart];
+
+        // 1. Try explicit "start" (legacy or named)
+        if (roomTemplates["start"]) return roomTemplates["start"];
+        if (roomTemplates["rooms/start/room.json"]) return roomTemplates["rooms/start/room.json"];
+        if (roomTemplates["rooms/start.json"]) return roomTemplates["rooms/start.json"];
+
+        // 2. Try to find any room with "start" in name/ID
+        const startKey = Object.keys(roomTemplates).find(k => k.toLowerCase().includes('start'));
+        if (startKey) return roomTemplates[startKey];
+
+        // 3. Fallback: Take the first "normal" room available
+        // We filter out "boss" tagged ones to be safe, though loose matching is fine for V1
+        const keys = Object.keys(roomTemplates).filter(k =>
+            !roomTemplates[k]._type || roomTemplates[k]._type !== 'boss'
+        );
+        if (keys.length > 0) return roomTemplates[keys[0]];
+
+        return null; // Fatal
+    };
+
+    const findBossTemplate = () => {
+        // 1. Try explicit "boss" (legacy)
+        if (roomTemplates["boss"]) return roomTemplates["boss"];
+
+        // 2. Try any room tagged as boss (from bossrooms list)
+        const bossKey = Object.keys(roomTemplates).find(k => roomTemplates[k]._type === 'boss');
+        if (bossKey) return roomTemplates[bossKey];
+
+        // 3. Fallback
+        const keys = Object.keys(roomTemplates);
+        return roomTemplates[keys[keys.length - 1]];
+    };
+
+    const startTmpl = findStartTemplate();
+    const bossTmpl = findBossTemplate();
+
     fullMapCoords.forEach(coord => {
         let template;
         if (coord === "0,0") {
-            template = roomTemplates["start"];
+            template = startTmpl;
         } else if (coord === bossCoord) {
-            template = roomTemplates["boss"];
+            template = bossTmpl;
         } else {
-            const keys = Object.keys(roomTemplates).filter(k => k !== "start" && k !== "boss");
+            // Random Normal Room
+            // Filter keys to exclude start/boss specifics if possible, or just pick random normal
+            const keys = Object.keys(roomTemplates).filter(k =>
+                roomTemplates[k] !== startTmpl && roomTemplates[k] !== bossTmpl &&
+                (!roomTemplates[k]._type || roomTemplates[k]._type !== 'boss')
+            );
+
             if (keys.length > 0) {
                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
                 template = roomTemplates[randomKey];
             } else {
-                template = roomTemplates["start"];
+                template = startTmpl; // Last resort
             }
         }
 
         // Check if template exists
         if (!template) {
-            console.error(`Missing template for coord: ${coord}. Start: ${!!roomTemplates["start"]}, Boss: ${!!roomTemplates["boss"]}, BossCoord: ${bossCoord}`);
-            template = roomTemplates["start"]; // Emergency fallback
-            if (!template) return; // Critical failure logic handled by try/catch bubbling
+            console.error(`Missing template for coord: ${coord}.`);
+            template = startTmpl || { width: 800, height: 600, name: "Empty Error Room", doors: {} };
         }
 
         // Deep copy template
         const roomInstance = JSON.parse(JSON.stringify(template));
         levelMap[coord] = {
             roomData: roomInstance,
-            cleared: coord === "0,0" // Start room is pre-cleared
+            // Start room is pre-cleared ONLY if it's NOT a boss room
+            cleared: (coord === "0,0") && !roomInstance.isBoss
         };
     });
 
@@ -802,8 +862,14 @@ function generateLevel(length) {
             const neighborCoord = `${rx + d.dx},${ry + d.dy}`;
             if (levelMap[neighborCoord]) {
                 // If neighbor exists, ensure door is active and unlocked
-                if (!data.doors[d.name]) data.doors[d.name] = { active: 1, locked: 0 };
-                data.doors[d.name].active = 1;
+                // If neighbor exists, ensure door is active and unlocked (unless template forbids it)
+                if (!data.doors[d.name]) {
+                    data.doors[d.name] = { active: 1, locked: 0 };
+                } else {
+                    // Respect template: Only force active if undefined
+                    if (data.doors[d.name].active === undefined) data.doors[d.name].active = 1;
+                }
+
                 // Keep locked status if template specifically had it, otherwise 0
                 if (data.doors[d.name].locked === undefined) data.doors[d.name].locked = 0;
 
@@ -847,7 +913,7 @@ let lastMKeyTime = 0;
 
 
 // configurations
-async function initGame(isRestart = false) {
+async function initGame(isRestart = false, nextLevel = null, keepStats = false) {
     if (isInitializing) return;
     isInitializing = true;
 
@@ -867,12 +933,18 @@ async function initGame(isRestart = false) {
 
     // MOVED: Music start logic is now handled AFTER game.json is loaded to respect "music": false setting.
 
-    gameState = isRestart ? STATES.PLAY : STATES.START;
-
-    gameState = isRestart ? STATES.PLAY : STATES.START;
+    gameState = STATES.START; // Always reset to START first, let startGame() transition to PLAY
     overlayEl.style.display = 'none';
-    welcomeEl.style.display = isRestart ? 'none' : 'flex';
-    if (uiEl) uiEl.style.display = isRestart ? 'block' : 'none';
+    welcomeEl.style.display = 'none'; // Default hidden, show only    // Initial UI State
+    if (uiEl) {
+        // uiEl.style.display = (gameData && gameData.showUI !== false) ? 'flex' : 'none'; // OLD
+        uiEl.style.display = 'flex'; // Always keep flex container for layout
+        const statsPanel = document.getElementById('stats-panel');
+        if (statsPanel) statsPanel.style.display = (gameData && gameData.showUI !== false) ? 'block' : 'none';
+
+        const mapCanvas = document.getElementById('minimapCanvas');
+        if (mapCanvas) mapCanvas.style.display = (gameData && gameData.showMinimap !== false) ? 'block' : 'none';
+    }
     bullets = [];
     bombs = [];
     particles = [];
@@ -882,9 +954,28 @@ async function initGame(isRestart = false) {
     // ... [Previous debug and player reset logic remains the same] ...
     // Room debug display setup moved after config load
 
-    player.hp = 3;
-    player.speed = 4;
-    player.inventory.keys = 0;
+    // Room debug display setup moved after config load
+
+    // Preserved Stats for Next Level
+    let savedPlayerStats = null;
+    if (keepStats && player) {
+        savedPlayerStats = {
+            hp: player.hp,
+            maxHp: player.maxHp,
+            inventory: { ...player.inventory },
+            gunType: player.gunType,
+            bombType: player.bombType,
+            speed: player.speed
+        };
+    }
+
+    if (!savedPlayerStats) {
+        player.hp = 3;
+        player.speed = 4;
+        player.inventory.keys = 0;
+        player.inventory.bombs = 0; // Ensure bombs reset too if not kept
+    }
+    // Always reset pos
     player.x = 300;
     player.y = 200;
     player.roomX = 0;
@@ -902,13 +993,54 @@ async function initGame(isRestart = false) {
     levelMap = {};
 
     try {
-        // 1. Load basic configs
-        const [manData, gData, mData, itemMan] = await Promise.all([
+        // 1. Load Game Config First
+        let gData = await fetch('/json/game.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ perfectGoal: 3, NoRooms: 11 }));
+
+        // APPLY SAVED UNLOCK OVERRIDES (Moved here to affect startLevel)
+        try {
+            const saved = localStorage.getItem('game_unlocks');
+            if (saved) {
+                const overrides = JSON.parse(saved);
+                const targetKeys = ['json/game.json', 'game.json', '/json/game.json'];
+                targetKeys.forEach(k => {
+                    if (overrides[k]) {
+                        log("Applying Unlock Overrides for:", k, overrides[k]);
+                        gData = deepMerge(gData, overrides[k]);
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Failed to apply saved unlocks", e);
+        }
+
+        // 2. Load Level Specific Data
+        // Use nextLevel if provided, else config startLevel
+        const levelFile = nextLevel || gData.startLevel;
+        if (levelFile) {
+            try {
+                log("Loading Level:", levelFile);
+                const url = levelFile.startsWith('json/') ? levelFile : `json/${levelFile}`;
+                const levelRes = await fetch(`${url}?t=${Date.now()}`);
+                if (levelRes.ok) {
+                    const levelData = await levelRes.json();
+                    // Merge level data into game data (Level overrides Game)
+                    gData = { ...gData, ...levelData };
+                } else {
+                    console.error("Failed to load level file:", gData.startLevel);
+                }
+            } catch (err) {
+                console.error("Error parsing level file:", err);
+            }
+        }
+
+        // 3. Load Manifests in Parallel
+        const [manData, mData, itemMan] = await Promise.all([
             fetch('/json/players/manifest.json?t=' + Date.now()).then(res => res.json()),
-            fetch('/json/game.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ perfectGoal: 3, NoRooms: 11 })),
             fetch('json/rooms/manifest.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ rooms: [] })),
             fetch('json/items/manifest.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ items: [] }))
         ]);
+
+
 
         gameData = gData;
 
@@ -917,8 +1049,8 @@ async function initGame(isRestart = false) {
             DEBUG_START_BOSS = gameData.debug.startBoss ?? false;
             DEBUG_PLAYER = gameData.debug.player ?? true;
             GODMODE_ENABLED = gameData.debug.godMode ?? false;
-            DEBUG_WINDOW_ENABLED = gameData.debug.windowEnabled ?? false;
-            DEBUG_LOG_ENABLED = gameData.debug.log ?? false;
+            DEBUG_WINDOW_ENABLED = (gameData.showDebugWindow !== undefined) ? gameData.showDebugWindow : (gameData.debug.windowEnabled ?? false);
+            DEBUG_LOG_ENABLED = (gameData.showDebugLog !== undefined) ? gameData.showDebugLog : (gameData.debug.log ?? false);
 
             if (gameData.debug.spawn) {
                 DEBUG_SPAWN_ALL_ITEMS = gameData.debug.spawn.allItems ?? false;
@@ -929,6 +1061,10 @@ async function initGame(isRestart = false) {
                 DEBUG_SPAWN_MODS_BULLET = gameData.debug.spawn.modsBullet ?? true;
             }
         }
+
+        // Support root-level overrides (regardless of debug object existence)
+        if (gameData.showDebugWindow !== undefined) DEBUG_WINDOW_ENABLED = gameData.showDebugWindow;
+        if (gameData.showDebugLog !== undefined) DEBUG_LOG_ENABLED = gameData.showDebugLog;
 
         // Apply Debug UI state
         if (debugPanel) debugPanel.style.display = DEBUG_WINDOW_ENABLED ? 'flex' : 'none';
@@ -1056,13 +1192,68 @@ async function initGame(isRestart = false) {
             player = { hp: 3, speed: 4, inventory: { keys: 0 }, gunType: 'geometry', bombType: 'normal' }; // Fallback
         }
 
+        // Restore Stats if kept
+        if (savedPlayerStats) {
+            player.hp = savedPlayerStats.hp;
+            player.maxHp = savedPlayerStats.maxHp || player.maxHp; // valid?
+            player.inventory = savedPlayerStats.inventory;
+            player.gunType = savedPlayerStats.gunType;
+            player.bombType = savedPlayerStats.bombType;
+            player.speed = savedPlayerStats.speed;
+            player.speed = savedPlayerStats.speed;
+        }
+
+        // Apply Game Config Overrides
+
+        if (gameData.gunType) {
+            log("Applying gameData override for gunType:", gameData.gunType);
+            player.gunType = gameData.gunType;
+        }
+        if (gameData.bombType) player.bombType = gameData.bombType;
+
         // Load player specific assets
-        const [gunData, bombData] = await Promise.all([
-            fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
-            fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json())
-        ]);
-        gun = gunData;
-        bomb = bombData;
+        let fetchedGun = null;
+        let fetchedBomb = null;
+
+        try {
+            if (player.gunType) {
+                const gunUrl = `/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now();
+                const gRes = await fetch(gunUrl);
+                if (gRes.ok) fetchedGun = await gRes.json();
+                else console.error("Gun fetch failed:", gRes.status, gRes.statusText);
+            } else {
+                log("No player.gunType defined, skipping initial fetch.");
+            }
+        } catch (e) { console.error("Gun fetch error:", e); }
+
+        if (!fetchedGun) {
+            log("Attempting fallback to 'peashooter'...");
+            try {
+                const res = await fetch(`/json/weapons/guns/player/peashooter.json?t=` + Date.now());
+                if (res.ok) {
+                    fetchedGun = await res.json();
+                    player.gunType = 'peashooter'; // Update player state
+                }
+            } catch (e) { }
+        }
+
+        const bombUrl = player.bombType ? `/json/weapons/bombs/${player.bombType}.json?t=` + Date.now() : null;
+        if (bombUrl) {
+            try {
+                const bRes = await fetch(bombUrl);
+                if (bRes.ok) fetchedBomb = await bRes.json();
+            } catch (e) { }
+        }
+
+        if (!fetchedGun) {
+            console.error("CRITICAL: Could not load ANY gun. Player will be unarmed.");
+            gun = { Bullet: { NoBullets: true } };
+            spawnFloatingText(canvas.width / 2, canvas.height / 2, "ERROR: GUN LOAD FAILED", "red");
+        } else {
+            gun = fetchedGun;
+            log("Loaded Gun Data:", gun.name);
+        }
+        bomb = fetchedBomb || {};
 
         if (gameData.music) {
             // --- 1. INSTANT AUDIO SETUP ---
@@ -1089,7 +1280,7 @@ async function initGame(isRestart = false) {
         }
 
         // Init Menu UI
-        updateWelcomeScreen();
+        if (!isRestart) updateWelcomeScreen();
         // Initialize Ammo
         if (gun.Bullet?.ammo?.active) {
             player.ammoMode = gun.Bullet?.ammo?.type || 'finite'; // 'finite', 'reload', 'recharge'
@@ -1116,17 +1307,76 @@ async function initGame(isRestart = false) {
             }
         }
 
-        // 3. Pre-load ALL room templates
+
+
+        // 4. Load Room Templates (Dynamic from Level Data)
         roomTemplates = {};
-        const templatePromises = [];
-        templatePromises.push(fetch('/json/rooms/start/room.json?t=' + Date.now()).then(res => res.json()).then(data => { data.templateId = "start"; roomTemplates["start"] = data; }));
-        templatePromises.push(fetch('/json/rooms/boss1/room.json?t=' + Date.now()).then(res => res.json()).then(data => { data.templateId = "boss"; roomTemplates["boss"] = data; }));
+        const roomProtos = [];
 
-        roomManifest.rooms.forEach(id => {
-            templatePromises.push(fetch(`/json/rooms/${id}/room.json?t=` + Date.now()).then(res => res.json()).then(data => { data.templateId = id; roomTemplates[id] = data; }));
-        });
+        // Helper to load a room file
+        const loadRoomFile = (path, type) => {
+            if (!path || path.trim() === "") return Promise.resolve();
+            // Handle relative paths from JSON (e.g. "rooms/start.json")
+            // Ensure we don't double stack "json/" if valid path provided
+            const url = path.startsWith('http') || path.startsWith('/') || path.startsWith('json/') ? path : `json/${path}`;
+            return fetch(url + '?t=' + Date.now())
+                .then(res => {
+                    if (!res.ok) throw new Error("404");
+                    return res.json();
+                })
+                .then(data => {
+                    // ID is filename without extension or just the path for uniqueness
+                    const parts = path.split('/');
+                    const id = parts[parts.length - 1].replace('.json', '');
+                    data.templateId = id;
+                    // Tag it
+                    if (type) data._type = type;
+                    // Special case: if name is "Start Room", force ID to "start" for logic compatibility?
+                    // actually, better to handle that in generation.
+                    // Store
+                    roomTemplates[id] = data;
+                    // Also store by full path just in case
+                    roomTemplates[path] = data;
+                })
+                .catch(err => console.error(`Failed to load room: ${path}`, err));
+        };
 
-        await Promise.all(templatePromises);
+        // A. Standard Rooms
+        let available = gameData.avalibleroons || gameData.availablerooms || [];
+        available = available.filter(p => p && p.trim() !== "");
+        // If empty, fallback to manifest?
+        // ONE CHECK: Only fallback if we DON'T have a startRoom/bossRoom config
+        // meaning we are truly in a "default game" state, not a specific level file state.
+        if (available.length === 0 && !gameData.startRoom && !gameData.bossRoom) {
+            // FALLBACK: Load from old manifest
+            try {
+                const m = await fetch('json/rooms/manifest.json?t=' + Date.now()).then(res => res.json());
+                if (m.rooms) {
+                    m.rooms.forEach(r => roomProtos.push(loadRoomFile(`rooms/${r}/room.json`, 'normal')));
+                    // Also try to load start/boss legacy
+                    roomProtos.push(loadRoomFile('rooms/start/room.json', 'start'));
+                    roomProtos.push(loadRoomFile('rooms/boss1/room.json', 'boss'));
+                }
+            } catch (e) { console.warn("No legacy manifest found"); }
+        } else {
+            available.forEach(path => roomProtos.push(loadRoomFile(path, 'normal')));
+        }
+
+        // C. Explicit Start Room
+        if (gameData.startRoom) {
+            roomProtos.push(loadRoomFile(gameData.startRoom, 'start'));
+        }
+
+        // B. Boss Rooms
+        let bosses = gameData.bossrooms || [];
+        // Support singular 'bossRoom' fallback
+        if (gameData.bossRoom && gameData.bossRoom.trim() !== "") {
+            bosses.push(gameData.bossRoom);
+        }
+        bosses = bosses.filter(p => p && p.trim() !== "");
+        bosses.forEach(path => roomProtos.push(loadRoomFile(path, 'boss')));
+
+        await Promise.all(roomProtos);
 
         // 4. Pre-load ALL enemy templates
         enemyTemplates = {};
@@ -1168,7 +1418,7 @@ async function initGame(isRestart = false) {
                     }
                 }
             }
-            generateLevel(gameData.levelLength || 11);
+            generateLevel(gameData.NoRooms !== undefined ? gameData.NoRooms : 11);
         }
 
         const startEntry = levelMap["0,0"];
@@ -1178,22 +1428,17 @@ async function initGame(isRestart = false) {
         canvas.width = roomData.width || 800;
         canvas.height = roomData.height || 600;
 
-        if (gameState === STATES.PLAY) {
-            spawnEnemies();
-
-            // Check for Start Room Bonus
-            if (gameData.bonuses && gameData.bonuses.startroom) {
-                const dropped = spawnRoomRewards(gameData.bonuses.startroom);
-                if (dropped) {
-                    perfectEl.innerText = "START BONUS!";
-                    triggerPerfectText();
-                }
-            }
-        }
+        // if (gameState === STATES.PLAY) { spawnEnemies(); ... } 
+        // Logic removed: startGame() handles spawning now.
 
         if (!gameLoopStarted) {
             gameLoopStarted = true;
             draw();
+        }
+
+        // AUTO START IF CONFIGURED (After everything is ready)
+        if (gameData.showWelcome === false || isRestart) {
+            startGame();
         }
 
     } catch (err) {
@@ -1220,93 +1465,58 @@ window.addEventListener('keydown', e => {
             return;
         }
 
-        // Check Lock
-        const p = availablePlayers[selectedPlayerIndex];
-
-        if (p && p.locked) {
-            log("Player Locked - Cannot Start");
-            return;
-        }
-
-        // Apply Selected Player Stats
-        if (p) {
-            // Apply stats but keep runtime properties like x/y if needed (though start resets them)
-            // Actually initGame reset player.x/y already.
-            const defaults = { x: 300, y: 200, roomX: 0, roomY: 0 };
-            player = { ...defaults, ...JSON.parse(JSON.stringify(p)) };
-            if (!player.maxHp) player.maxHp = player.hp || 3;
-            if (!player.inventory) player.inventory = { keys: 0, bombs: 0 };
-        }
-
-        // Async Load Assets then Start
-        (async () => {
-            try {
-                const [gData, bData] = await Promise.all([
-                    fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
-                    fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json())
-                ]);
-                gun = gData;
-                bomb = bData;
-
-                // Initialize Ammo for new gun
-                if (gun.Bullet?.ammo?.active) {
-                    player.ammoMode = gun.Bullet?.ammo?.type || 'finite';
-                    player.maxMag = gun.Bullet?.ammo?.amount || 100;
-                    player.reloadTime = gun.Bullet?.ammo?.resetTimer !== undefined ? gun.Bullet?.ammo?.resetTimer : (gun.Bullet?.ammo?.reload || 1000);
-                    player.ammo = player.maxMag;
-                    player.reloading = false;
-                    player.reserveAmmo = (player.ammoMode === 'reload') ? ((gun.Bullet?.ammo?.maxAmount || 0) - player.maxMag) : (player.ammoMode === 'recharge' ? Infinity : 0);
-                    if (player.reserveAmmo < 0) player.reserveAmmo = 0;
-                }
-
-                // Start Game
-                gameState = STATES.PLAY;
-                welcomeEl.style.display = 'none';
-                uiEl.style.display = 'block';
-
-                // If starting primarily in Boss Room (Debug Mode), reset intro timer
-                if (roomData.isBoss) {
-                    bossIntroEndTime = Date.now() + 2000;
-                }
-
-                spawnEnemies();
-
-                // Check for Start Room Bonus (First Start)
-                if (gameData.bonuses && gameData.bonuses.startroom) {
-                    const dropped = spawnRoomRewards(gameData.bonuses.startroom);
-                    if (dropped) {
-                        perfectEl.innerText = "START BONUS!";
-                        triggerPerfectText();
-                    }
-                }
-
-                renderDebugForm();
-                updateUI();
-            } catch (err) {
-                console.error("Error starting game assets:", err);
-            }
-        })();
+        startGame();
         return;
     }
     keys[e.code] = true;
     if (gameState === STATES.GAMEOVER) {
-        if (e.code === 'Enter' || e.code === 'KeyR') {
+        if (e.code === 'KeyR') {
             restartGame();
         }
-        if (e.code === 'KeyM') {
+        // Death: Enter = Main Menu, M/C = Continue(Revive) logic preserved if they want it, 
+        // but User specifically asked for "Main Menu (Enter)"
+        if (e.code === 'Enter') {
             goToWelcome();
+        }
+        // Keep M/C as "Revive" hack? Or remove it? 
+        // User didn't say remove it, just "change main menu to enter".
+        // I will keep M/C for "Continue" (Revive) as hidden feature if button is hidden, 
+        // OR just leave them. But Enter is now explicit Main Menu.
+        // Actually, if Enter was Restart before, now it's Menu.
+        if (e.code === 'KeyM' || e.code === 'KeyC') {
+            goContinue();
+        }
+    }
+    if (gameState === STATES.WIN) {
+        // Victory: Enter = Main Menu, R = Restart
+        if (e.code === 'Enter') {
+            goToWelcome();
+        }
+        if (e.code === 'KeyC' || e.code === 'KeyM') {
+            // Optional: Keep C/M as Continue if they really want to roam? 
+            // User said "only ever be enter and go back to main menu"
+            // So maybe disable Continue here? Or map it to something else?
+            // I'll leave C/M as Continue for now but Enter is definitely Main Menu.
+            goContinue();
+        }
+        if (e.code === 'KeyR') {
+            restartGame();
         }
     }
     // Pause menu key controls
     if (gameState === STATES.GAMEMENU) {
-        if (e.code === 'KeyP' || e.code === 'KeyC') {
-            goContinue();  // P or C = Continue
+        if (e.code === 'KeyP' || e.code === 'KeyC' || e.code === 'Enter') {
+            goContinue();  // P, C, or Enter = Continue
         }
         if (e.code === 'KeyR') {
             restartGame(); // R = Restart
         }
         if (e.code === 'KeyM') {
-            goToWelcome(); // M = Main Menu
+            // Keep M for Menu here? Or also Continue? 
+            // Stick to standard for Pause, but user hates M for Menu in GameOver. 
+            // Let's make M = Continue here too for consistency if they want.
+            // But usually Pause -> Menu is valid. I'll leave Pause M as Menu for now unless requested.
+            goToWelcome();
         }
     }
 });
@@ -1314,6 +1524,94 @@ window.addEventListener('keyup', e => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     keys[e.code] = false;
 });
+
+// --- HELPER: START GAME LOGIC ---
+function startGame() {
+    if (gameState === STATES.PLAY) return;
+
+    // Check Lock
+    const p = availablePlayers[selectedPlayerIndex];
+
+    if (p && p.locked) {
+        log("Player Locked - Cannot Start");
+        return;
+    }
+
+    // Apply Selected Player Stats
+    if (p) {
+        // Apply stats but keep runtime properties like x/y if needed (though start resets them)
+        // Actually initGame reset player.x/y already.
+        const defaults = { x: 300, y: 200, roomX: 0, roomY: 0 };
+        player = { ...defaults, ...JSON.parse(JSON.stringify(p)) };
+        if (!player.maxHp) player.maxHp = player.hp || 3;
+        if (!player.inventory) player.inventory = { keys: 0, bombs: 0 };
+
+        // RE-APPLY GameOverrides (Fixed: startGame was wiping initGame overrides)
+        if (gameData.gunType) player.gunType = gameData.gunType;
+        if (gameData.bombType) player.bombType = gameData.bombType;
+    }
+
+    // Async Load Assets then Start
+    (async () => {
+        try {
+            const [gData, bData] = await Promise.all([
+                (player.gunType ? fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({ Bullet: { NoBullets: true } })),
+                (player.bombType ? fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({}))
+            ]);
+            gun = gData;
+            bomb = bData;
+
+            // Initialize Ammo for new gun
+            if (gun.Bullet?.ammo?.active) {
+                player.ammoMode = gun.Bullet?.ammo?.type || 'finite';
+                player.maxMag = gun.Bullet?.ammo?.amount || 100;
+                player.reloadTime = gun.Bullet?.ammo?.resetTimer !== undefined ? gun.Bullet?.ammo?.resetTimer : (gun.Bullet?.ammo?.reload || 1000);
+                player.ammo = player.maxMag;
+                player.reloading = false;
+                player.reserveAmmo = (player.ammoMode === 'reload') ? ((gun.Bullet?.ammo?.maxAmount || 0) - player.maxMag) : (player.ammoMode === 'recharge' ? Infinity : 0);
+                if (player.reserveAmmo < 0) player.reserveAmmo = 0;
+            }
+
+            // Start Game
+            gameState = STATES.PLAY;
+            welcomeEl.style.display = 'none';
+            if (uiEl) {
+                // Manage UI Components Independently
+                uiEl.style.display = 'flex'; // Enable container
+
+                const statsPanel = document.getElementById('stats-panel');
+                if (statsPanel) statsPanel.style.display = (gameData.showUI !== false) ? 'block' : 'none';
+            }     // Show Level Title
+            if (gameData.name) {
+                showLevelTitle(gameData.name);
+            }
+
+            // Minimap Visibility
+            if (mapCanvas) mapCanvas.style.display = (gameData.showMinimap !== false) ? 'block' : 'none';
+
+            // If starting primarily in Boss Room (Debug Mode), reset intro timer
+            if (roomData.isBoss) {
+                bossIntroEndTime = Date.now() + 2000;
+            }
+
+            spawnEnemies();
+
+            // Check for Start Room Bonus (First Start)
+            if (gameData.bonuses && gameData.bonuses.startroom) {
+                const dropped = spawnRoomRewards(gameData.bonuses.startroom);
+                if (dropped) {
+                    perfectEl.innerText = "START BONUS!";
+                    triggerPerfectText();
+                }
+            }
+
+            renderDebugForm();
+            updateUI();
+        } catch (err) {
+            console.error("Error starting game assets:", err);
+        }
+    })();
+}
 
 // Debug Listeners
 if (debugSelect) debugSelect.addEventListener('change', renderDebugForm);
@@ -1743,6 +2041,9 @@ function changeRoom(dx, dy) {
             const entryDoor = dx === 1 ? "left" : (dx === -1 ? "right" : (dy === 1 ? "top" : "bottom"));
             if (roomData.doors[entryDoor]) {
                 roomData.doors[entryDoor].locked = 0;
+                // Force active so the door exists (fixes Boss Room issue where defaults are 0)
+                roomData.doors[entryDoor].active = 1;
+                roomData.doors[entryDoor].hidden = false;
             }
         }
         if (roomData.isBoss && !nextEntry.cleared) {
@@ -2133,8 +2434,8 @@ function update() {
     // updateMusicToggle(); // Moved up
     updateRemoteDetonation(); // Remote Bombs - Check BEFORE Use consumes space
     updateBombInteraction(); // Kick/Interact with Bombs
-    if (keys["Space"]) updateUse();
-    if (keys["KeyP"]) {
+    if (keys["Space"] && gameData.items !== false) updateUse();
+    if (keys["KeyP"] && gameData.pause !== false) {
         keys["KeyP"] = false; // Prevent repeated triggers
         gameMenu();
         return;
@@ -2233,8 +2534,7 @@ async function draw() {
 
 function drawPortal() {
     // Only draw if active AND in the boss room
-    const currentCoord = `${player.roomX},${player.roomY}`;
-    if (!portal.active || currentCoord !== bossCoord) return;
+    if (!portal.active || !roomData.isBoss) return;
     const time = Date.now() / 500;
 
     ctx.save();
@@ -2472,6 +2772,51 @@ function spawnRoomRewards(dropConfig, label = null) {
         log(`spawnRoomRewards: Final pending count: ${pendingDrops.length}`);
     }
 
+    // 2.5 Handle "Special" Drops (Array of Paths)
+    if (dropConfig.special && Array.isArray(dropConfig.special)) {
+        dropConfig.special.forEach(path => {
+            (async () => {
+                try {
+                    // Normalize path: Ensure no double slashed, but handle simple relative paths
+                    const url = path;
+                    const res = await fetch(`${url}?t=${Date.now()}`);
+                    if (res.ok) {
+                        const itemData = await res.json();
+                        // Spawn Logic
+                        let dropX = (canvas.width / 2) + (Math.random() - 0.5) * 50;
+                        let dropY = (canvas.height / 2) + (Math.random() - 0.5) * 50;
+
+                        // Avoid Portal (if active & same room)
+                        // Note: Portal usually spawns at center or specific spot.
+                        if (portal.active && roomData.isBoss) {
+                            const dist = Math.hypot(dropX - portal.x, dropY - portal.y);
+                            if (dist < 80) {
+                                // Push away
+                                const angle = Math.atan2(dropY - portal.y, dropX - portal.x);
+                                dropX = portal.x + Math.cos(angle) * 100;
+                                dropY = portal.y + Math.sin(angle) * 100;
+                            }
+                        }
+
+                        groundItems.push({
+                            x: dropX,
+                            y: dropY,
+                            data: itemData,
+                            roomX: player.roomX, roomY: player.roomY,
+                            vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5,
+                            friction: 0.9, solid: true, moveable: true, size: 15, floatOffset: Math.random() * 100
+                        });
+                        log("Spawned Special Item:", itemData.name);
+                        spawnFloatingText(canvas.width / 2, canvas.height / 2 - 60, "SPECIAL DROP!", "#e74c3c");
+                    } else {
+                        console.error("Failed to fetch special item:", url);
+                    }
+                } catch (e) { console.error("Error spawning special item:", e); }
+            })();
+            anyDropped = true;
+        });
+    }
+
     // 3. Spawn the final list
     pendingDrops.forEach(drop => {
         const item = drop.item;
@@ -2499,7 +2844,14 @@ function spawnRoomRewards(dropConfig, label = null) {
                 return Math.hypot(dx, dy) < minDist;
             });
 
-            if (!overlap) {
+            // Check collision with Portal (if active)
+            let portalOverlap = false;
+            if (portal.active && roomData.isBoss) {
+                const pDist = Math.hypot(dropX - portal.x, dropY - portal.y);
+                if (pDist < 80) portalOverlap = true;
+            }
+
+            if (!overlap && !portalOverlap) {
                 valid = true;
                 break;
             }
@@ -2561,7 +2913,7 @@ function drawPlayer() {
     // 4. --- PLAYER ---
 
     // Gun Rendering (Barrels)
-    if (!gun.Bullet?.NoBullets) {
+    if (gun && gun.Bullet && !gun.Bullet.NoBullets) {
         // Helper to draw a single barrel at a given angle
         const drawBarrel = (angle, color = "#555") => {
             ctx.save();
@@ -2900,7 +3252,7 @@ function updateBulletsAndShards(aliveEnemies) {
 
 function updateShooting() {
     // --- 5. SHOOTING ---
-    const shootingKeys = keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight'];
+    const shootingKeys = !gun.Bullet?.NoBullets && (keys['ArrowUp'] || keys['ArrowDown'] || keys['ArrowLeft'] || keys['ArrowRight']);
     if (shootingKeys) {
 
         // STATIONARY AIMING LOGIC
@@ -3445,7 +3797,7 @@ function updateEnemies() {
     // Check for active threats (ignore indestructible/static like turrets)
     const activeThreats = enemies.filter(en => !en.isDead && !en.indestructible);
 
-    if (bossKilled && currentCoord === bossCoord && activeThreats.length === 0 && !portal.active) {
+    if (roomData.isBoss && activeThreats.length === 0 && !portal.active) {
         portal.active = true;
         portal.x = canvas.width / 2;
         portal.y = canvas.height / 2;
@@ -3457,15 +3809,40 @@ function updatePortal() {
     if (!portal.active) return;
     const currentCoord = `${player.roomX},${player.roomY}`;
     // Only interact if in Boss Room (should match draw logic)
-    if (currentCoord !== bossCoord) return;
+    if (!roomData.isBoss) return;
 
     const dist = Math.hypot(player.x - portal.x, player.y - portal.y);
     if (dist < 30) {
         // WIN GAME
+        if (roomData.unlocks && roomData.unlocks.length > 0) {
+            handleUnlocks(roomData.unlocks);
+        } else {
+            handleLevelComplete();
+        }
+    }
+}
+
+function handleLevelComplete() {
+    // 1. Next Level?
+    if (roomData.nextLevel && roomData.nextLevel.trim() !== "") {
+        log("Proceeding to Next Level:", roomData.nextLevel);
+        // Load next level, Keep Stats
+        initGame(true, roomData.nextLevel, true);
+        return;
+    }
+
+    // 2. End Game / Victory?
+    if (roomData.endGame) {
         gameState = STATES.WIN;
         updateUI();
         gameOver();
+        return;
     }
+
+    // Default fallback: Just win/end if we hit the portal but no instructions (Legacy behavior)
+    gameState = STATES.WIN;
+    updateUI();
+    gameOver();
 }
 
 function updateGhost() {
@@ -3491,7 +3868,7 @@ function updateGhost() {
     // 2. Not already spawned in this room
     // 3. Time exceeded
     if (ghostConfig.spawn && !ghostSpawned && (now - roomStartTime > ghostConfig.roomGhostTimer)) {
-        if (player.roomX === 0 && player.roomY === 0) return; // No ghost in start room
+        // if (player.roomX === 0 && player.roomY === 0) return; // Allow ghost in start room if configured
 
         log("THE GHOST APPEARS!");
         ghostSpawned = true;
@@ -3908,7 +4285,7 @@ function drawBombs(doors) {
 
 // --- 3. BOMB DROPPING ---
 function updateBombDropping() {
-    if (keys['KeyB'] && player.inventory?.bombs > 0) {
+    if (keys['KeyB'] && player.inventory?.bombs > 0 && player.bombType) {
         // dropBomb handles delay checks, overlap checks, and valid position checks
         dropBomb().then(dropped => {
             if (dropped) {
@@ -4020,22 +4397,50 @@ function gameOver() {
         h1.style.color = "red";
     }
 
-    overlayEl.querySelector('#continueBtn').style.display = 'none';
+    // Show/Hide Layout based on Win/Loss
+    const continueBtn = overlayEl.querySelector('#continueBtn');
+    const menuBtn = overlayEl.querySelector('#menuBtn');
+    const restartBtn = overlayEl.querySelector('#restartBtn');
+
+    if (gameState === STATES.WIN) {
+        // Victory: Show Continue (Enter)
+        continueBtn.style.display = 'block';
+        continueBtn.innerText = "(Enter) Continue";
+        menuBtn.style.display = 'none'; // Hide Menu button on Victory? Or Keep it mapped to M?
+        // Let's keep Menu visible but maybe mapped to M?
+        // User asked for "Main Menu (Enter)" for DEATH popup. 
+        // For Victory, they asked for "Enter to Continue".
+
+        restartBtn.style.display = 'none';
+    } else {
+        // Death (Game Over)
+        // Request: "Main Menu (Enter)"
+        continueBtn.style.display = 'none'; // Hide continue on death (unless we want the revive hack visible)
+        // If I hide continue, M/C keys still work.
+
+        menuBtn.style.display = 'block';
+        menuBtn.innerText = "Main Menu (Enter)";
+
+        restartBtn.style.display = 'block';
+    }
 }
 
 function gameWon() {
-    gameState = STATES.GAMEOVER;
+    gameState = STATES.WIN;
     overlayEl.style.display = 'flex';
     statsEl.innerText = "Rooms cleared: " + (Math.abs(player.roomX) + Math.abs(player.roomY));
-    document.querySelector('#overlay h1').innerText = "VICTORY!";
-    document.querySelector('#overlay h1').style.color = "#f1c40f"; // Gold for victory
+
+    // Explicitly call gameOver logic to update UI text/buttons sharing logic
+    gameOver();
 }
 
 function gameMenu() {
     gameState = STATES.GAMEMENU;
     overlay.style.display = 'flex';
     overlayTitle.innerText = "Pause";
+    overlayTitle.innerText = "Pause";
     overlayEl.querySelector('#continueBtn').style.display = '';
+    overlayEl.querySelector('#restartBtn').style.display = '';
 }
 
 function restartGame() {
@@ -4048,13 +4453,26 @@ function goToWelcome() {
 
 function goContinue() {
     overlay.style.display = 'none';
-    gameState = STATES.PLAY
+
+    // If Continuing from Death (Game Over), Revive Player
+    if (player.hp <= 0) {
+        player.hp = 3; // Basic Revive
+        updateUI();
+    }
+
+    // If Continuing from Victory, disable portal to prevent re-trigger
+    if (gameState === STATES.WIN) {
+        if (typeof portal !== 'undefined') portal.active = false;
+    }
+
+    gameState = STATES.PLAY;
 }
 
 function drawTutorial() {
     // --- Start Room Tutorial Text ---
     // --- Start Room Tutorial Text ---
-    if (player.roomX === 0 && player.roomY === 0 && roomData.templateId === 'start' && (DEBUG_START_BOSS === false)) {
+    // Show in start room (0,0) if it is NOT a boss room
+    if (player.roomX === 0 && player.roomY === 0 && !roomData.isBoss && (DEBUG_START_BOSS === false)) {
         ctx.save();
 
         // Internal helper for keycaps
@@ -4088,27 +4506,32 @@ function drawTutorial() {
         drawKey("D", lx + 45, ly);
 
         // SHOOT (Arrows)
-        const rx = canvas.width - 200;
-        ctx.fillText("SHOOT", rx, ly - 90);
-        ctx.beginPath();
-        ctx.arc(rx, ly - 75, 5, 0, Math.PI * 2);
-        ctx.fillStyle = "#e74c3c";
-        ctx.fill();
+        if (player.gunType) {
+            const rx = canvas.width - 200;
+            ctx.fillText("SHOOT", rx, ly - 90);
+            ctx.beginPath();
+            ctx.arc(rx, ly - 75, 5, 0, Math.PI * 2);
+            ctx.fillStyle = "#e74c3c";
+            ctx.fill();
 
-        drawKey("↑", rx, ly - 45);
-        drawKey("←", rx - 45, ly);
-        drawKey("→", rx + 45, ly);
-        drawKey("↓", rx, ly + 45);
+            drawKey("↑", rx, ly - 45);
+            drawKey("←", rx - 45, ly);
+            drawKey("→", rx + 45, ly);
+            drawKey("↓", rx, ly + 45);
+        }
 
         // Action Keys (Bottom Row)
         let mx = canvas.width / 6;
         let my = canvas.height - 80;
 
-        const actions = [
-            { label: "ITEM", key: "⎵" },
-            { label: "PAUSE", key: "P" },
-            { label: "BOMB", key: "B" }
-        ];
+        const actions = [];
+        if (gameData.items !== false) actions.push({ label: "ITEM", key: "⎵" });
+        if (gameData.pause !== false) actions.push({ label: "PAUSE", key: "P" });
+        if (gameData.music) actions.push({ label: "MUSIC", key: "0" });
+
+        if (player.bombType) {
+            actions.push({ label: "BOMB", key: "B" });
+        }
 
         if (typeof DEBUG_WINDOW_ENABLED !== 'undefined' && DEBUG_WINDOW_ENABLED) {
             actions.push({ label: "RESTART", key: "R" });
@@ -4126,6 +4549,9 @@ function drawTutorial() {
 }
 
 function drawMinimap() {
+    if (!mctx) return; // Safety check
+    if (gameData && gameData.showMinimap === false) return;
+
     const mapSize = 100;
     const roomSize = 12;
     const padding = 2;
@@ -4202,18 +4628,39 @@ function drawDebugLogs() {
 function drawBossIntro() {
     const now = Date.now();
     if (now < bossIntroEndTime) {
+        // User Request: If bossRoom is explicitly empty, skip intro
+        if (!gameData.bossRoom) return;
+
         ctx.save();
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Find boss name
-        let bossName = "BOSS";
-        let bossDesc = "Prepare yourself!";
+        let bossName = "";
+        let bossDesc = "";
 
-        // Try to find from templates or current enemies
-        if (enemyTemplates["boss"]) {
-            bossName = enemyTemplates["boss"].name || bossName;
-            bossDesc = enemyTemplates["boss"].description || bossDesc;
+        // 1. Priority: Room Name (if specific)
+        if (roomData && roomData.name && !roomData.name.includes("Boss Room")) {
+            bossName = roomData.name;
+            bossDesc = roomData.description || bossDesc;
+        }
+        // 2. Priority: Actual Spawned Boss
+        else {
+            const activeBoss = enemies.find(e => e.type === 'boss' || e.isBoss || e.special);
+            if (activeBoss) {
+                bossName = activeBoss.name || bossName;
+                bossDesc = activeBoss.description || bossDesc;
+            }
+        }
+
+        // IF NO BOSS NAME FOUND, SKIP THE INTRO
+        if (!bossName) {
+            ctx.restore();
+            // Optional: cancel the timer immediately so it doesn't keep checking?
+            // bossIntroEndTime = 0; 
+            // But 'now < bossIntroEndTime' controls the loop, so returning here just draws nothing for this frame.
+            // Better to just return.
+            return;
         }
 
         ctx.textAlign = "center";
@@ -4449,6 +4896,21 @@ async function pickupItem(item, index) {
 
             gun = config;
 
+            // REFRESH AMMO STATS
+            if (gun.Bullet?.ammo?.active) {
+                player.ammoMode = gun.Bullet?.ammo?.type || 'finite';
+                player.maxMag = gun.Bullet?.ammo?.amount || 100;
+                player.reloadTime = gun.Bullet?.ammo?.resetTimer !== undefined ? gun.Bullet?.ammo?.resetTimer : (gun.Bullet?.ammo?.reload || 1000);
+
+                // Reset ammo to full on pickup? Yes, usually finding a gun gives you full ammo for it.
+                player.ammo = player.maxMag;
+                player.reloading = false;
+            } else {
+                // Infinite ammo fallback if config missing/inactive
+                player.ammoMode = 'infinite';
+                player.ammo = 999;
+            }
+
             // RE-APPLY ACTIVE MODIFIERS
             if (activeModifiers.length > 0) {
                 log(`Re-applying ${activeModifiers.length} modifiers...`);
@@ -4464,6 +4926,17 @@ async function pickupItem(item, index) {
             }
             log(`Equipped Gun: ${config.name}`);
             spawnFloatingText(player.x, player.y - 30, config.name.toUpperCase(), config.colour || "gold");
+
+            // PERSIST LOADOUT
+            try {
+                const saved = JSON.parse(localStorage.getItem('game_unlocks') || '{}');
+                // Normalize key to match initGame loader
+                const key = 'json/game.json';
+                if (!saved[key]) saved[key] = {};
+                saved[key].gunType = player.gunType;
+                localStorage.setItem('game_unlocks', JSON.stringify(saved));
+                // log("Saved Gun Preference:", player.gunType);
+            } catch (e) { console.error("Failed to save loadout:", e); }
         }
         else if (type === 'bomb') {
             // Drop Helper
@@ -4508,7 +4981,17 @@ async function pickupItem(item, index) {
                 player.bombType = filename;
             }
             log(`Equipped Bomb: ${config.name}`);
-            spawnFloatingText(player.x, player.y - 30, config.name.toUpperCase(), config.colour || "gold");
+            spawnFloatingText(player.x, player.y - 30, config.name.toUpperCase(), config.colour || "orange");
+
+            // PERSIST LOADOUT
+            try {
+                const saved = JSON.parse(localStorage.getItem('game_unlocks') || '{}');
+                const key = 'json/game.json';
+                if (!saved[key]) saved[key] = {};
+                saved[key].bombType = player.bombType;
+                localStorage.setItem('game_unlocks', JSON.stringify(saved));
+                // log("Saved Bomb Preference:", player.bombType);
+            } catch (e) { console.error("Failed to save loadout:", e); }
         }
         else if (type === 'modifier') {
             // APPLY MODIFIER
@@ -4682,4 +5165,187 @@ function applyModifierToGun(gunObj, modConfig) {
             gunObj.Bullet.homing = val;
         }
     }
+}
+// --- UNLOCK SYSTEM ---
+let unlockQueue = [];
+let isUnlocking = false;
+
+async function handleUnlocks(unlockKeys) {
+    if (isUnlocking) return;
+    isUnlocking = true;
+    unlockQueue = [...unlockKeys]; // Copy
+
+    // Create Unlock UI if not exists
+    let unlockEl = document.getElementById('unlock-overlay');
+    if (!unlockEl) {
+        unlockEl = document.createElement('div');
+        unlockEl.id = 'unlock-overlay';
+        unlockEl.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: none; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 2000; color: white;
+            font-family: monospace; text-align: center;
+        `;
+        document.body.appendChild(unlockEl);
+    }
+
+    // Process first unlock
+    await showNextUnlock();
+}
+
+async function showNextUnlock() {
+    const unlockEl = document.getElementById('unlock-overlay');
+    if (unlockQueue.length === 0) {
+        // All Done -> Proceed to Victory
+        unlockEl.style.display = 'none';
+        isUnlocking = false;
+
+        // Final Win State
+        handleLevelComplete();
+        return;
+    }
+
+    const key = unlockQueue.shift();
+    // Try to fetch unlock data
+    try {
+        // Handle "victory" specially or just ignore if file missing (user deleted it)
+        // If file is missing, fetch throws or returns 404
+        const res = await fetch(`json/unlocks/${key}.json?t=${Date.now()}`);
+        if (res.ok) {
+            const data = await res.json();
+
+            // Save Persistent Override (if applicable)
+            if (data.json && data.attr && data.value !== undefined) {
+                saveUnlockOverride(data.json, data.attr, data.value);
+            }
+
+            // CHECK HISTORY: Skip if already unlocked
+            const history = JSON.parse(localStorage.getItem('game_unlocked_ids') || '[]');
+            if (history.includes(key)) {
+                log(`Skipping already unlocked: ${key}`);
+                showNextUnlock();
+                return;
+            }
+
+            // Add to history now (or after OK? better now to prevent loop if crash)
+            history.push(key);
+            localStorage.setItem('game_unlocked_ids', JSON.stringify(history));
+
+            // Render
+            unlockEl.innerHTML = `
+                <h1 style="color: gold; text-shadow: 0 0 10px gold;">UNLOCKED!</h1>
+                <h2 style="font-size: 2em; margin: 20px;">${data.name || key}</h2>
+                <p style="font-size: 1.2em; color: #aaa;">${data.description || "You have unlocked a new feature!"}</p>
+                <div style="margin-top: 40px; padding: 10px 20px; border: 2px solid white; cursor: pointer; display: inline-block;" id="unlock-ok-btn">
+                    CONTINUE (Enter)
+                </div>
+            `;
+            unlockEl.style.display = 'flex';
+
+            // SFX??
+            if (window.SFX && SFX.coin) SFX.coin(); // Reuse coin sound for now
+
+            // Handler for click/key
+            const proceed = () => {
+                window.removeEventListener('keydown', keyHandler);
+                document.getElementById('unlock-ok-btn').removeEventListener('click', proceed);
+                showNextUnlock(); // Recursion for next item
+            };
+
+            const keyHandler = (e) => {
+                if (e.code === 'Enter' || e.code === 'Space') {
+                    proceed();
+                }
+            };
+
+            document.getElementById('unlock-ok-btn').addEventListener('click', proceed);
+            window.addEventListener('keydown', keyHandler);
+
+        } else {
+            console.warn(`Unlock file not found for: ${key}`);
+            showNextUnlock(); // Skip if not found
+        }
+    } catch (e) {
+        console.warn(`Failed to load unlock: ${key}`, e);
+        showNextUnlock(); // Skip on error
+    }
+}
+
+function saveUnlockOverride(file, attr, value) {
+    try {
+        const store = JSON.parse(localStorage.getItem('game_unlocks') || '{}');
+        if (!store[file]) store[file] = {};
+
+        // Handle dot notation for nested attributes (e.g., "ghost.spawn")
+        const parts = attr.split('.');
+        let current = store[file];
+
+        for (let i = 0; i < parts.length - 1; i++) {
+            const part = parts[i];
+            if (!current[part] || typeof current[part] !== 'object') {
+                current[part] = {};
+            }
+            current = current[part];
+        }
+
+        current[parts[parts.length - 1]] = value;
+
+        localStorage.setItem('game_unlocks', JSON.stringify(store));
+        log(`Saved Unlock Override: ${file} -> ${attr} = ${value}`);
+    } catch (e) {
+        console.error("Failed to save unlock persistence", e);
+    }
+}
+
+// Utility for Deep Merging (Prevents overwriting sibling properties)
+function deepMerge(target, source) {
+    const isObject = (obj) => obj && typeof obj === 'object';
+
+    if (!isObject(target) || !isObject(source)) {
+        return source;
+    }
+
+    Object.keys(source).forEach(key => {
+        const targetValue = target[key];
+        const sourceValue = source[key];
+
+        if (Array.isArray(targetValue) && Array.isArray(sourceValue)) {
+            target[key] = sourceValue; // Arrays: Replace (simplest for config)
+        } else if (isObject(targetValue) && isObject(sourceValue)) {
+            target[key] = deepMerge(Object.assign({}, targetValue), sourceValue);
+        } else {
+            target[key] = sourceValue;
+        }
+    });
+
+    return target;
+}
+
+function showLevelTitle(title) {
+    let titleEl = document.getElementById('level-title-overlay');
+    if (!titleEl) {
+        titleEl = document.createElement('div');
+        titleEl.id = 'level-title-overlay';
+        titleEl.style.cssText = `
+            position: fixed; top: 30%; left: 50%; transform: translate(-50%, -50%);
+            color: white; font-family: 'Courier New', monospace; text-align: center;
+            pointer-events: none; z-index: 3000; text-transform: uppercase;
+            text-shadow: 0 0 10px black; opacity: 0; transition: opacity 1s;
+        `;
+        document.body.appendChild(titleEl);
+    }
+
+    titleEl.innerHTML = `<h1 style="font-size: 4em; margin: 0; color: #f1c40f;">${title}</h1>`;
+    titleEl.style.display = 'block';
+
+    // Animation Sequence
+    requestAnimationFrame(() => {
+        titleEl.style.opacity = '1';
+        setTimeout(() => {
+            titleEl.style.opacity = '0';
+            setTimeout(() => {
+                titleEl.style.display = 'none';
+            }, 1000);
+        }, 3000); // Show for 3 seconds
+    });
 }

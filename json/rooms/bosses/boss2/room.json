@@ -1,0 +1,65 @@
+{
+    "name": "Boss Room 2",
+    "description": "",
+    "keyBonus": 1.0,
+    "speedGoal": 0,
+    "item": {
+        "common": {
+            "count": 0,
+            "dropChance": 0
+        },
+        "uncommon": {
+            "count": 0,
+            "dropChance": 0
+        },
+        "rare": {
+            "count": 0,
+            "dropChance": 0
+        },
+        "legendary": {
+            "count": 0,
+            "dropChance": 0
+        },
+        "special": [
+            "json/items/gun_peashooter.json",
+            "json/items/bomb_normal.json"
+        ]
+    },
+    "isBoss": true,
+    "enemies": [
+        {
+            "type": "firstboss",
+            "count": 1
+        }
+    ],
+    "doors": {
+        "top": {
+            "locked": 0,
+            "active": 0,
+            "x": 400
+        },
+        "bottom": {
+            "locked": 0,
+            "active": 0,
+            "x": 400
+        },
+        "left": {
+            "locked": 0,
+            "active": 0,
+            "y": 300
+        },
+        "right": {
+            "locked": 0,
+            "active": 0,
+            "y": 300
+        }
+    },
+    "width": 800,
+    "height": 600,
+    "unlocks": [
+        "minimap",
+        "startlevel3"
+    ],
+    "nextLevel": "",
+    "endGame": true
+}
