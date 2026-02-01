@@ -297,8 +297,10 @@ function updateWelcomeScreen() {
     if (!p) return;
 
     // Update Welcome UI dynamically
-    let html = `<h1>rogue demo</h1>
-        <div id="player-select-ui" style="margin: 20px; padding: 10px; border: 2px solid #555;">
+    // Conditional Character Select
+    let charSelectHtml = '';
+    if (gameData.showCharacterSelect !== false) {
+        charSelectHtml = `<div id="player-select-ui" style="margin: 20px; padding: 10px; border: 2px solid #555;">
             <h2 style="color: ${p.locked ? 'gray' : '#0ff'}">${p.name} ${p.locked ? '(LOCKED)' : ''}</h2>
             <p>${p.Description || "No description"}</p>
             <p style="font-size: 0.8em; color: #aaa;">Speed: ${p.speed} | HP: ${p.hp}</p>
@@ -307,8 +309,12 @@ function updateWelcomeScreen() {
                 <span style="margin: 0 20px;">${selectedPlayerIndex + 1} / ${availablePlayers.length}</span> 
                 <span>&gt;</span>
             </div>
-        </div>
-        <p>press 0 to toggle music<br>${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : 'press any key to start'}</p>`;
+        </div>`;
+    }
+
+    let html = `<h1>rogue demo</h1>
+        ${charSelectHtml}
+        <p>${gameData.music ? 'press 0 to toggle music<br>' : ''}${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : 'press any key to start'}</p>`;
 
     welcomeEl.innerHTML = html;
 
@@ -906,7 +912,7 @@ let lastMKeyTime = 0;
 
 
 // configurations
-async function initGame(isRestart = false) {
+async function initGame(isRestart = false, nextLevel = null, keepStats = false) {
     if (isInitializing) return;
     isInitializing = true;
 
@@ -947,9 +953,28 @@ async function initGame(isRestart = false) {
     // ... [Previous debug and player reset logic remains the same] ...
     // Room debug display setup moved after config load
 
-    player.hp = 3;
-    player.speed = 4;
-    player.inventory.keys = 0;
+    // Room debug display setup moved after config load
+
+    // Preserved Stats for Next Level
+    let savedPlayerStats = null;
+    if (keepStats && player) {
+        savedPlayerStats = {
+            hp: player.hp,
+            maxHp: player.maxHp,
+            inventory: { ...player.inventory },
+            gunType: player.gunType,
+            bombType: player.bombType,
+            speed: player.speed
+        };
+    }
+
+    if (!savedPlayerStats) {
+        player.hp = 3;
+        player.speed = 4;
+        player.inventory.keys = 0;
+        player.inventory.bombs = 0; // Ensure bombs reset too if not kept
+    }
+    // Always reset pos
     player.x = 300;
     player.y = 200;
     player.roomX = 0;
@@ -971,10 +996,12 @@ async function initGame(isRestart = false) {
         let gData = await fetch('/json/game.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ perfectGoal: 3, NoRooms: 11 }));
 
         // 2. Load Level Specific Data
-        if (gData.startLevel) {
+        // Use nextLevel if provided, else config startLevel
+        const levelFile = nextLevel || gData.startLevel;
+        if (levelFile) {
             try {
-                log("Loading Level:", gData.startLevel);
-                const levelRes = await fetch(`json/${gData.startLevel}?t=${Date.now()}`);
+                log("Loading Level:", levelFile);
+                const levelRes = await fetch(`json/${levelFile}?t=${Date.now()}`);
                 if (levelRes.ok) {
                     const levelData = await levelRes.json();
                     // Merge level data into game data (Level overrides Game)
@@ -1160,6 +1187,16 @@ async function initGame(isRestart = false) {
         } else {
             console.error("No players found!");
             player = { hp: 3, speed: 4, inventory: { keys: 0 }, gunType: 'geometry', bombType: 'normal' }; // Fallback
+        }
+
+        // Restore Stats if kept
+        if (savedPlayerStats) {
+            player.hp = savedPlayerStats.hp;
+            player.maxHp = savedPlayerStats.maxHp || player.maxHp; // valid?
+            player.inventory = savedPlayerStats.inventory;
+            player.gunType = savedPlayerStats.gunType;
+            player.bombType = savedPlayerStats.bombType;
+            player.speed = savedPlayerStats.speed;
         }
 
         // Load player specific assets
@@ -3631,15 +3668,35 @@ function updatePortal() {
     const dist = Math.hypot(player.x - portal.x, player.y - portal.y);
     if (dist < 30) {
         // WIN GAME
-        // Check for Unlocks FIRST
         if (roomData.unlocks && roomData.unlocks.length > 0) {
             handleUnlocks(roomData.unlocks);
         } else {
-            gameState = STATES.WIN;
-            updateUI();
-            gameOver();
+            handleLevelComplete();
         }
     }
+}
+
+function handleLevelComplete() {
+    // 1. Next Level?
+    if (roomData.nextLevel && roomData.nextLevel.trim() !== "") {
+        log("Proceeding to Next Level:", roomData.nextLevel);
+        // Load next level, Keep Stats
+        initGame(true, roomData.nextLevel, true);
+        return;
+    }
+
+    // 2. End Game / Victory?
+    if (roomData.endGame) {
+        gameState = STATES.WIN;
+        updateUI();
+        gameOver();
+        return;
+    }
+
+    // Default fallback: Just win/end if we hit the portal but no instructions (Legacy behavior)
+    gameState = STATES.WIN;
+    updateUI();
+    gameOver();
 }
 
 function updateGhost() {
