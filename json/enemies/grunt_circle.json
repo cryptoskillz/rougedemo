@@ -13,6 +13,7 @@
     "deathDuration": 30,
     "invulColour": "#ffffff",
     "shape": "circle",
+    "solid": true,
     "moveType": {
         "type": "track",
         "x": 0,

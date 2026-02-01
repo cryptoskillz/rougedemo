@@ -14,6 +14,7 @@
     "invulColour": "#ffffff",
     "shape": "star",
     "gun": "",
+    "solid": true,
     "moveType": {
         "type": "track",
         "x": 0,

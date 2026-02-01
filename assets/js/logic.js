@@ -3221,7 +3221,7 @@ function updateEnemies() {
         if (distToPlayer < en.size + player.size) {
             const baseDmg = gun.Bullet?.damage || 1;
             const thornsDmg = baseDmg / 2;
-            if (thornsDmg > 0 && !en.frozen && !en.invulnerable) {
+            if (thornsDmg > 0 && !en.frozen && !en.invulnerable && !en.indestructible) {
                 en.hp -= thornsDmg;
                 en.hitTimer = 5;
                 if (en.hp <= 0 && !en.isDead) { // Kill check handled by shared block below? No, separate logs usually.
@@ -3233,7 +3233,12 @@ function updateEnemies() {
 
         // 4. BULLET COLLISION
         bullets.forEach((b, bi) => {
-            if (en.invulnerable) return;
+            // Skip checks only if invulnerable AND NOT explicitly solid
+            // (Standard enemies are valid targets, but if invulnerable we usually skip unless solid)
+            // Default "solid" to false if undefined? No, standard behavior for invuln is pass-through.
+            // If user sets "solid": true, we process collision even if invuln.
+            if (en.invulnerable && !en.solid) return;
+
             if (b.ownerType === 'enemy') return;
             const dist = Math.hypot(b.x - en.x, b.y - en.y);
             if (dist < en.size + (b.size || 5)) {
@@ -3242,8 +3247,14 @@ function updateEnemies() {
                 let finalDamage = b.damage || 1;
                 if (en.type !== 'ghost' && Math.random() < (gun.Bullet?.critChance || 0)) finalDamage *= (gun.Bullet?.critDamage || 2);
 
-                en.hp -= finalDamage;
-                en.hitTimer = 10;
+                if (!en.indestructible && !en.invulnerable) { // Only damage if not invuln/indestructible
+                    en.hp -= finalDamage;
+                    en.hitTimer = 10;
+                }
+
+                // Explode/Remove bullet if it hit something solid or took damage
+                // If it took damage, it's a hit.
+                // If it didn't take damage (indestructible/invuln) BUT is solid, it's a hit.
                 SFX.explode(0.08);
 
                 if (en.type !== 'ghost' && Math.random() < (gun.Bullet?.freezeChance || 0)) {
@@ -3634,12 +3645,14 @@ function playerHit(en, checkInvuln = true, applyKnockback = false, shakescreen =
     // Interpretation: If player.solid is FALSE, they do not get knocked back by enemies (pass through).
 
     // Default solid to true if undefined
-    const isSolid = (player.solid !== undefined) ? player.solid : true;
+    // Default solid to true if undefined
+    const playerIsSolid = (player.solid !== undefined) ? player.solid : true;
+    const enemyIsSolid = (en.solid !== undefined) ? en.solid : true;
 
     // DEBUG: Verify Solidity
-    // log(`Hit Physics: PlayerSolid=${player.solid}, IsSolid=${isSolid}, Apply=${applyKnockback}`);
+    // log(`Hit Physics: PlayerSolid=${player.solid}, IsSolid=${playerIsSolid}, EnemySolid=${enemyIsSolid}, Apply=${applyKnockback}`);
 
-    if (applyKnockback && isSolid) {
+    if (applyKnockback && playerIsSolid && enemyIsSolid) {
         let dx = player.x - en.x;
         let dy = player.y - en.y;
 

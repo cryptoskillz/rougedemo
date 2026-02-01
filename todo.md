@@ -7,6 +7,7 @@ bugs
     is the player cheat in game.json doing anything?
     is 2way used atall whats the difference beween this and 2way and num of rooms
     gun turret should use the x y override 
+    guradian with static guns does not spwan the portal
  
 next up 
     enemies
