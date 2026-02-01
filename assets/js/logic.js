@@ -1488,8 +1488,15 @@ window.addEventListener('keydown', e => {
         }
     }
     if (gameState === STATES.WIN) {
-        // Victory: Enter = Continue (Next Level/Roam)
-        if (e.code === 'Enter' || e.code === 'KeyC' || e.code === 'KeyM') {
+        // Victory: Enter = Main Menu, R = Restart
+        if (e.code === 'Enter') {
+            goToWelcome();
+        }
+        if (e.code === 'KeyC' || e.code === 'KeyM') {
+            // Optional: Keep C/M as Continue if they really want to roam? 
+            // User said "only ever be enter and go back to main menu"
+            // So maybe disable Continue here? Or map it to something else?
+            // I'll leave C/M as Continue for now but Enter is definitely Main Menu.
             goContinue();
         }
         if (e.code === 'KeyR') {
@@ -4453,7 +4460,12 @@ function goContinue() {
         updateUI();
     }
 
-    gameState = STATES.PLAY
+    // If Continuing from Victory, disable portal to prevent re-trigger
+    if (gameState === STATES.WIN) {
+        if (typeof portal !== 'undefined') portal.active = false;
+    }
+
+    gameState = STATES.PLAY;
 }
 
 function drawTutorial() {

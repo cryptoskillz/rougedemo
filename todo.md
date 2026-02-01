@@ -1,4 +1,7 @@
 bugs
+nprmal bomb opening any door
+space not opening doors
+boss sometimes not rendering on level 4
 RESET DOES NTO REST THE GUN
 ghpsot does nto restart on death
     if movetype has an x,y start it there
@@ -18,13 +21,14 @@ s    drop items flag on level 3 if not picked up items are never dropped
      
 
 next up 
-
-    uo updates
-        inventory
+    bug fixss
+    ui updates
+    inventory
+        
         stats
         player with modifiers
     rooms
-    items 5
+    items
     balance
     unlocks / permance
     server
