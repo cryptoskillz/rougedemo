@@ -3404,7 +3404,10 @@ function updateEnemies() {
     // SPAWN PORTAL IF BOSS IS DEAD AND NO ENEMIES LEFT
     // Only spawn portal in the BOSS ROOM
     const currentCoord = `${player.roomX},${player.roomY}`;
-    if (bossKilled && currentCoord === bossCoord && enemies.length === 0 && !portal.active) {
+    // Check for active threats (ignore indestructible/static like turrets)
+    const activeThreats = enemies.filter(en => !en.isDead && !en.indestructible);
+
+    if (bossKilled && currentCoord === bossCoord && activeThreats.length === 0 && !portal.active) {
         portal.active = true;
         portal.x = canvas.width / 2;
         portal.y = canvas.height / 2;

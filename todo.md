@@ -1,12 +1,10 @@
 bugs
 
-       check each enemy in span enemy
 
-- [x] ghost does not always seem to kill you if it hots i think if there are other emenuies something is going wrong witht he collision
     is the player cheat in game.json doing anything?
     is 2way used atall whats the difference beween this and 2way and num of rooms
     gun turret should use the x y override 
-    guradian with static guns does not spwan the portal
+    in debug space is spqaing room
  
 next up 
     enemies
@@ -31,6 +29,7 @@ enemies
 
 
 ghost
+- [x] ghost does not always seem to kill you if it hots i think if there are other emenuies something is going wrong witht he collision
 
 if you go through multiple room and back track you will see multiple ghosts
 if you leave a room and come back the ghost should be the same place + closer to you basedo on the speed the ghost moves. 
