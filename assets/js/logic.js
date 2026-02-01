@@ -1125,7 +1125,7 @@ async function initGame(isRestart = false) {
 
         // Load player specific assets
         const [gunData, bombData] = await Promise.all([
-            fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
+            (player.gunType ? fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({ Bullet: { NoBullets: true } })),
             fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json())
         ]);
         gun = gunData;
@@ -1368,7 +1368,7 @@ window.addEventListener('keydown', e => {
         (async () => {
             try {
                 const [gData, bData] = await Promise.all([
-                    fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
+                    (player.gunType ? fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({ Bullet: { NoBullets: true } })),
                     fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json())
                 ]);
                 gun = gData;
