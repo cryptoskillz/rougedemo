@@ -311,6 +311,11 @@ function updateWelcomeScreen() {
         <p>press 0 to toggle music<br>${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : 'press any key to start'}</p>`;
 
     welcomeEl.innerHTML = html;
+
+    // Only show if enabled
+    if (gameData.showWelcome !== false) {
+        welcomeEl.style.display = 'block';
+    }
 }
 
 async function updateUI() {
@@ -1328,6 +1333,11 @@ async function initGame(isRestart = false) {
             draw();
         }
 
+        // AUTO START IF CONFIGURED (After everything is ready)
+        if (gameData.showWelcome === false) {
+            startGame();
+        }
+
     } catch (err) {
         console.warn("Could not load configurations", err);
         if (!gameLoopStarted) {
@@ -1352,72 +1362,7 @@ window.addEventListener('keydown', e => {
             return;
         }
 
-        // Check Lock
-        const p = availablePlayers[selectedPlayerIndex];
-
-        if (p && p.locked) {
-            log("Player Locked - Cannot Start");
-            return;
-        }
-
-        // Apply Selected Player Stats
-        if (p) {
-            // Apply stats but keep runtime properties like x/y if needed (though start resets them)
-            // Actually initGame reset player.x/y already.
-            const defaults = { x: 300, y: 200, roomX: 0, roomY: 0 };
-            player = { ...defaults, ...JSON.parse(JSON.stringify(p)) };
-            if (!player.maxHp) player.maxHp = player.hp || 3;
-            if (!player.inventory) player.inventory = { keys: 0, bombs: 0 };
-        }
-
-        // Async Load Assets then Start
-        (async () => {
-            try {
-                const [gData, bData] = await Promise.all([
-                    (player.gunType ? fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({ Bullet: { NoBullets: true } })),
-                    fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json())
-                ]);
-                gun = gData;
-                bomb = bData;
-
-                // Initialize Ammo for new gun
-                if (gun.Bullet?.ammo?.active) {
-                    player.ammoMode = gun.Bullet?.ammo?.type || 'finite';
-                    player.maxMag = gun.Bullet?.ammo?.amount || 100;
-                    player.reloadTime = gun.Bullet?.ammo?.resetTimer !== undefined ? gun.Bullet?.ammo?.resetTimer : (gun.Bullet?.ammo?.reload || 1000);
-                    player.ammo = player.maxMag;
-                    player.reloading = false;
-                    player.reserveAmmo = (player.ammoMode === 'reload') ? ((gun.Bullet?.ammo?.maxAmount || 0) - player.maxMag) : (player.ammoMode === 'recharge' ? Infinity : 0);
-                    if (player.reserveAmmo < 0) player.reserveAmmo = 0;
-                }
-
-                // Start Game
-                gameState = STATES.PLAY;
-                welcomeEl.style.display = 'none';
-                uiEl.style.display = 'block';
-
-                // If starting primarily in Boss Room (Debug Mode), reset intro timer
-                if (roomData.isBoss) {
-                    bossIntroEndTime = Date.now() + 2000;
-                }
-
-                spawnEnemies();
-
-                // Check for Start Room Bonus (First Start)
-                if (gameData.bonuses && gameData.bonuses.startroom) {
-                    const dropped = spawnRoomRewards(gameData.bonuses.startroom);
-                    if (dropped) {
-                        perfectEl.innerText = "START BONUS!";
-                        triggerPerfectText();
-                    }
-                }
-
-                renderDebugForm();
-                updateUI();
-            } catch (err) {
-                console.error("Error starting game assets:", err);
-            }
-        })();
+        startGame();
         return;
     }
     keys[e.code] = true;
@@ -1446,6 +1391,78 @@ window.addEventListener('keyup', e => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     keys[e.code] = false;
 });
+
+// --- HELPER: START GAME LOGIC ---
+function startGame() {
+    if (gameState === STATES.PLAY) return;
+
+    // Check Lock
+    const p = availablePlayers[selectedPlayerIndex];
+
+    if (p && p.locked) {
+        log("Player Locked - Cannot Start");
+        return;
+    }
+
+    // Apply Selected Player Stats
+    if (p) {
+        // Apply stats but keep runtime properties like x/y if needed (though start resets them)
+        // Actually initGame reset player.x/y already.
+        const defaults = { x: 300, y: 200, roomX: 0, roomY: 0 };
+        player = { ...defaults, ...JSON.parse(JSON.stringify(p)) };
+        if (!player.maxHp) player.maxHp = player.hp || 3;
+        if (!player.inventory) player.inventory = { keys: 0, bombs: 0 };
+    }
+
+    // Async Load Assets then Start
+    (async () => {
+        try {
+            const [gData, bData] = await Promise.all([
+                (player.gunType ? fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({ Bullet: { NoBullets: true } })),
+                fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json())
+            ]);
+            gun = gData;
+            bomb = bData;
+
+            // Initialize Ammo for new gun
+            if (gun.Bullet?.ammo?.active) {
+                player.ammoMode = gun.Bullet?.ammo?.type || 'finite';
+                player.maxMag = gun.Bullet?.ammo?.amount || 100;
+                player.reloadTime = gun.Bullet?.ammo?.resetTimer !== undefined ? gun.Bullet?.ammo?.resetTimer : (gun.Bullet?.ammo?.reload || 1000);
+                player.ammo = player.maxMag;
+                player.reloading = false;
+                player.reserveAmmo = (player.ammoMode === 'reload') ? ((gun.Bullet?.ammo?.maxAmount || 0) - player.maxMag) : (player.ammoMode === 'recharge' ? Infinity : 0);
+                if (player.reserveAmmo < 0) player.reserveAmmo = 0;
+            }
+
+            // Start Game
+            gameState = STATES.PLAY;
+            welcomeEl.style.display = 'none';
+            uiEl.style.display = 'block';
+
+            // If starting primarily in Boss Room (Debug Mode), reset intro timer
+            if (roomData.isBoss) {
+                bossIntroEndTime = Date.now() + 2000;
+            }
+
+            spawnEnemies();
+
+            // Check for Start Room Bonus (First Start)
+            if (gameData.bonuses && gameData.bonuses.startroom) {
+                const dropped = spawnRoomRewards(gameData.bonuses.startroom);
+                if (dropped) {
+                    perfectEl.innerText = "START BONUS!";
+                    triggerPerfectText();
+                }
+            }
+
+            renderDebugForm();
+            updateUI();
+        } catch (err) {
+            console.error("Error starting game assets:", err);
+        }
+    })();
+}
 
 // Debug Listeners
 if (debugSelect) debugSelect.addEventListener('change', renderDebugForm);
@@ -2365,8 +2382,7 @@ async function draw() {
 
 function drawPortal() {
     // Only draw if active AND in the boss room
-    const currentCoord = `${player.roomX},${player.roomY}`;
-    if (!portal.active || currentCoord !== bossCoord) return;
+    if (!portal.active || !roomData.isBoss) return;
     const time = Date.now() / 500;
 
     ctx.save();
@@ -3577,7 +3593,7 @@ function updateEnemies() {
     // Check for active threats (ignore indestructible/static like turrets)
     const activeThreats = enemies.filter(en => !en.isDead && !en.indestructible);
 
-    if (bossKilled && currentCoord === bossCoord && activeThreats.length === 0 && !portal.active) {
+    if (roomData.isBoss && activeThreats.length === 0 && !portal.active) {
         portal.active = true;
         portal.x = canvas.width / 2;
         portal.y = canvas.height / 2;
@@ -3589,7 +3605,7 @@ function updatePortal() {
     if (!portal.active) return;
     const currentCoord = `${player.roomX},${player.roomY}`;
     // Only interact if in Boss Room (should match draw logic)
-    if (currentCoord !== bossCoord) return;
+    if (!roomData.isBoss) return;
 
     const dist = Math.hypot(player.x - portal.x, player.y - portal.y);
     if (dist < 30) {

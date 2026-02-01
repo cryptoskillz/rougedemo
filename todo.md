@@ -1,10 +1,10 @@
 bugs
     use local storage for game data, unlocks etc
     if movetype has an x,y start it there
+    add golden path bonus (big reward)
  
 next up 
-    
-    levels
+    unlocks & levels
     rooms
     items 5
     balance
@@ -14,12 +14,9 @@ next up
 
 level plan
 
-level 0
-
-Player is on a black background, with a grey portal.  Nothing else.  you 
-move over the portal and it says game complete.
-
-welcome screen unlocked 
+victory screen unlocked 
+welcome screen unlocked
+start room unlocked
 text unlocked 
 start room unclocked 
 
