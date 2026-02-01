@@ -4972,9 +4972,7 @@ async function showNextUnlock() {
         isUnlocking = false;
 
         // Final Win State
-        gameState = STATES.WIN;
-        updateUI();
-        gameOver();
+        handleLevelComplete();
         return;
     }
 

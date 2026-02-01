@@ -1,0 +1,12 @@
+{
+    "name": "Level 1: The Beginning",
+    "NoRooms": 11,
+    "startRoom": "json/rooms/start/room.json",
+    "bossRoom": "json/rooms/bosses/boss1/room.json",
+    "avalibleroons": [
+        ""
+    ],
+    "specialrooms": [
+        ""
+    ]
+}

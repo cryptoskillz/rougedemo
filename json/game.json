@@ -6,7 +6,7 @@
     "showDebugWindow": false,
     "showDebugLog": false,
     "showMinimap": false,
-    "showUI": false,
+    "showUI": true,
     "showWelcome": false,
     "showCharacterSelect": false,
     "showStats": false,
