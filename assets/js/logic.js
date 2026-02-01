@@ -913,7 +913,7 @@ async function initGame(isRestart = false) {
         if (gameData.debug) {
             DEBUG_START_BOSS = gameData.debug.startBoss ?? false;
             DEBUG_PLAYER = gameData.debug.player ?? true;
-            GODMODE_ENABLED = gameData.debug.godmode ?? false;
+            GODMODE_ENABLED = gameData.debug.godMode ?? false;
             DEBUG_WINDOW_ENABLED = gameData.debug.windowEnabled ?? false;
             DEBUG_LOG_ENABLED = gameData.debug.log ?? false;
 
