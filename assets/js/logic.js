@@ -1957,6 +1957,9 @@ function changeRoom(dx, dy) {
             const entryDoor = dx === 1 ? "left" : (dx === -1 ? "right" : (dy === 1 ? "top" : "bottom"));
             if (roomData.doors[entryDoor]) {
                 roomData.doors[entryDoor].locked = 0;
+                // Force active so the door exists (fixes Boss Room issue where defaults are 0)
+                roomData.doors[entryDoor].active = 1;
+                roomData.doors[entryDoor].hidden = false;
             }
         }
         if (roomData.isBoss && !nextEntry.cleared) {

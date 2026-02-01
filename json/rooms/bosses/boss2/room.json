@@ -51,5 +51,10 @@
         }
     },
     "width": 800,
-    "height": 600
+    "height": 600,
+    "unlocks": [
+        "startlevel3"
+    ],
+    "nextLevel": "",
+    "endGame": true
 }
