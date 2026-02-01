@@ -314,7 +314,7 @@ function updateWelcomeScreen() {
 
     // Only show if enabled
     if (gameData.showWelcome !== false) {
-        welcomeEl.style.display = 'block';
+        welcomeEl.style.display = 'flex';
     }
 }
 
@@ -993,6 +993,24 @@ async function initGame(isRestart = false) {
             fetch('json/rooms/manifest.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ rooms: [] })),
             fetch('json/items/manifest.json?t=' + Date.now()).then(res => res.json()).catch(() => ({ items: [] }))
         ]);
+
+        // APPLY SAVED UNLOCK OVERRIDES
+        try {
+            const saved = localStorage.getItem('game_unlocks');
+            if (saved) {
+                const overrides = JSON.parse(saved);
+                // Check for 'json/game.json' or 'game.json' or '/json/game.json'
+                const targetKeys = ['json/game.json', 'game.json', '/json/game.json'];
+                targetKeys.forEach(k => {
+                    if (overrides[k]) {
+                        log("Applying Unlock Overrides for:", k, overrides[k]);
+                        gData = { ...gData, ...overrides[k] };
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Failed to apply saved unlocks", e);
+        }
 
         gameData = gData;
 
@@ -4922,6 +4940,11 @@ async function showNextUnlock() {
         if (res.ok) {
             const data = await res.json();
 
+            // Save Persistent Override (if applicable)
+            if (data.json && data.attr && data.value !== undefined) {
+                saveUnlockOverride(data.json, data.attr, data.value);
+            }
+
             // Render
             unlockEl.innerHTML = `
                 <h1 style="color: gold; text-shadow: 0 0 10px gold;">UNLOCKED!</h1>
@@ -4959,5 +4982,17 @@ async function showNextUnlock() {
     } catch (e) {
         console.warn(`Failed to load unlock: ${key}`, e);
         showNextUnlock(); // Skip on error
+    }
+}
+
+function saveUnlockOverride(file, attr, value) {
+    try {
+        const store = JSON.parse(localStorage.getItem('game_unlocks') || '{}');
+        if (!store[file]) store[file] = {};
+        store[file][attr] = value;
+        localStorage.setItem('game_unlocks', JSON.stringify(store));
+        log(`Saved Unlock Override: ${file} -> ${attr} = ${value}`);
+    } catch (e) {
+        console.error("Failed to save unlock persistence", e);
     }
 }
