@@ -1,0 +1,10 @@
+{
+    "name": "IT BEGINS (FOR REAL)",
+    "NoRooms": 2,
+    "startRoom": "json/rooms/start/room.json",
+    "bossRoom": "json/rooms/bosses/boss3/room.json",
+    "avalibleroons": [],
+    "specialrooms": [
+        ""
+    ]
+}

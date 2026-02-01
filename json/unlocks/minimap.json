@@ -1,0 +1,8 @@
+{
+    "name": "Minimap",
+    "description": "Unlocks minimap",
+    "unlock": "minimap",
+    "json": "game.json",
+    "attr": "showMinimap",
+    "value": true
+}
