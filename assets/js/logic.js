@@ -4259,6 +4259,8 @@ function gameOver() {
     }
 
     overlayEl.querySelector('#continueBtn').style.display = 'none';
+    // Hide Restart on Victory
+    overlayEl.querySelector('#restartBtn').style.display = (gameState === STATES.WIN) ? 'none' : '';
 }
 
 function gameWon() {
@@ -4273,7 +4275,9 @@ function gameMenu() {
     gameState = STATES.GAMEMENU;
     overlay.style.display = 'flex';
     overlayTitle.innerText = "Pause";
+    overlayTitle.innerText = "Pause";
     overlayEl.querySelector('#continueBtn').style.display = '';
+    overlayEl.querySelector('#restartBtn').style.display = '';
 }
 
 function restartGame() {

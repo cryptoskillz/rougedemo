@@ -1,35 +1,31 @@
 {
-    "name": "Boss Room 1",
+    "name": "The First Fight",
     "description": "",
     "keyBonus": 1.0,
-    "speedGoal": 10000,
+    "speedGoal": 0,
     "item": {
         "common": {
-            "count": 1,
+            "count": 0,
             "dropChance": 0
         },
         "uncommon": {
-            "count": 1,
+            "count": 0,
             "dropChance": 0
         },
         "rare": {
-            "count": 1,
+            "count": 0,
             "dropChance": 0
         },
         "legendary": {
-            "count": 1,
-            "dropChance": 0.5
+            "count": 0,
+            "dropChance": 0
         }
     },
     "isBoss": true,
     "enemies": [
         {
-            "type": "boss",
+            "type": "firstboss",
             "count": 1
-        },
-        {
-            "type": "grunt_turret",
-            "count": 5
         }
     ],
     "doors": {
