@@ -1,6 +1,5 @@
 bugs
-- [x] is the player cheat in game.json doing anything? (Now implements God Mode)
-    is 2way used atall whats the difference beween this and 2way and num of rooms
+    and num of rooms set in json change this to per level if used
     in debug space is spqaing room
  
 next up 
