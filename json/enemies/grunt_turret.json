@@ -1,9 +1,10 @@
 {
-    "type": "grunt",
+    "type": "gun turret",
     "damage": 2,
     "knockback": 100,
     "shake": 2,
-    "hp": 2,
+    "hp": 0,
+    "indestructible": true,
     "speed": 1.2,
     "size": 25,
     "color": "rgba(231, 76, 60, 0.8)",
@@ -12,5 +13,13 @@
     "deathType": "fadeaway",
     "deathDuration": 30,
     "invulColour": "#ffffff",
+    "shape": "square",
+    "gun": "json/weapons/guns/enemy/peashooter.json",
+    "solid": false,
+    "moveType": {
+        "type": "static",
+        "x": 0,
+        "y": 0
+    },
     "special": false
 }

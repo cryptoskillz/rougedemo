@@ -1,15 +1,28 @@
 bugs
-   
-
+    use local storage for game data, unlocks etc
+ 
 next up 
-    debug window
-    enemies
-    rooms
+    rooms / edtior
     items 5
     server
     levels
 
+
+enemies
+    add enemy hit and enemy death sound  from json
+    boss hit boss death  from json
+    death shake from json
+    maybe if ghost is x rooms away we just spawn him in the new room
+    add pyshics to the enemies json instead of having them hard coded in logic.js
+    add more shapes
+    transformer boss square, circle, 4 rectnagles for legs and you have to take out each limb
+        have swarm enemies that run away unless there are x of them
+    enemy move types
+        pattern
+
+
 ghost
+- [x] ghost does not always seem to kill you if it hots i think if there are other emenuies something is going wrong witht he collision
 
 if you go through multiple room and back track you will see multiple ghosts
 if you leave a room and come back the ghost should be the same place + closer to you basedo on the speed the ghost moves. 
@@ -198,17 +211,6 @@ bullets
 
 
 
-enemies
-    have enemies be able to use bullets
-    have swarm enemies that run away unless there are x of them
-    have run away enemies
-    last enemy tougher
-    add enemy hit and enemy death sound   from json
-    boss hit boss death   from json
-    death shake  from json
-    maybe if ghost is x rooms away we just spawn him in the new room
-
-
 
 key binding
     i = inventory
@@ -225,14 +227,9 @@ mini map
     make rooms go golden if you follow the golden path as a later level will be random rooms that get harder and harder everytime you go off the golden path and enemies respawn in rooms.
 
 debug window 
-    enemies
-    bombs
-    guns
     updateDebugEditor make it update in realtime when something happens in the game
     when you click off of it it should focus back on the game
     add a export json option
-    move the cords into this 
-    go to room (renders it in)
 
 
 
@@ -240,6 +237,7 @@ debug window
 
 
 rooms
+    number of rooms json change this to per level if used
 change the drop chane from 100% once we are finished testing
     Boss room
     secrets roons

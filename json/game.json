@@ -1,7 +1,7 @@
 {
     "perfectGoal": 5,
     "NoRooms": 11,
-    "music": true,
+    "music": false,
     "soundEffects": true,
     "showMinimap": true,
     "showDebugWindow": false,
@@ -140,8 +140,8 @@
     "debug": {
         "startBoss": false,
         "player": true,
-        "cheats": false,
-        "windowEnabled": false,
+        "godMode": false,
+        "windowEnabled": true,
         "log": false,
         "spawn": {
             "allItems": false,

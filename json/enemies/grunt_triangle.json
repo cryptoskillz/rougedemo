@@ -1,25 +1,23 @@
 {
-    "type": "ghost",
-    "description": "The scarty ghost.",
-    "damage": 1000,
-    "knockback": 0,
+    "type": "grunt triangle",
+    "damage": 2,
+    "knockback": 100,
     "shake": 2,
-    "hp": 200000,
+    "hp": 2,
     "speed": 1.2,
-    "size": 50,
+    "size": 25,
     "color": "rgba(231, 76, 60, 0.8)",
+    "description": "Standard dungeon dweller.",
     "hitColor": "#ffffff",
     "deathType": "fadeaway",
     "deathDuration": 30,
     "invulColour": "#ffffff",
-    "shape": "ghost",
+    "shape": "triangle",
     "gun": "",
-    "solid": false,
     "moveType": {
         "type": "track",
         "x": 0,
         "y": 0
     },
-    "ignoreInvuln": true,
-    "special": true
+    "special": false
 }

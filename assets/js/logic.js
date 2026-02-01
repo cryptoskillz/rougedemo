@@ -434,6 +434,7 @@ function renderDebugForm() {
         spawnBtn.style.fontWeight = "bold";
 
         spawnBtn.onclick = () => {
+            spawnBtn.blur(); // Remove focus so Space doesn't trigger again
             const idx = select.value;
             if (idx === "") return;
             const itemTemplate = window.allItemTemplates[idx];
@@ -494,6 +495,7 @@ function renderDebugForm() {
         loadBtn.style.fontWeight = "bold";
 
         loadBtn.onclick = () => {
+            loadBtn.blur(); // Remove focus
             const key = select.value;
             if (!key) return;
             const template = roomTemplates[key];
@@ -598,6 +600,7 @@ function renderDebugForm() {
         spawnBtn.style.fontWeight = "bold";
 
         spawnBtn.onclick = () => {
+            spawnBtn.blur(); // Remove focus
             const key = select.value;
             if (!key) return;
             const template = enemyTemplates[key];
@@ -828,7 +831,7 @@ const DOOR_THICKNESS = 15;
 // Load configurations (Async)
 let DEBUG_START_BOSS = false;
 let DEBUG_PLAYER = true;
-let CHEATS_ENABLED = false;
+let GODMODE_ENABLED = false;
 let DEBUG_WINDOW_ENABLED = false;
 let DEBUG_LOG_ENABLED = false;
 let DEBUG_SPAWN_ALL_ITEMS = false;
@@ -872,6 +875,8 @@ async function initGame(isRestart = false) {
     if (uiEl) uiEl.style.display = isRestart ? 'block' : 'none';
     bullets = [];
     bombs = [];
+    particles = [];
+    enemies = [];
     if (typeof portal !== 'undefined') portal.active = false;
 
     // ... [Previous debug and player reset logic remains the same] ...
@@ -890,6 +895,8 @@ async function initGame(isRestart = false) {
     perfectEl.style.display = 'none';
     roomStartTime = Date.now();
     ghostSpawned = false; // Reset Ghost
+    ghostEntry = null;    // Reset Ghost Entry State
+    roomFreezeUntil = 0;  // Reset Freeze Timer
     bossKilled = false;   // Reset Boss Kill State
     visitedRooms = {};
     levelMap = {};
@@ -909,7 +916,7 @@ async function initGame(isRestart = false) {
         if (gameData.debug) {
             DEBUG_START_BOSS = gameData.debug.startBoss ?? false;
             DEBUG_PLAYER = gameData.debug.player ?? true;
-            CHEATS_ENABLED = gameData.debug.cheats ?? false;
+            GODMODE_ENABLED = gameData.debug.godMode ?? false;
             DEBUG_WINDOW_ENABLED = gameData.debug.windowEnabled ?? false;
             DEBUG_LOG_ENABLED = gameData.debug.log ?? false;
 
@@ -1051,7 +1058,7 @@ async function initGame(isRestart = false) {
 
         // Load player specific assets
         const [gunData, bombData] = await Promise.all([
-            fetch(`/json/weapons/guns/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
+            fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
             fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json())
         ]);
         gun = gunData;
@@ -1212,7 +1219,7 @@ window.addEventListener('keydown', e => {
         (async () => {
             try {
                 const [gData, bData] = await Promise.all([
-                    fetch(`/json/weapons/guns/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
+                    fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()),
                     fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json())
                 ]);
                 gun = gData;
@@ -1300,9 +1307,55 @@ function spawnEnemies() {
         player.invulnUntil = freezeUntil;
     }
 
+    // CHECK SAVED STATE (Persistence)
+    const currentCoord = `${player.roomX},${player.roomY}`;
+    // If we have specific saved enemies, restore them (PRECISE STATE)
+    if (levelMap[currentCoord] && levelMap[currentCoord].savedEnemies) {
+        log("Restoring saved enemies for this room...");
+        levelMap[currentCoord].savedEnemies.forEach(saved => {
+            const typeKey = saved.templateId || saved.type;
+            const template = enemyTemplates[typeKey] || { hp: 1, speed: 1, size: 25 }; // fallback
+            const inst = JSON.parse(JSON.stringify(template));
+
+            // Re-attach templateId for next save
+            inst.templateId = typeKey;
+
+            // Overwrite with saved state
+            inst.x = saved.x;
+            inst.y = saved.y;
+            inst.hp = saved.hp;
+            if (saved.moveType) inst.moveType = saved.moveType;
+            if (saved.solid !== undefined) inst.solid = saved.solid;
+            if (saved.indestructible !== undefined) inst.indestructible = saved.indestructible;
+
+            // Standard init
+            inst.frozen = true;
+            inst.freezeEnd = freezeUntil;
+            // Restore invulnerability based on type/indestructible logic
+            inst.invulnerable = inst.indestructible || false;
+
+            enemies.push(inst);
+        });
+
+        // Handle Ghost if Haunted (still spawn it separately if consistent with design?)
+        // The original code handled Haunted via map property. 
+        // We should probably fall through to allow ghost spawn if desired, BUT
+        // the original code returns early if room is cleared. 
+        // Here we have enemies, so we should allow Ghost check below?
+        // Let's stick to restoring only explicitly saved ones for now. 
+        // If the room was haunted, the ghost might be handled separately or saved?
+        // Original logic: "If room is haunted... return". 
+        // Let's keep the Ghost Check that is BELOW this block in my insertion point?
+        // Wait, I am inserting this at the top.
+        // Let's actually ensure we do the Haunted check separately as it was.
+    }
+
+    // START STANDARD SPAWN (Skip if we restored)
+    if (enemies.length > 0 && !(levelMap[currentCoord] && levelMap[currentCoord].haunted)) return;
+
     // CHECK HAUNTED STATUS
     // If room is haunted, skip normal enemies and spawn Ghost immediately
-    const currentCoord = `${player.roomX},${player.roomY}`;
+    // const currentCoord = `${player.roomX},${player.roomY}`; // Already defined above
     if (levelMap[currentCoord] && levelMap[currentCoord].haunted) {
         log("The room is Haunted! The Ghost returns...");
 
@@ -1338,8 +1391,59 @@ function spawnEnemies() {
             if (template) {
                 for (let i = 0; i < group.count; i++) {
                     const inst = JSON.parse(JSON.stringify(template));
-                    inst.x = Math.random() * (canvas.width - 60) + 30;
-                    inst.y = Math.random() * (canvas.height - 60) + 30;
+                    inst.templateId = group.type; // Store ID for persistence lookup
+
+                    // MERGE moveType from Room Config (Override)
+                    if (group.moveType) {
+                        inst.moveType = { ...(inst.moveType || {}), ...group.moveType };
+                    }
+
+                    // Allow top-level spawn overrides (x, y) from room.json
+                    if (group.x !== undefined) {
+                        inst.moveType = inst.moveType || {};
+                        inst.moveType.x = group.x;
+                    }
+                    if (group.y !== undefined) {
+                        inst.moveType = inst.moveType || {};
+                        inst.moveType.y = group.y;
+                    }
+
+                    // Indestructible Check
+                    if (inst.hp === 0) {
+                        inst.indestructible = true;
+                        inst.hp = 9999; // Set high HP just in case, though we rely on the flag
+                    }
+
+                    // Determine Spawn Position
+                    // User Rule: Use specified X/Y "unless its 0,0 then it will be ignored"
+                    // We check inst.moveType because we just merged it. 
+                    // Or specifically check the group override? User phrasing implies generic behavior.
+
+                    // Helper to check valid coord
+                    const mt = inst.moveType;
+                    let useFixed = false;
+                    let fixedX = 0;
+                    let fixedY = 0;
+
+                    if (mt && typeof mt === 'object') {
+                        if (mt.x !== undefined && mt.y !== undefined) {
+                            // Rule 1: Ignore 0,0 (treat as unset/random)
+                            // Rule 2: Only 'static' enemies use fixed positioning
+                            if ((mt.x !== 0 || mt.y !== 0) && mt.type === 'static') {
+                                useFixed = true;
+                                fixedX = mt.x;
+                                fixedY = mt.y;
+                            }
+                        }
+                    }
+
+                    if (useFixed) {
+                        inst.x = fixedX;
+                        inst.y = fixedY;
+                    } else {
+                        inst.x = Math.random() * (canvas.width - 60) + 30;
+                        inst.y = Math.random() * (canvas.height - 60) + 30;
+                    }
                     inst.frozen = true;
                     inst.freezeEnd = freezeUntil;
                     inst.invulnerable = true;
@@ -1367,8 +1471,10 @@ function spawnEnemies() {
 
         const template = enemyTemplates[randomType] || { hp: 2, speed: 1, size: 25 };
 
+
         for (let i = 0; i < count; i++) {
             const inst = JSON.parse(JSON.stringify(template));
+            inst.templateId = randomType; // Store ID for persistence lookup
             inst.x = Math.random() * (canvas.width - 60) + 30;
             inst.y = Math.random() * (canvas.height - 60) + 30;
             inst.frozen = true;
@@ -1426,7 +1532,29 @@ function changeRoom(dx, dy) {
     // Save cleared status of current room before leaving
     const currentCoord = `${player.roomX},${player.roomY}`;
     if (levelMap[currentCoord]) {
-        levelMap[currentCoord].cleared = (enemies.length === 0);
+        // FILTER: Save only valid, living enemies (skip ghosts, dead, friendly)
+        const survivors = enemies.filter(en => !en.isDead && en.type !== 'ghost' && en.ownerType !== 'player');
+
+        // If enemies remain, save their state
+        if (survivors.length > 0) {
+            levelMap[currentCoord].savedEnemies = survivors.map(en => ({
+                templateId: en.templateId, // Save the Lookup Key
+                type: en.type,
+                x: en.x,
+                y: en.y,
+                hp: en.hp,
+                maxHp: en.maxHp, // If applicable
+                moveType: en.moveType,
+                solid: en.solid,
+                indestructible: en.indestructible,
+                // Add other necessary props if dynamic (e.g. specialized gun config? usually static)
+            }));
+            levelMap[currentCoord].cleared = false;
+        } else {
+            // No survivors? Room is cleared.
+            levelMap[currentCoord].savedEnemies = null;
+            levelMap[currentCoord].cleared = true;
+        }
     }
 
     // Reset Room Specific Flags
@@ -1775,14 +1903,55 @@ async function dropBomb() {
     return false;
 }
 
+
+
+// Global Helper for spawning bullets (Player OR Enemy)
+function spawnBullet(x, y, vx, vy, weaponSource, ownerType = "player", owner = null) {
+    const bulletConfig = weaponSource.Bullet || {};
+
+    // Determine shape
+    let bulletShape = bulletConfig.geometry?.shape || "circle";
+    if (bulletShape === 'random' && bulletConfig.geometry?.shapes?.length > 0) {
+        const possibleShapes = bulletConfig.geometry.shapes;
+        bulletShape = possibleShapes[Math.floor(Math.random() * possibleShapes.length)];
+    }
+
+    const b = {
+        x: x,
+        y: y,
+        vx: vx,
+        vy: vy,
+        life: bulletConfig.range || 60,
+        damage: bulletConfig.damage || 1,
+        size: (bulletConfig.size || 5),
+        curve: bulletConfig.curve || 0,
+        homing: bulletConfig.homing,
+        canDamagePlayer: bulletConfig.canDamagePlayer || false,
+        hasLeftPlayer: false,
+        shape: bulletShape,
+        animated: bulletConfig.geometry?.animated || false,
+        filled: bulletConfig.geometry?.filled !== undefined ? bulletConfig.geometry.filled : true,
+        colour: bulletConfig.colour || "yellow",
+        spinAngle: 0,
+        hitEnemies: [],
+        ownerType: ownerType // 'player' or 'enemy'
+    };
+
+    if (ownerType === 'enemy') {
+        b.hasLeftPlayer = true; // No safety buffer needed for player
+        // Optional: Safety buffer for the enemy who shot it?
+    }
+
+    bullets.push(b);
+    return b;
+}
+
 function fireBullet(direction, speed, vx, vy, angle) {
     // 1. Safety check / No Bullets Mode
     if (gun.Bullet?.NoBullets) {
-        // "if no bullets and you press fire you should get a broken gun sound"
-        // Rate limit the click sound slightly so it's not a buzz
         const now = Date.now();
         if (now - (player.lastClick || 0) > 200) {
-            SFX.click(); // Assuming SFX.click exists, otherwise I'll need to add it or use a fallback
+            SFX.click();
             player.lastClick = now;
         }
         return;
@@ -1790,16 +1959,14 @@ function fireBullet(direction, speed, vx, vy, angle) {
 
     // Ammo Check
     if (gun.Bullet?.ammo?.active) {
-        if (player.reloading) return; // Cannot fire while reloading
+        if (player.reloading) return;
         if (player.ammo <= 0) {
             if (player.ammoMode === 'finite') return;
             if (player.ammoMode === 'reload' && player.reserveAmmo <= 0) return;
-
             reloadWeapon();
             return;
         }
         player.ammo--;
-        // Check if empty AFTER firing
         if (player.ammo <= 0) {
             if (player.reserveAmmo > 0 || player.ammoMode === 'recharge') {
                 reloadWeapon();
@@ -1807,60 +1974,31 @@ function fireBullet(direction, speed, vx, vy, angle) {
         }
     }
 
-    // Helper to create the base bullet object
-    const createBullet = (velX, velY) => {
-        // Determine the shape ONCE at creation
-        let bulletShape = gun.Bullet?.geometry?.shape || "circle";
-
-        // If shape is 'random', pick one from the shapes array immediately
-        if (bulletShape === 'random' && gun.Bullet?.geometry?.shapes?.length > 0) {
-            const possibleShapes = gun.Bullet.geometry.shapes;
-            bulletShape = possibleShapes[Math.floor(Math.random() * possibleShapes.length)];
-        }
-
-        // Calculate Spawn Offset (Barrel Tip)
+    // Helper to spawn bullet with correct offset
+    const spawn = (bvx, bvy) => {
         const barrelLength = player.size + 10;
-        const angle = Math.atan2(velY, velX);
-        const startX = player.x + Math.cos(angle) * barrelLength;
-        const startY = player.y + Math.sin(angle) * barrelLength;
-
-        return {
-            x: startX,
-            y: startY,
-            vx: velX,
-            vy: velY,
-            life: gun.Bullet?.range || 60,
-            damage: gun.Bullet?.damage || 1,
-            size: gun.Bullet?.size || 5,
-            curve: gun.Bullet?.curve || 0,
-            homing: gun.Bullet?.homing,
-            canDamagePlayer: gun.Bullet?.canDamagePlayer || false,
-            hasLeftPlayer: false, // Start as false, set to true once it exits player radius
-            shape: bulletShape, // This is now a fixed shape (triangle, square, etc.)
-            animated: gun.Bullet?.geometry?.animated || false,
-            filled: gun.Bullet?.geometry?.filled !== undefined ? gun.Bullet.geometry.filled : true,
-            colour: gun.Bullet?.colour || "yellow",
-            spinAngle: 0,
-            hitEnemies: []
-        };
+        const bAngle = Math.atan2(bvy, bvx);
+        const startX = player.x + Math.cos(bAngle) * barrelLength;
+        const startY = player.y + Math.sin(bAngle) * barrelLength;
+        spawnBullet(startX, startY, bvx, bvy, gun, "player");
     };
 
-    // 2. Spawning Logic (using else-if to prevent duplicate logic execution)
+    // 2. Spawning
     if (direction === 0) {
-        bullets.push(createBullet(vx, vy));
-        if (gun.Bullet?.reverseFire) bullets.push(createBullet(-vx, -vy));
+        spawn(vx, vy);
+        if (gun.Bullet?.reverseFire) spawn(-vx, -vy);
 
         // MultiDirectional Logic
         if (gun.Bullet?.multiDirectional?.active) {
             const md = gun.Bullet.multiDirectional;
-            if (md.fireNorth) bullets.push(createBullet(0, -speed));
-            if (md.fireEast) bullets.push(createBullet(speed, 0));
-            if (md.fireSouth) bullets.push(createBullet(0, speed));
-            if (md.fireWest) bullets.push(createBullet(-speed, 0));
+            if (md.fireNorth) spawn(0, -speed);
+            if (md.fireEast) spawn(speed, 0);
+            if (md.fireSouth) spawn(0, speed);
+            if (md.fireWest) spawn(-speed, 0);
             if (md.fire360) {
                 for (let i = 0; i < 360; i += 10) {
                     const rad = i * Math.PI / 180;
-                    bullets.push(createBullet(Math.cos(rad) * speed, Math.sin(rad) * speed));
+                    spawn(Math.cos(rad) * speed, Math.sin(rad) * speed);
                 }
             }
         }
@@ -1868,24 +2006,24 @@ function fireBullet(direction, speed, vx, vy, angle) {
     else if (direction === 360) {
         for (let i = 0; i < 360; i += 10) {
             const rad = i * Math.PI / 180;
-            bullets.push(createBullet(Math.cos(rad) * speed, Math.sin(rad) * speed));
+            spawn(Math.cos(rad) * speed, Math.sin(rad) * speed);
         }
     }
     else if (direction === 1) { // North
-        bullets.push(createBullet(0, -speed));
-        if (gun.Bullet?.reverseFire) bullets.push(createBullet(0, speed));
+        spawn(0, -speed);
+        if (gun.Bullet?.reverseFire) spawn(0, speed);
     }
     else if (direction === 2) { // East
-        bullets.push(createBullet(speed, 0));
-        if (gun.Bullet?.reverseFire) bullets.push(createBullet(-speed, 0));
+        spawn(speed, 0);
+        if (gun.Bullet?.reverseFire) spawn(-speed, 0);
     }
     else if (direction === 3) { // South
-        bullets.push(createBullet(0, speed));
-        if (gun.Bullet?.reverseFire) bullets.push(createBullet(0, -speed));
+        spawn(0, speed);
+        if (gun.Bullet?.reverseFire) spawn(0, -speed);
     }
     else if (direction === 4) { // West
-        bullets.push(createBullet(-speed, 0));
-        if (gun.Bullet?.reverseFire) bullets.push(createBullet(speed, 0));
+        spawn(-speed, 0);
+        if (gun.Bullet?.reverseFire) spawn(speed, 0);
     }
 
     bulletsInRoom++;
@@ -2165,7 +2303,8 @@ function updateRoomTransitions(doors, roomLocked) {
 }
 
 function isRoomLocked() {
-    const aliveEnemies = enemies.filter(en => !en.isDead);
+    // Alive enemies that are NOT indestructible
+    const aliveEnemies = enemies.filter(en => !en.isDead && !en.indestructible);
     let isLocked = false;
     const nonGhostEnemies = aliveEnemies.filter(en => en.type !== 'ghost');
 
@@ -3040,11 +3179,7 @@ function updateEnemies() {
         if (isRoomFrozen) {
             en.frozen = true;
             en.invulnerable = true;
-            // Visuals: Maybe draw them blue or static? handled in drawEnemies by frozen flag
         } else {
-            // Only unfreeze if we are NOT currently frozen by a bullet/effect
-            // If freezeEnd is set and we are still within it, keep frozen.
-            // If freezeEnd is undefined (room freeze legacy) or expired, unfreeze.
             const isEffectFrozen = en.freezeEnd && now < en.freezeEnd;
             if (!isEffectFrozen) {
                 en.frozen = false;
@@ -3053,269 +3188,241 @@ function updateEnemies() {
         }
 
         // 2. Frozen/Movement Logic
-        // 2. Frozen/Movement Logic
         if (!en.frozen) {
-            // --- STEERING BEHAVIORS ---
-            // 1. Seek Player (Base desire)
-            let dx = player.x - en.x;
-            let dy = player.y - en.y;
-            const distToPlayer = Math.hypot(dx, dy);
-
-            let dirX = 0;
-            let dirY = 0;
-
-            if (distToPlayer > 0) {
-                dirX = dx / distToPlayer;
-                dirY = dy / distToPlayer;
+            // --- STATIC MOVEMENT CHECK ---
+            let isStatic = false;
+            if (en.moveType) {
+                if (en.moveType === 'static') isStatic = true;
+                if (typeof en.moveType === 'object' && en.moveType.type === 'static') isStatic = true;
+                // 'track' type (or undefined) falls through to default movement below
             }
 
-            // 2. Avoid Obstacles (Bombs)
-            // Push away from bombs that are close
-            const AVOID_WEIGHT = 4.0; // Strong repulsion
-            const DETECT_RADIUS = 50; // How early to start turning
+            if (!isStatic) {
+                // --- STEERING BEHAVIORS ---
+                // Determine Move Strategy
+                let isRunAway = false;
+                if (en.moveType === 'runAway') isRunAway = true;
+                if (typeof en.moveType === 'object' && en.moveType.type === 'runAway') isRunAway = true;
 
-            for (const b of bombs) {
-                if (b.solid && !b.exploding) {
-                    const bdx = en.x - b.x;
-                    const bdy = en.y - b.y;
-                    const bDist = Math.hypot(bdx, bdy);
-                    const minDist = en.size + (b.baseR || 15);
-                    const checkDist = minDist + DETECT_RADIUS;
+                // 1. Seek (or Flee) Player
+                let dx = player.x - en.x;
+                let dy = player.y - en.y;
+                const distToPlayer = Math.hypot(dx, dy);
+                let dirX = 0, dirY = 0;
 
-                    if (bDist < checkDist) {
-                        // Calculate repulsion force
-                        // The closer we are, the stronger the push
-                        // Prevent divide by zero
-                        const pushFactor = (checkDist - bDist) / checkDist; // 0 to 1
+                if (distToPlayer > 0.1) {
+                    // If runAway, we invert the direction to push AWAY from player
+                    const factor = isRunAway ? -1.0 : 1.0;
+                    dirX = (dx / distToPlayer) * factor;
+                    dirY = (dy / distToPlayer) * factor;
+                }
 
-                        if (bDist > 0) {
-                            dirX += (bdx / bDist) * pushFactor * AVOID_WEIGHT;
-                            dirY += (bdy / bDist) * pushFactor * AVOID_WEIGHT;
+                // 2. Avoid Bombs
+                const AVOID_WEIGHT = 4.0;
+                for (const b of bombs) {
+                    if (b.solid && !b.exploding) {
+                        const bdx = en.x - b.x; const bdy = en.y - b.y;
+                        const bDist = Math.hypot(bdx, bdy);
+                        const safeDist = en.size + (b.baseR || 15) + 50;
+                        if (bDist < safeDist) {
+                            const push = (safeDist - bDist) / safeDist;
+                            if (bDist > 0) { dirX += (bdx / bDist) * push * AVOID_WEIGHT; dirY += (bdy / bDist) * push * AVOID_WEIGHT; }
                         }
                     }
                 }
-            }
 
-            // 3. Separation (Avoid Crowding)
-            const SEP_WEIGHT = 2.5;
+                // 2.5 Avoid Walls (Stay in Room)
+                const WALL_DETECT_DIST = 30;
+                const WALL_PUSH_WEIGHT = 1.5; // Reduced so they can corner the player
 
-            enemies.forEach((other, oi) => {
-                if (ei === oi || other.isDead) return;
+                if (en.x < BOUNDARY + WALL_DETECT_DIST) dirX += WALL_PUSH_WEIGHT * ((BOUNDARY + WALL_DETECT_DIST - en.x) / WALL_DETECT_DIST);
+                if (en.x > canvas.width - BOUNDARY - WALL_DETECT_DIST) dirX -= WALL_PUSH_WEIGHT * ((en.x - (canvas.width - BOUNDARY - WALL_DETECT_DIST)) / WALL_DETECT_DIST);
+                if (en.y < BOUNDARY + WALL_DETECT_DIST) dirY += WALL_PUSH_WEIGHT * ((BOUNDARY + WALL_DETECT_DIST - en.y) / WALL_DETECT_DIST);
+                if (en.y > canvas.height - BOUNDARY - WALL_DETECT_DIST) dirY -= WALL_PUSH_WEIGHT * ((en.y - (canvas.height - BOUNDARY - WALL_DETECT_DIST)) / WALL_DETECT_DIST);
 
-                const dx = en.x - other.x;
-                const dy = en.y - other.y;
-                const dist = Math.hypot(dx, dy);
-
-                // Define a "personal space" slightly larger than physical size
-                const minDist = (en.size + other.size) * 0.8;
-                const checkDist = minDist + 20;
-
-                if (dist < checkDist) {
-                    if (dist === 0) {
-                        // Random push if exact overlap
-                        dirX += (Math.random() - 0.5) * SEP_WEIGHT * 5;
-                        dirY += (Math.random() - 0.5) * SEP_WEIGHT * 5;
-                    } else {
-                        const pushFactor = (checkDist - dist) / checkDist; // 1.0 at center, 0.0 at edge
-                        dirX += (dx / dist) * pushFactor * SEP_WEIGHT;
-                        dirY += (dy / dist) * pushFactor * SEP_WEIGHT;
+                // 3. Separation
+                const SEP_WEIGHT = 2.5;
+                enemies.forEach((other, oi) => {
+                    if (ei === oi || other.isDead) return;
+                    const odx = en.x - other.x; const ody = en.y - other.y;
+                    const odist = Math.hypot(odx, ody);
+                    const checkDist = (en.size + other.size) * 0.8 + 20;
+                    if (odist < checkDist) {
+                        if (odist === 0) { dirX += (Math.random() - 0.5) * 5; dirY += (Math.random() - 0.5) * 5; }
+                        else { const push = (checkDist - odist) / checkDist; dirX += (odx / odist) * push * SEP_WEIGHT; dirY += (ody / odist) * push * SEP_WEIGHT; }
                     }
+                });
+
+                // 4. Move
+                const finalMag = Math.hypot(dirX, dirY);
+                if (finalMag > 0) {
+                    const vx = (dirX / finalMag) * en.speed;
+                    const vy = (dirY / finalMag) * en.speed;
+
+                    // Collision Check
+                    const isBlocked = (tx, ty) => {
+                        for (const b of bombs) if (b.solid && !b.exploding && Math.hypot(tx - b.x, ty - b.y) < en.size + (b.baseR || 15)) return true;
+                        return false;
+                    };
+                    const nextX = en.x + vx; const nextY = en.y + vy;
+
+                    // Helper to clamp
+                    const clampX = (v) => Math.max(BOUNDARY + en.size / 2, Math.min(canvas.width - BOUNDARY - en.size / 2, v));
+                    const clampY = (v) => Math.max(BOUNDARY + en.size / 2, Math.min(canvas.height - BOUNDARY - en.size / 2, v));
+
+                    if (!isBlocked(nextX, nextY)) {
+                        en.x = clampX(nextX);
+                        en.y = clampY(nextY);
+                    }
+                    else if (!isBlocked(nextX, en.y)) { en.x = clampX(nextX); }
+                    else if (!isBlocked(en.x, nextY)) { en.y = clampY(nextY); }
                 }
-            });
+            } // End !isStatic
 
-            // 4. Normalize and Apply Speed
-            const finalMag = Math.hypot(dirX, dirY);
-            if (finalMag > 0) {
-                const vx = (dirX / finalMag) * en.speed;
-                const vy = (dirY / finalMag) * en.speed;
-
-                // 4. Hard Collision Check (Fallback)
-                // Even with steering, we might hit a wall if trapped.
-                // Maintain the slide logic for the final step.
-                const isBlocked = (tx, ty) => {
-                    for (const b of bombs) {
-                        if (b.solid && !b.exploding) {
-                            if (Math.hypot(tx - b.x, ty - b.y) < en.size + (b.baseR || 15)) return true;
-                        }
-                    }
-                    return false;
-                };
-
-                const nextX = en.x + vx;
-                const nextY = en.y + vy;
-
-                if (!isBlocked(nextX, nextY)) {
-                    en.x = nextX;
-                    en.y = nextY;
-                } else {
-                    // Try sliding
-                    if (!isBlocked(nextX, en.y)) en.x = nextX;
-                    else if (!isBlocked(en.x, nextY)) en.y = nextY;
+            // --- GUN LOGIC ---
+            if (en.gun && typeof en.gun === 'string' && !en.gunConfig) {
+                if (!en.gunLoading) {
+                    en.gunLoading = true;
+                    fetch(en.gun).then(r => r.json()).then(d => { en.gunConfig = d; en.gunLoading = false; }).catch(e => { en.gunConfig = { error: true }; });
                 }
             }
+            if (en.gunConfig && !en.gunConfig.error && player.hp > 0) {
+                const dist = Math.hypot(player.x - en.x, player.y - en.y);
+                if (dist < 500) {
+                    const fireRate = (en.gunConfig.Bullet?.fireRate || 1) * 1000;
+                    if (!en.lastShot || now - en.lastShot > fireRate) {
+                        const angle = Math.atan2(player.y - en.y, player.x - en.x);
+                        const speed = en.gunConfig.Bullet?.speed || 4;
+                        const vx = Math.cos(angle) * speed; const vy = Math.sin(angle) * speed;
+                        const sx = en.x + Math.cos(angle) * (en.size + 5); const sy = en.y + Math.sin(angle) * (en.size + 5);
+                        spawnBullet(sx, sy, vx, vy, en.gunConfig, "enemy", en);
+                        en.lastShot = now;
+                    }
+                }
+            }
+        } // End !en.frozen
 
-        } else if (!isRoomFrozen && now > en.freezeEnd) { // Only wake up if room is NOT frozen by game event
-            en.frozen = false;
-            en.invulnerable = false; // Clear invulnerability when they wake up
-        }
-
-        // 3. Player Collision
+        // 3. Player Collision (Thorns)
         const distToPlayer = Math.hypot(player.x - en.x, player.y - en.y);
         if (distToPlayer < en.size + player.size) {
-
-            // --- THORNS LOGIC: Damage enemy on contact ---
-            // Damage is half of the current gun's per-bullet damage
             const baseDmg = gun.Bullet?.damage || 1;
             const thornsDmg = baseDmg / 2;
-
-            // Fix: Don't damage frozen/invulnerable enemies on contact
-            if (thornsDmg > 0 && !en.frozen && !en.invulnerable) {
+            if (thornsDmg > 0 && !en.frozen && !en.invulnerable && !en.indestructible) {
                 en.hp -= thornsDmg;
-                en.hitTimer = 5; // Visual flash
-
-                if (en.hp <= 0 && !en.isDead) {
-                    en.isDead = true;
-                    en.deathTimer = 30; // Fade out
-                    log(`Enemy killed by contact damage (Thorns): ${en.type}`);
-                    if (en.type === 'boss') SFX.explode(0.5);
+                en.hitTimer = 5;
+                if (en.hp <= 0 && !en.isDead) { // Kill check handled by shared block below? No, separate logs usually.
+                    // But shared block is safer. Let's rely on falling through.
                 }
             }
-
             playerHit(en, true, true, true);
         }
 
-        // 4. BULLET COLLISION (Fixed)
+        // 4. BULLET COLLISION
         bullets.forEach((b, bi) => {
-            if (en.invulnerable) return; // Skip collision if invulnerable
+            // Skip checks only if invulnerable AND NOT explicitly solid
+            // (Standard enemies are valid targets, but if invulnerable we usually skip unless solid)
+            // Default "solid" to false if undefined? No, standard behavior for invuln is pass-through.
+            // If user sets "solid": true, we process collision even if invuln.
+            if (en.invulnerable && !en.solid) return;
 
+            if (b.ownerType === 'enemy') return;
             const dist = Math.hypot(b.x - en.x, b.y - en.y);
-            // Check if bullet overlaps enemy radius
             if (dist < en.size + (b.size || 5)) {
-
-                // PIERCING: If piercing is on, don't hit the same enemy twice
                 if (gun.Bullet?.pierce && b.hitEnemies?.includes(ei)) return;
 
-                // CRIT & DAMAGE
                 let finalDamage = b.damage || 1;
-                // Ghost Immunity to Crits
-                if (en.type !== 'ghost' && Math.random() < (gun.Bullet?.critChance || 0)) {
-                    finalDamage *= (gun.Bullet?.critDamage || 2);
+                if (en.type !== 'ghost' && Math.random() < (gun.Bullet?.critChance || 0)) finalDamage *= (gun.Bullet?.critDamage || 2);
+
+                if (!en.indestructible && !en.invulnerable) { // Only damage if not invuln/indestructible
+                    en.hp -= finalDamage;
+                    en.hitTimer = 10;
                 }
-                en.hp -= finalDamage;
-                en.hitTimer = 10; // Trigger white flash in draw()
+
+                // Explode/Remove bullet if it hit something solid or took damage
+                // If it took damage, it's a hit.
+                // If it didn't take damage (indestructible/invuln) BUT is solid, it's a hit.
                 SFX.explode(0.08);
 
-                // FREEZE MECHANIC
-                // Ghost Immunity to Freeze
                 if (en.type !== 'ghost' && Math.random() < (gun.Bullet?.freezeChance || 0)) {
                     en.frozen = true;
                     en.freezeEnd = now + (gun.Bullet?.freezeDuration || 1000);
                 }
 
-                // SHARD EXPLOSION ON HIT
-                if (gun.Bullet?.Explode?.active && !b.isShard) {
-                    spawnShards(b);
-                }
+                if (gun.Bullet?.Explode?.active && !b.isShard) spawnShards(b);
 
-                // PIERCING VS REMOVAL
                 if (gun.Bullet?.pierce) {
                     if (!b.hitEnemies) b.hitEnemies = [];
                     b.hitEnemies.push(ei);
+                    b.damage *= 0.5;
+                    if (b.damage <= 0.1) bullets.splice(bi, 1);
                 } else {
                     bullets.splice(bi, 1);
                 }
+            }
+        });
 
-                // CHECK ENEMY DEATH
-                if (en.hp <= 0) {
-                    en.isDead = true;
-                    en.deathTimer = 30;
-                    log(`Enemy died: ${en.type}`); // DEBUG LOG
+        // 5. DEATH CHECK
+        if (en.hp <= 0 && !en.isDead && !en.indestructible) {
+            en.isDead = true;
+            en.deathTimer = 30;
+            log(`Enemy died: ${en.type}`);
 
-                    // Check if Boss
-                    if (en.type === 'boss') {
-                        log("BOSS DEFEATED! The Curse Strengthens... Resetting Rooms!");
-                        SFX.explode(0.5); // Big Boom
+            if (en.type === 'boss') {
+                log("BOSS DEFEATED! The Curse Strengthens... Resetting Rooms!");
+                SFX.explode(0.5);
+                bossKilled = true;
 
-                        // BOSS KILLED LOGIC
-                        bossKilled = true;
-
-                        // Reset all visited rooms (except current boss room) to force respawns
-                        Object.keys(visitedRooms).forEach(key => {
-                            if (key !== `${player.roomX},${player.roomY}`) {
-                                // 1. Do NOT delete visitedRooms. This keeps the minimap visible (Fog of War cleared).
-                                // delete visitedRooms[key]; 
-
-                                // 2. Mark as uncleared so enemies respawn
-                                if (levelMap[key]) {
-                                    levelMap[key].cleared = false;
-
-                                    // 3. FORCE DOORS OPEN so the player isn't locked in
-                                    if (levelMap[key].roomData && levelMap[key].roomData.doors) {
-                                        Object.values(levelMap[key].roomData.doors).forEach(d => {
-                                            d.forcedOpen = true;
-                                        });
-                                    }
-                                }
-                            }
-                        });
-                    } else if (en.type === 'ghost') {
-                        log("Ghost Defeated!");
-                        // GHOST BONUS
-                        if (gameData.bonuses && gameData.bonuses.ghost) {
-                            // 1. Standard Drops (Common/Uncommon etc)
-                            const dropped = spawnRoomRewards(gameData.bonuses.ghost, "GHOST BONUS");
-                            if (dropped) {
-                                perfectEl.innerText = "GHOST BONUS!";
-                                triggerPerfectText();
-                            }
-
-                            // 2. Special Guaranteed Item
-                            const specialPath = gameData.bonuses.ghost.special?.item;
-                            if (specialPath && specialPath.length > 0) {
-                                (async () => {
-                                    try {
-                                        // Assume path is relative to json root or absolute. 
-                                        // User example: "/items/gun_ghost.json"
-                                        // fetch url: "json" + path
-                                        const url = "json" + (specialPath.startsWith('/') ? specialPath : '/' + specialPath);
-                                        const res = await fetch(`${url}?t=${Date.now()}`);
-                                        if (res.ok) {
-                                            const itemData = await res.json();
-                                            // Spawn it
-                                            groundItems.push({
-                                                x: en.x, y: en.y,
-                                                data: itemData, // The fetched JSON becomes the item data
-                                                roomX: player.roomX, roomY: player.roomY,
-                                                vx: (Math.random() - 0.5) * 5,
-                                                vy: (Math.random() - 0.5) * 5,
-                                                friction: 0.9,
-                                                solid: true, moveable: true, size: 15,
-                                                floatOffset: Math.random() * 100
-                                            });
-                                            log("Spawned Special Ghost Item:", itemData.name);
-                                            spawnFloatingText(en.x, en.y - 40, "SPECIAL DROP!", "#e74c3c");
-                                        } else {
-                                            log("Failed to fetch special ghost item:", url);
-                                        }
-                                    } catch (e) {
-                                        console.error("Error spawning special ghost item:", e);
-                                    }
-                                })();
+                // Clear Rooms
+                Object.keys(visitedRooms).forEach(key => {
+                    if (key !== `${player.roomX},${player.roomY}`) {
+                        if (levelMap[key]) {
+                            levelMap[key].cleared = false;
+                            if (levelMap[key].roomData?.doors) {
+                                Object.values(levelMap[key].roomData.doors).forEach(d => d.forcedOpen = true);
                             }
                         }
                     }
+                });
+            } else if (en.type === 'ghost') {
+                log("Ghost Defeated!");
+                if (gameData.bonuses && gameData.bonuses.ghost) {
+                    spawnRoomRewards(gameData.bonuses.ghost, "GHOST BONUS");
+                    perfectEl.innerText = "GHOST BONUS!";
+                    triggerPerfectText();
 
-                    // Optional: Visual cue?
-                    // maybe shake screen or flash red
+                    const specialPath = gameData.bonuses.ghost.special?.item;
+                    if (specialPath) {
+                        (async () => {
+                            try {
+                                const url = "json" + (specialPath.startsWith('/') ? specialPath : '/' + specialPath);
+                                const res = await fetch(`${url}?t=${Date.now()}`);
+                                if (res.ok) {
+                                    const itemData = await res.json();
+                                    groundItems.push({
+                                        x: en.x, y: en.y,
+                                        data: itemData,
+                                        roomX: player.roomX, roomY: player.roomY,
+                                        vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5,
+                                        friction: 0.9, solid: true, moveable: true, size: 15, floatOffset: Math.random() * 100
+                                    });
+                                    log("Spawned Special Ghost Item:", itemData.name);
+                                    spawnFloatingText(en.x, en.y - 40, "SPECIAL DROP!", "#e74c3c");
+                                }
+                            } catch (e) { console.error(e); }
+                        })();
+                    }
                 }
             }
-        });
+        }
     });
 
     // SPAWN PORTAL IF BOSS IS DEAD AND NO ENEMIES LEFT
     // Only spawn portal in the BOSS ROOM
     const currentCoord = `${player.roomX},${player.roomY}`;
-    if (bossKilled && currentCoord === bossCoord && enemies.length === 0 && !portal.active) {
+    // Check for active threats (ignore indestructible/static like turrets)
+    const activeThreats = enemies.filter(en => !en.isDead && !en.indestructible);
+
+    if (bossKilled && currentCoord === bossCoord && activeThreats.length === 0 && !portal.active) {
         portal.active = true;
         portal.x = canvas.width / 2;
         portal.y = canvas.height / 2;
@@ -3413,6 +3520,12 @@ function updateGhost() {
 
 // --- DAMAGE & SHIELD LOGIC ---
 function takeDamage(amount) {
+    // 0. CHECK GODMODE
+    if (typeof GODMODE_ENABLED !== 'undefined' && GODMODE_ENABLED) {
+        log("BLOCKED DAMAGE! (God Mode Enabled)");
+        return;
+    }
+
     // 0. GLOBAL IMMUNITY CHECK (Room Freeze / I-Frames)
     // Applies to BOTH Shield and HP
     const now = Date.now();
@@ -3522,8 +3635,77 @@ function drawEnemies() {
             ctx.fillStyle = en.color || "#e74c3c";
         }
 
+        // DRAWING SHAPE
+        const shape = en.shape || "circle";
+
         ctx.beginPath();
-        ctx.arc(en.x, en.y + bounceY, en.size + sizeMod, 0, Math.PI * 2);
+
+        if (shape === "square") {
+            // Draw Square (centered)
+            const s = (en.size + sizeMod) * 2; // Diameter to side length roughly? Or just size as half-width?
+            // Existing logic uses size as radius. So square side should be roughly 2*radius?
+            // Let's use size as "radius equivalent" so side = size * 2
+            const side = (en.size + sizeMod); // actually let's stick to the visual expectation. radius 50 = 100 wide.
+            // If I use rect from x-size, y-size to w=size*2, h=size*2
+            ctx.rect(en.x - side, en.y + bounceY - side, side * 2, side * 2);
+        } else if (shape === "triangle") {
+            const r = en.size + sizeMod;
+            const yOffset = en.y + bounceY;
+            // Upward pointing triangle
+            ctx.moveTo(en.x, yOffset - r);
+            ctx.lineTo(en.x + r, yOffset + r);
+            ctx.lineTo(en.x - r, yOffset + r);
+            ctx.closePath();
+        } else if (shape === "star") {
+            const spikes = 5;
+            const outerRadius = en.size + sizeMod;
+            const innerRadius = outerRadius / 2;
+            let rot = Math.PI / 2 * 3;
+            let x = en.x;
+            let y = en.y + bounceY;
+            let step = Math.PI / spikes;
+
+            ctx.moveTo(0, 0 - outerRadius); // Start at top
+            for (let i = 0; i < spikes; i++) {
+                x = en.x + Math.cos(rot) * outerRadius;
+                y = en.y + bounceY + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = en.x + Math.cos(rot) * innerRadius;
+                y = en.y + bounceY + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(en.x, en.y + bounceY - outerRadius);
+            ctx.closePath();
+        } else if (shape === "hexagon" || shape === "pentagon") {
+            const sides = shape === "hexagon" ? 6 : 5;
+            const r = en.size + sizeMod;
+            const angleStep = (Math.PI * 2) / sides;
+            // Rotate hexagon 30 deg (PI/6) to have flat top? Or 0 for pointy top.
+            // Let's do -PI/2 to start at top center like circle/triangle expectations roughly
+            const startAngle = -Math.PI / 2;
+
+            ctx.moveTo(en.x + r * Math.cos(startAngle), (en.y + bounceY) + r * Math.sin(startAngle));
+            for (let i = 1; i <= sides; i++) {
+                const angle = startAngle + i * angleStep;
+                ctx.lineTo(en.x + r * Math.cos(angle), (en.y + bounceY) + r * Math.sin(angle));
+            }
+            ctx.closePath();
+        } else if (shape === "diamond") {
+            const r = en.size + sizeMod;
+            // Rhombus / Rotated Square
+            ctx.moveTo(en.x, (en.y + bounceY) - r); // Top
+            ctx.lineTo(en.x + r, (en.y + bounceY)); // Right
+            ctx.lineTo(en.x, (en.y + bounceY) + r); // Bottom
+            ctx.lineTo(en.x - r, (en.y + bounceY)); // Left
+            ctx.closePath();
+        } else {
+            // Default: "circle"
+            ctx.arc(en.x, en.y + bounceY, en.size + sizeMod, 0, Math.PI * 2);
+        }
+
         ctx.fill();
         ctx.restore();
     });
@@ -3540,7 +3722,7 @@ function playerHit(en, checkInvuln = true, applyKnockback = false, shakescreen =
     if (checkInvuln) {
         const now = Date.now();
         const until = player.invulnUntil || 0;
-        if (player.invuln || now < until) {
+        if (player.invuln || (now < until && !en.ignoreInvuln)) {
             applyDamage = false;
             // log("Invuln Active - Damage Blocked");
         }
@@ -3558,12 +3740,14 @@ function playerHit(en, checkInvuln = true, applyKnockback = false, shakescreen =
     // Interpretation: If player.solid is FALSE, they do not get knocked back by enemies (pass through).
 
     // Default solid to true if undefined
-    const isSolid = (player.solid !== undefined) ? player.solid : true;
+    // Default solid to true if undefined
+    const playerIsSolid = (player.solid !== undefined) ? player.solid : true;
+    const enemyIsSolid = (en.solid !== undefined) ? en.solid : true;
 
     // DEBUG: Verify Solidity
-    // log(`Hit Physics: PlayerSolid=${player.solid}, IsSolid=${isSolid}, Apply=${applyKnockback}`);
+    // log(`Hit Physics: PlayerSolid=${player.solid}, IsSolid=${playerIsSolid}, EnemySolid=${enemyIsSolid}, Apply=${applyKnockback}`);
 
-    if (applyKnockback && isSolid) {
+    if (applyKnockback && playerIsSolid && enemyIsSolid) {
         let dx = player.x - en.x;
         let dy = player.y - en.y;
 
@@ -4232,7 +4416,7 @@ async function pickupItem(item, index) {
                     data: {
                         name: "gun_" + oldName,
                         type: "gun",
-                        location: `weapons/guns/${oldName}.json`,
+                        location: `weapons/guns/player/${oldName}.json`,
                         rarity: "common",
                         starter: false,
                         colour: (gun.Bullet && (gun.Bullet.colour || gun.Bullet.color)) || gun.colour || gun.color
