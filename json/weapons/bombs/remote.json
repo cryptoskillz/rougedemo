@@ -31,7 +31,7 @@
         "canDamagePlayer": true
     },
     "doors": {
-        "openLockedDoors": true,
+        "openLockedDoors": false,
         "openRedDoors": false,
         "openSecretRooms": true
     },

@@ -1,30 +1,22 @@
 bugs
-nprmal bomb opening any door
-space not opening doors
-boss sometimes not rendering on level 4
+    dont drop the same item twice
+    mini map should not show red for static enemies once the room is clear it should go yellow
+    space not opening doors when you have keys
+    boss sometimes not rendering on level 4
 RESET DOES NTO REST THE GUN
-ghpsot does nto restart on death
     if movetype has an x,y start it there
-    restsrt game should slip welcome screen
-    main menu should move to enter key and be default on the pause, game over, victory
     on level tooling up if you dont pick up the peashoort or bombs you go into a pacafist run 
     use item flag unlocked on level 3
 is perfect bonus reset between runds
 why am i getting perfect bonus for running through empty rooms
-s    drop items flag on level 3 if not picked up items are never dropped
-        guns items
-        bombd
-        inventory
-        bullets 
-        player
+
 
      
 
 next up 
     bug fixss
     ui updates
-    inventory
-        
+        inventory
         stats
         player with modifiers
     rooms
@@ -36,14 +28,12 @@ next up
 
 level plan
 
-
-
-level 3
-
-the unpicked up items stay in the starting room and the game begins proper at this point.
-mini map
-ui 
-
+drop items flag on level 3 if not picked up items are never dropped
+    guns items
+bombs
+inventory
+bullets 
+player
 level 4 standaed boss 
 level 5 is golcen path maze (it will say room name followed by dejavu)
 level 6 is harder level one

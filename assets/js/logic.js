@@ -2434,7 +2434,7 @@ function update() {
     // updateMusicToggle(); // Moved up
     updateRemoteDetonation(); // Remote Bombs - Check BEFORE Use consumes space
     updateBombInteraction(); // Kick/Interact with Bombs
-    if (keys["Space"] && gameData.items !== false) updateUse();
+    if (keys["Space"]) updateUse();
     if (keys["KeyP"] && gameData.pause !== false) {
         keys["KeyP"] = false; // Prevent repeated triggers
         gameMenu();
