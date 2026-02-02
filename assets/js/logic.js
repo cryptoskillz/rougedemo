@@ -313,9 +313,15 @@ function updateWelcomeScreen() {
         </div>`;
     }
 
+    // Check for Saved Data (Unlocks or Progress)
+    const hasSave = localStorage.getItem('game_unlocks') || localStorage.getItem('game_unlocked_ids');
+    const startText = hasSave
+        ? 'press any key to continue<br><span style="font-size:0.6em; color:#ff6b6b;">press N for new game (clears data)</span>'
+        : 'press any key to start';
+
     let html = `<h1>rogue demo</h1>
         ${charSelectHtml}
-        <p>${gameData.music ? 'press 0 to toggle music<br>' : ''}${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : 'press any key to start'}</p>`;
+        <p>${gameData.music ? 'press 0 to toggle music<br>' : ''}${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : startText}</p>`;
 
     welcomeEl.innerHTML = html;
 
@@ -958,6 +964,8 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
 
     // Preserved Stats for Next Level
     let savedPlayerStats = null;
+    log(`initGame called. isRestart=${isRestart}, keepStats=${keepStats}, player.bombType=${player ? player.bombType : 'null'}`);
+
     if (keepStats && player) {
         savedPlayerStats = {
             hp: player.hp,
@@ -965,8 +973,10 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
             inventory: { ...player.inventory },
             gunType: player.gunType,
             bombType: player.bombType,
-            speed: player.speed
+            speed: player.speed,
+            perfectStreak: perfectStreak // Save Streak
         };
+        log("Saved Player Stats:", JSON.stringify(savedPlayerStats));
     }
 
     if (!savedPlayerStats) {
@@ -974,6 +984,7 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
         player.speed = 4;
         player.inventory.keys = 0;
         player.inventory.bombs = 0; // Ensure bombs reset too if not kept
+        perfectStreak = 0; // Reset streak ONLY on fresh start
     }
     // Always reset pos
     player.x = 300;
@@ -982,7 +993,7 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
     player.roomY = 0;
     bulletsInRoom = 0;
     hitsInRoom = 0;
-    perfectStreak = 0;
+    // perfectStreak = 0; // REMOVED: Managed above
     perfectEl.style.display = 'none';
     roomStartTime = Date.now();
     ghostSpawned = false; // Reset Ghost
@@ -1013,7 +1024,17 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
             console.error("Failed to apply saved unlocks", e);
         }
 
-        // 2. Load Level Specific Data
+        // 2. Apply Permanent Unlocks to Default Loadout (Fix for Fresh Load/Refresh)
+        if (!gData.gunType && gData.unlocked_peashooter) {
+            gData.gunType = 'peashooter';
+            log("Applying Unlocked Peashooter to Loadout");
+        }
+        if (!gData.bombType && gData.unlocked_bomb_normal) {
+            gData.bombType = 'normal';
+            log("Applying Unlocked Normal Bomb to Loadout");
+        }
+
+        // 3. Load Level Specific Data
         // Use nextLevel if provided, else config startLevel
         const levelFile = nextLevel || gData.startLevel;
         if (levelFile) {
@@ -1194,22 +1215,29 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
 
         // Restore Stats if kept
         if (savedPlayerStats) {
+            log("Restoring Stats:", savedPlayerStats);
             player.hp = savedPlayerStats.hp;
-            player.maxHp = savedPlayerStats.maxHp || player.maxHp; // valid?
+            player.maxHp = savedPlayerStats.maxHp || player.maxHp;
             player.inventory = savedPlayerStats.inventory;
             player.gunType = savedPlayerStats.gunType;
             player.bombType = savedPlayerStats.bombType;
             player.speed = savedPlayerStats.speed;
-            player.speed = savedPlayerStats.speed;
+            if (savedPlayerStats.perfectStreak !== undefined) {
+                perfectStreak = savedPlayerStats.perfectStreak; // Restore Streak
+            }
         }
 
         // Apply Game Config Overrides
-
-        if (gameData.gunType) {
+        // FIXED: Only override if we are NOT preserving stats (Fresh Start / Restart),
+        // or if the stat was missing.
+        if (gameData.gunType && !savedPlayerStats) {
             log("Applying gameData override for gunType:", gameData.gunType);
             player.gunType = gameData.gunType;
         }
-        if (gameData.bombType) player.bombType = gameData.bombType;
+        if (gameData.bombType && !savedPlayerStats) {
+            log("Applying gameData override for bombType:", gameData.bombType);
+            player.bombType = gameData.bombType;
+        }
 
         // Load player specific assets
         let fetchedGun = null;
@@ -1462,6 +1490,18 @@ window.addEventListener('keydown', e => {
         if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyM') {
             log("Keydown Menu Key:", e.code);
             keys[e.code] = true;
+            return;
+        }
+
+        // Check for New Game (N)
+        const hasSave = localStorage.getItem('game_unlocks') || localStorage.getItem('game_unlocked_ids');
+        if (e.code === 'KeyN' && hasSave) {
+            if (confirm("START NEW GAME?\n\nThis will DELETE ALL UNLOCKS and progress.\nAre you sure?")) {
+                localStorage.removeItem('game_unlocks');
+                localStorage.removeItem('game_unlocked_ids');
+                log("Save data cleared. Starting fresh.");
+                restartGame();
+            }
             return;
         }
 
@@ -2434,7 +2474,7 @@ function update() {
     // updateMusicToggle(); // Moved up
     updateRemoteDetonation(); // Remote Bombs - Check BEFORE Use consumes space
     updateBombInteraction(); // Kick/Interact with Bombs
-    if (keys["Space"] && gameData.items !== false) updateUse();
+    if (keys["Space"]) updateUse();
     if (keys["KeyP"] && gameData.pause !== false) {
         keys["KeyP"] = false; // Prevent repeated triggers
         gameMenu();
@@ -2691,8 +2731,10 @@ function updateRoomLock() {
         }
 
         // --- PERFECT BONUS (STREAK) ---
-        // Check if no damage taken in this room
-        if (!player.tookDamageInRoom) {
+        // Check if no damage taken in this room AND room had enemies
+        const hasCombat = roomData.enemies && roomData.enemies.some(e => (e.count || 0) > 0);
+
+        if (!player.tookDamageInRoom && hasCombat) {
             perfectStreak++;
             const goal = gameData.perfectGoal || 3;
 
@@ -4438,9 +4480,17 @@ function gameMenu() {
     gameState = STATES.GAMEMENU;
     overlay.style.display = 'flex';
     overlayTitle.innerText = "Pause";
-    overlayTitle.innerText = "Pause";
+
+    // Configure Buttons for Pause
     overlayEl.querySelector('#continueBtn').style.display = '';
+    overlayEl.querySelector('#continueBtn').innerText = "(Enter) Continue";
+
     overlayEl.querySelector('#restartBtn').style.display = '';
+
+    // Show Main Menu Button
+    const menuBtn = overlayEl.querySelector('#menuBtn');
+    menuBtn.style.display = '';
+    menuBtn.innerText = "(M)ain Menu";
 }
 
 function restartGame() {
@@ -4525,7 +4575,7 @@ function drawTutorial() {
         let my = canvas.height - 80;
 
         const actions = [];
-        if (gameData.items !== false) actions.push({ label: "ITEM", key: "⎵" });
+        if (gameData.itemPickup) actions.push({ label: "ITEM", key: "⎵" });
         if (gameData.pause !== false) actions.push({ label: "PAUSE", key: "P" });
         if (gameData.music) actions.push({ label: "MUSIC", key: "0" });
 
@@ -4927,16 +4977,20 @@ async function pickupItem(item, index) {
             log(`Equipped Gun: ${config.name}`);
             spawnFloatingText(player.x, player.y - 30, config.name.toUpperCase(), config.colour || "gold");
 
-            // PERSIST LOADOUT
+            // PERSIST UNLOCKS ONLY (Peashooter)
             try {
                 const saved = JSON.parse(localStorage.getItem('game_unlocks') || '{}');
                 // Normalize key to match initGame loader
                 const key = 'json/game.json';
                 if (!saved[key]) saved[key] = {};
-                saved[key].gunType = player.gunType;
-                localStorage.setItem('game_unlocks', JSON.stringify(saved));
-                // log("Saved Gun Preference:", player.gunType);
-            } catch (e) { console.error("Failed to save loadout:", e); }
+
+                // Robust Check: If the file loaded was peashooter.json, unlock it.
+                if (location.endsWith('peashooter.json')) {
+                    saved[key].unlocked_peashooter = true;
+                    log("Unlocked Peashooter permanently (Location verified)");
+                    localStorage.setItem('game_unlocks', JSON.stringify(saved));
+                }
+            } catch (e) { console.error("Failed to save unlock:", e); }
         }
         else if (type === 'bomb') {
             // Drop Helper
@@ -4983,15 +5037,19 @@ async function pickupItem(item, index) {
             log(`Equipped Bomb: ${config.name}`);
             spawnFloatingText(player.x, player.y - 30, config.name.toUpperCase(), config.colour || "orange");
 
-            // PERSIST LOADOUT
+            // PERSIST UNLOCKS ONLY (Normal Bomb)
             try {
                 const saved = JSON.parse(localStorage.getItem('game_unlocks') || '{}');
                 const key = 'json/game.json';
                 if (!saved[key]) saved[key] = {};
-                saved[key].bombType = player.bombType;
-                localStorage.setItem('game_unlocks', JSON.stringify(saved));
-                // log("Saved Bomb Preference:", player.bombType);
-            } catch (e) { console.error("Failed to save loadout:", e); }
+
+                // Robust Check: If the file loaded was normal.json, unlock it.
+                if (location.endsWith('normal.json')) {
+                    saved[key].unlocked_bomb_normal = true;
+                    log("Unlocked Normal Bomb permanently (Location verified)");
+                    localStorage.setItem('game_unlocks', JSON.stringify(saved));
+                }
+            } catch (e) { console.error("Failed to save unlock:", e); }
         }
         else if (type === 'modifier') {
             // APPLY MODIFIER
