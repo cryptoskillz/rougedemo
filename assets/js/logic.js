@@ -902,6 +902,7 @@ const DOOR_SIZE = 50;
 const DOOR_THICKNESS = 15;
 // Load configurations (Async)
 let DEBUG_START_BOSS = false;
+let DEBUG_TEST_ROOM = false;
 let DEBUG_PLAYER = true;
 let GODMODE_ENABLED = false;
 let DEBUG_WINDOW_ENABLED = false;
@@ -1421,6 +1422,7 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
         // 5. Generate Level
         const urlParams = new URLSearchParams(window.location.search);
         const isDebugRoom = urlParams.get('debugRoom') === 'true';
+        DEBUG_TEST_ROOM = isDebugRoom;
 
         if (DEBUG_START_BOSS) {
             bossCoord = "0,0";
@@ -4688,7 +4690,7 @@ function drawTutorial() {
     // --- Start Room Tutorial Text ---
     // --- Start Room Tutorial Text ---
     // Show in start room (0,0) if it is NOT a boss room
-    if (player.roomX === 0 && player.roomY === 0 && !roomData.isBoss && (DEBUG_START_BOSS === false)) {
+    if (player.roomX === 0 && player.roomY === 0 && !roomData.isBoss && !DEBUG_START_BOSS && !DEBUG_TEST_ROOM) {
         ctx.save();
 
         // Internal helper for keycaps
