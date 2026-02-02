@@ -1,14 +1,15 @@
 bugs
-    the boss is not invul during intro
-    enemies can pass through other enemies marked as solid but the player cannot
-    replace java script new game with something nice
+
     run through a item with force acts a pick up 
-    ghost timer is running when you are on the welcome screen
+
     debug window is broken
     editor test roon is not working
+    the boss is not invul during intro
+    replace java script new game with something nice
 
 next up 
     bug fixss
+    ghost
     ui updates
         inventory
         stats
@@ -96,7 +97,8 @@ ghost
 if you go through multiple room and back track you will see multiple ghosts
 if you leave a room and come back the ghost should be the same place + closer to you basedo on the speed the ghost moves. 
 if you kill some of the enemeis and leave a room and back there should only be the remaining enemies left (with ghost or blowing doors)
-
+    ghost timer is running when you are on the welcome screen
+    ghpst wont enter a room with an indestrcutible eemies
 
 
 

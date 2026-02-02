@@ -3716,6 +3716,22 @@ function updateEnemies() {
                     }
                 }
 
+                // 2.2 Avoid Solid Enemies (e.g. Turrets)
+                for (const other of enemies) {
+                    if (other !== en && !other.isDead && other.solid) {
+                        const odx = en.x - other.x; const ody = en.y - other.y;
+                        const oDist = Math.hypot(odx, ody);
+                        const safeDist = en.size + other.size + 40; // Detection range
+                        if (oDist < safeDist) {
+                            const push = (safeDist - oDist) / safeDist;
+                            if (oDist > 0) {
+                                dirX += (odx / oDist) * push * AVOID_WEIGHT;
+                                dirY += (ody / oDist) * push * AVOID_WEIGHT;
+                            }
+                        }
+                    }
+                }
+
                 // 2.5 Avoid Walls (Stay in Room)
                 const WALL_DETECT_DIST = 30;
                 const WALL_PUSH_WEIGHT = 1.5; // Reduced so they can corner the player
@@ -3746,7 +3762,16 @@ function updateEnemies() {
 
                     // Collision Check
                     const isBlocked = (tx, ty) => {
-                        for (const b of bombs) if (b.solid && !b.exploding && Math.hypot(tx - b.x, ty - b.y) < en.size + (b.baseR || 15)) return true;
+                        // Check Bombs
+                        for (const b of bombs) {
+                            if (b.solid && !b.exploding && Math.hypot(tx - b.x, ty - b.y) < en.size + (b.baseR || 15)) return true;
+                        }
+                        // Check Solid Enemies (e.g. Turrets)
+                        for (const other of enemies) {
+                            if (other === en || other.isDead || !other.solid) continue;
+                            const dist = Math.hypot(tx - other.x, ty - other.y);
+                            if (dist < en.size + other.size) return true;
+                        }
                         return false;
                     };
                     const nextX = en.x + vx; const nextY = en.y + vy;
