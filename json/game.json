@@ -7,7 +7,7 @@
     "itemPickup": true,
     "soundEffects": false,
     "showDebugWindow": false,
-    "showDebugLog": false,
+    "showDebugLog": true,
     "showMinimap": false,
     "showUI": false,
     "showWelcome": false,

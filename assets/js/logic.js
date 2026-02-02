@@ -958,6 +958,8 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
 
     // Preserved Stats for Next Level
     let savedPlayerStats = null;
+    log(`initGame called. isRestart=${isRestart}, keepStats=${keepStats}, player.bombType=${player ? player.bombType : 'null'}`);
+
     if (keepStats && player) {
         savedPlayerStats = {
             hp: player.hp,
@@ -967,6 +969,7 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
             bombType: player.bombType,
             speed: player.speed
         };
+        log("Saved Player Stats:", JSON.stringify(savedPlayerStats));
     }
 
     if (!savedPlayerStats) {
@@ -1013,7 +1016,17 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
             console.error("Failed to apply saved unlocks", e);
         }
 
-        // 2. Load Level Specific Data
+        // 2. Apply Permanent Unlocks to Default Loadout (Fix for Fresh Load/Refresh)
+        if (!gData.gunType && gData.unlocked_peashooter) {
+            gData.gunType = 'peashooter';
+            log("Applying Unlocked Peashooter to Loadout");
+        }
+        if (!gData.bombType && gData.unlocked_bomb_normal) {
+            gData.bombType = 'normal';
+            log("Applying Unlocked Normal Bomb to Loadout");
+        }
+
+        // 3. Load Level Specific Data
         // Use nextLevel if provided, else config startLevel
         const levelFile = nextLevel || gData.startLevel;
         if (levelFile) {
@@ -1194,22 +1207,26 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
 
         // Restore Stats if kept
         if (savedPlayerStats) {
+            log("Restoring Stats:", savedPlayerStats);
             player.hp = savedPlayerStats.hp;
-            player.maxHp = savedPlayerStats.maxHp || player.maxHp; // valid?
+            player.maxHp = savedPlayerStats.maxHp || player.maxHp;
             player.inventory = savedPlayerStats.inventory;
             player.gunType = savedPlayerStats.gunType;
             player.bombType = savedPlayerStats.bombType;
             player.speed = savedPlayerStats.speed;
-            player.speed = savedPlayerStats.speed;
         }
 
         // Apply Game Config Overrides
-
-        if (gameData.gunType) {
+        // FIXED: Only override if we are NOT preserving stats (Fresh Start / Restart),
+        // or if the stat was missing.
+        if (gameData.gunType && !savedPlayerStats) {
             log("Applying gameData override for gunType:", gameData.gunType);
             player.gunType = gameData.gunType;
         }
-        if (gameData.bombType) player.bombType = gameData.bombType;
+        if (gameData.bombType && !savedPlayerStats) {
+            log("Applying gameData override for bombType:", gameData.bombType);
+            player.bombType = gameData.bombType;
+        }
 
         // Load player specific assets
         let fetchedGun = null;
