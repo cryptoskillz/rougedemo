@@ -1,10 +1,11 @@
 bugs
-    homic missles should not target indestrucibile ememies (maybe we want this if so add a targetable attr to enemies, be nice to have some that stealth enemies)
     the boss is not invul during intro
     enemies can pass through other enemies marked as solid but the player cannot
     replace java script new game with something nice
     run through a item with force acts a pick up 
     ghost timer is running when you are on the welcome screen
+    debug window is broken
+    editor test roon is not working
 
 next up 
     bug fixss

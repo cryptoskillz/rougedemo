@@ -1816,6 +1816,7 @@ function spawnEnemies() {
                     }
 
                     enemies.push(inst);
+                    log(`Spawned ${inst.type} (ID: ${group.type}). Stealth: ${inst.stealth}, Indestructible: ${inst.indestructible}`);
                 }
             } else {
                 console.warn(`Enemy template not found for: ${group.type}`);
@@ -3250,27 +3251,37 @@ function updateBulletsAndShards(aliveEnemies) {
 
         // --- HOMING LOGIC ---
         if (b.homing && aliveEnemies && aliveEnemies.length > 0) {
-            // Find closest enemy
-            let closest = aliveEnemies[0];
-            let minDist = Infinity;
-            aliveEnemies.forEach(en => {
-                const d = Math.hypot(b.x - en.x, b.y - en.y);
-                if (d < minDist) { minDist = d; closest = en; }
-            });
+            // Filter valid targets (excluding stealth)
+            const targets = aliveEnemies.filter(en => !en.stealth);
 
-            // Rotate velocity towards target
-            const targetAngle = Math.atan2(closest.y - b.y, closest.x - b.x);
-            const currentAngle = Math.atan2(b.vy, b.vx);
+            if (targets.length > 0) {
+                // Find closest enemy
+                let closest = targets[0];
+                let minDist = Infinity;
+                targets.forEach(en => {
+                    const d = Math.hypot(b.x - en.x, b.y - en.y);
+                    if (d < minDist) { minDist = d; closest = en; }
+                });
 
-            // Subtle curve (0.1 strength)
-            b.vx += Math.cos(targetAngle) * 0.5;
-            b.vy += Math.sin(targetAngle) * 0.5;
+                // Rotate velocity towards target
+                const targetAngle = Math.atan2(closest.y - b.y, closest.x - b.x);
+                const currentAngle = Math.atan2(b.vy, b.vx);
 
-            // Normalize to gun speed so bullets don't accelerate to infinity
-            const speed = gun.Bullet.speed || 5;
-            const currMag = Math.hypot(b.vx, b.vy);
-            b.vx = (b.vx / currMag) * speed;
-            b.vy = (b.vy / currMag) * speed;
+                // Subtle curve (0.1 strength)
+                b.vx += Math.cos(targetAngle) * 0.5;
+                b.vy += Math.sin(targetAngle) * 0.5;
+
+                // Normalize to gun speed so bullets don't accelerate to infinity
+                const speed = gun.Bullet.speed || 5;
+                const currMag = Math.hypot(b.vx, b.vy);
+                b.vx = (b.vx / currMag) * speed;
+                b.vy = (b.vy / currMag) * speed;
+            } else {
+                // No valid targets? Behave like normal bullet (or curve if set)
+                // Fallthrough to curve check below if we want strict behavior, 
+                // but usually homing bullets just go straight if no target.
+            }
+
         } else if (b.curve) {
             // --- GENERIC CURVE ---
             const currentAngle = Math.atan2(b.vy, b.vx);
