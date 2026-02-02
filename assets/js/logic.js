@@ -2145,34 +2145,47 @@ async function dropBomb() {
     const gap = 6;
     const backDist = player.size + baseR + gap;
 
-    // Detect Movement (Simple Key Check)
-    const isMoving = (keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD'] ||
-        keys['ArrowUp'] || keys['ArrowLeft'] || keys['ArrowDown'] || keys['ArrowRight']);
+    const isMoving = (keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD']);
+    const isShooting = (keys['ArrowUp'] || keys['ArrowLeft'] || keys['ArrowDown'] || keys['ArrowRight']);
 
-    // Default to 1 (Down) if no movement yet
-    const lastX = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 0 : (player.lastMoveX || 0);
-    const lastY = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 1 : (player.lastMoveY || 0);
+    // Determine Drop Direction (Facing)
+    let dirX = 0;
+    let dirY = 0;
+
+    if (isMoving) {
+        // Use Movement Direction
+        if (keys['KeyW']) dirY = -1;
+        if (keys['KeyS']) dirY = 1;
+        if (keys['KeyA']) dirX = -1;
+        if (keys['KeyD']) dirX = 1;
+        // Normalize diagonals not strictly needed for grid offset here but keeps it clean? 
+        // Logic just adds components. 
+    } else if (isShooting) {
+        // Use Shooting Direction
+        if (keys['ArrowUp']) dirY = -1;
+        if (keys['ArrowDown']) dirY = 1;
+        if (keys['ArrowLeft']) dirX = -1;
+        if (keys['ArrowRight']) dirX = 1;
+    } else {
+        // Fallback to Last Moved
+        dirX = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 0 : (player.lastMoveX || 0);
+        dirY = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 1 : (player.lastMoveY || 0);
+    }
 
     let dropX, dropY, dropVx = 0, dropVy = 0;
 
     if (isMoving) {
-        // MOVING: Drop Behind and Add Velocity (Follow/Trail)
-        // Check if user meant "Follow" = "Move WITH me" or "Trail BEHIND me".
-        // "Trail Behind" is cleaner for safety. "Move with me" is chaos.
-        // Let's implement "Trail Behind" with slight inertia.
-        dropX = player.x - (lastX * backDist);
-        dropY = player.y - (lastY * backDist);
+        // MOVING: Drop Behind
+        dropX = player.x - (dirX * backDist);
+        dropY = player.y - (dirY * backDist);
 
-        // Add a bit of player velocity to the bomb so it "drifts"
-        // Assuming player speed is roughly 4 (default).
-        // Let's give it 50% of movement text direction.
-        dropVx = lastX * 2;
-        dropVy = lastY * 2;
+        dropVx = dirX * 2;
+        dropVy = dirY * 2;
     } else {
         // STATIONARY: Drop IN FRONT (Pushable)
-        // Offset + (Front)
-        dropX = player.x + (lastX * backDist);
-        dropY = player.y + (lastY * backDist);
+        dropX = player.x + (dirX * backDist);
+        dropY = player.y + (dirY * backDist);
+        log(`Stationary Drop. Facing: ${dirX},${dirY}. Player: ${player.x.toFixed(0)},${player.y.toFixed(0)}. Drop: ${dropX.toFixed(0)},${dropY.toFixed(0)}`);
     }
 
     // Check if drop position overlaps with an existing bomb
@@ -2185,8 +2198,52 @@ async function dropBomb() {
         }
     }
     // Also check walls
+    // Fix: If wall blocked, Clamp bomb to wall and Push Player back
     if (dropX < BOUNDARY || dropX > canvas.width - BOUNDARY || dropY < BOUNDARY || dropY > canvas.height - BOUNDARY) {
-        canDrop = false;
+        // Only engage push logic if not moving (Stationary drop)
+        if (!isMoving) {
+            // Clamp Bomb and Determine Push Direction
+            let pushAngle = 0;
+            let clamped = false;
+
+            if (dropX < BOUNDARY) {
+                dropX = BOUNDARY + baseR;
+                pushAngle = 0; // Push Right
+                clamped = true;
+            } else if (dropX > canvas.width - BOUNDARY) {
+                dropX = canvas.width - BOUNDARY - baseR;
+                pushAngle = Math.PI; // Push Left
+                clamped = true;
+            }
+
+            if (dropY < BOUNDARY) {
+                dropY = BOUNDARY + baseR;
+                pushAngle = Math.PI / 2; // Push Down
+                clamped = true;
+            } else if (dropY > canvas.height - BOUNDARY) {
+                dropY = canvas.height - BOUNDARY - baseR;
+                pushAngle = -Math.PI / 2; // Push Up
+                clamped = true;
+            }
+
+            // Push Player (Force away from wall)
+            if (clamped) {
+                const pushDist = backDist + 5;
+                player.x = dropX + Math.cos(pushAngle) * pushDist;
+                player.y = dropY + Math.sin(pushAngle) * pushDist;
+
+                player.x = Math.max(BOUNDARY + player.size, Math.min(canvas.width - BOUNDARY - player.size, player.x));
+                player.y = Math.max(BOUNDARY + player.size, Math.min(canvas.height - BOUNDARY - player.size, player.y));
+
+                canDrop = true;
+                log(`Wall Clamp. Pushed player to ${player.x.toFixed(0)},${player.y.toFixed(0)}`);
+            } else {
+                canDrop = false;
+            }
+        } else {
+            // Moving and hit wall -> Block drop
+            canDrop = false;
+        }
     }
 
     if (!canDrop) return false;
@@ -4343,9 +4400,24 @@ function updateBombDropping() {
 function updateMovementAndDoors(doors, roomLocked) {
     // --- 4. MOVEMENT & DOOR COLLISION ---
     const moveKeys = { "KeyW": [0, -1, 'top'], "KeyS": [0, 1, 'bottom'], "KeyA": [-1, 0, 'left'], "KeyD": [1, 0, 'right'] };
+
+    // TRACK INPUT VECTOR for Diagonals
+    let inputDx = 0;
+    let inputDy = 0;
+    if (keys['KeyW']) inputDy -= 1;
+    if (keys['KeyS']) inputDy += 1;
+    if (keys['KeyA']) inputDx -= 1;
+    if (keys['KeyD']) inputDx += 1;
+
+    // Update last move only if there is input
+    if (inputDx !== 0 || inputDy !== 0) {
+        player.lastMoveX = inputDx;
+        player.lastMoveY = inputDy;
+    }
+
     for (let [key, [dx, dy, dir]] of Object.entries(moveKeys)) {
         if (keys[key]) {
-            player.lastMoveX = dx; player.lastMoveY = dy;
+            // player.lastMoveX = dx; player.lastMoveY = dy; // REMOVED: Managed by vector above
             const door = doors[dir] || { active: 0, locked: 0, hidden: 0 };
 
             // Reference center for alignment
