@@ -6,8 +6,8 @@
     "items": true,
     "itemPickup": false,
     "soundEffects": false,
-    "showDebugWindow": true,
-    "showDebugLog": true,
+    "showDebugWindow": false,
+    "showDebugLog": false,
     "showMinimap": false,
     "showUI": false,
     "showWelcome": false,
@@ -144,7 +144,7 @@
     "debug": {
         "startBoss": false,
         "player": true,
-        "godMode": true,
+        "godMode": false,
         "windowEnabled": true,
         "log": false,
         "spawn": {

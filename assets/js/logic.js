@@ -1404,6 +1404,33 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
         bosses = bosses.filter(p => p && p.trim() !== "");
         bosses.forEach(path => roomProtos.push(loadRoomFile(path, 'boss')));
 
+        // D. Special: Editor Test Room
+        const urlParams = new URLSearchParams(window.location.search);
+        const isDebugRoom = urlParams.get('debugRoom') === 'true';
+
+        if (isDebugRoom) {
+            try {
+                const debugJson = localStorage.getItem('debugRoomData');
+                if (debugJson) {
+                    const debugData = JSON.parse(debugJson);
+                    debugData.templateId = 'debug_test';
+                    // Force this as the ONLY room
+                    roomProtos.length = 0; // Clear others
+                    roomProtos.push(Promise.resolve(debugData));
+                    log("Loaded EDITOR TEST ROOM from LocalStorage");
+
+                    // Override Game Config for testing
+                    gameData.startRoom = null;
+                    gData.startRoom = null;
+                    gData.bossrooms = [];
+                    // Also ensure we don't try to generate a huge map
+                    gData.NoRooms = 1;
+                }
+            } catch (e) {
+                console.error("Failed to load debug room data:", e);
+            }
+        }
+
         await Promise.all(roomProtos);
 
         // 4. Pre-load ALL enemy templates

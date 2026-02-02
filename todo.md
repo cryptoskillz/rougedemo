@@ -1,5 +1,5 @@
 bugs
-     debug window is broken
+    bombb blast pushing the player away not working (maybe can damage player has to be on) 
     editor test roon is not working
     run through a item with force acts a pick up 
     the boss is not invul during intro
