@@ -319,7 +319,7 @@ function updateWelcomeScreen() {
         ? 'press any key to continue<br><span style="font-size:0.6em; color:#ff6b6b;">press N for new game (clears data)</span>'
         : 'press any key to start';
 
-    let html = `<h1>rogue demo</h1>
+    let html = `<h1>Geometry Dash</h1>
         ${charSelectHtml}
         <p>${gameData.music ? 'press 0 to toggle music<br>' : ''}${p.locked ? '<span style="color:red; font-size:1.5em; font-weight:bold;">LOCKED</span>' : startText}</p>`;
 
@@ -1484,6 +1484,20 @@ initGame();
 
 // --- Input Handling ---
 window.addEventListener('keydown', e => {
+    // Debug Toggle
+    if (e.code === 'Backquote') {
+        DEBUG_WINDOW_ENABLED = !DEBUG_WINDOW_ENABLED;
+        DEBUG_LOG_ENABLED = !DEBUG_LOG_ENABLED; // Toggle log too? User implied "Debug Window broken", usually they go together.
+
+        if (debugPanel) debugPanel.style.display = DEBUG_WINDOW_ENABLED ? 'flex' : 'none';
+        if (debugLogEl) debugLogEl.style.display = DEBUG_LOG_ENABLED ? 'block' : 'none';
+
+        // Re-render check
+        if (DEBUG_WINDOW_ENABLED) renderDebugForm();
+        log("Debug Toggled:", DEBUG_WINDOW_ENABLED);
+        return;
+    }
+
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if (gameState === STATES.START) {
         // Allow Menu Navigation keys to pass through to handleGlobalInputs
@@ -1654,6 +1668,27 @@ function startGame() {
 }
 
 // Debug Listeners
+function populateDebugSelect() {
+    if (!debugSelect) return;
+    debugSelect.innerHTML = '';
+    const opts = [
+        { val: 'player', text: 'Player' },
+        { val: 'room', text: 'Room Data' },
+        { val: 'spawn', text: 'Spawn Items' },
+        { val: 'spawnEnemy', text: 'Spawn Enemies' },
+        { val: 'spawnRoom', text: 'Load Room' }
+    ];
+    opts.forEach(o => {
+        const el = document.createElement('option');
+        el.value = o.val;
+        el.innerText = o.text;
+        debugSelect.appendChild(el);
+    });
+    // Default select based on last used or first
+    // debugSelect.value = 'player';
+}
+populateDebugSelect();
+
 if (debugSelect) debugSelect.addEventListener('change', renderDebugForm);
 // Force initial render of the form
 setTimeout(renderDebugForm, 100);
