@@ -1,18 +1,27 @@
 bugs
+    if you backtrack through all enemies angry mode is triggered as you killed their boss
+    when you go to next level yhou should keep your items and inventory
+    next level has a slight pause as does the restart i think this is because of the welcome screen fix from earlier shows loading
     should never be a gloden door blocling the way to the boss room 
-    bomb blast should not go throug solid players it should be absorbed by them
+    bomb blast should not go throug solid enemies it should be absorbed by them
     player can move around once they go through the portal
     on the server when you go past level 1 and it takes you back to welcome screen you have to reload to be able to play the next leve  (looks like you start the game to fast th welcome screen does not go awat)
     angry mod increase fire rate if enemy has a gun 
     pull to the left keys still an isuse ive noticed its during item spawn / pick up
     turret mode should be invul by default
-
-
+    when paused the ghost timer should not run
+    add next to level to boss 4 (make it same levef for now) so you keep you stats
+    sometimes when you pick up an item they all despawn
+    WHNE YOU CNT PIcK UP AN ITEM GIVE A fail SOUND
 
 
 Balance
 
-     enemies have a dazed mode theres eyes turn to circles and they run away from the player for a few seconds
+    peermant unlocks can be purchased for gold coins you collect once you unlock permance mode you can pay to buy any item you unlocked 
+
+    enemies have a happy mode where they run around and jump for joy and add hp to you if you hit them 
+
+    enemies have a dazed mode theres eyes turn to circles and they run away from the player for a few seconds
 
     enemies have a confused mode and they attack each other 
 

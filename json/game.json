@@ -215,7 +215,7 @@
     "debug": {
         "startBoss": false,
         "player": true,
-        "godMode": false,
+        "godMode": true,
         "windowEnabled": true,
         "log": false,
         "spawn": {

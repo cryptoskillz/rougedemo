@@ -1130,6 +1130,17 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
                 const levelRes = await fetch(`${url}?t=${Date.now()}`);
                 if (levelRes.ok) {
                     const levelData = await levelRes.json();
+
+                    // AUTO-DETECT: If this file is a Room (has isBoss), ensure it's set as the bossRoom 
+                    // so it gets loaded into templates correctly.
+                    if (levelData.isBoss && !levelData.bossRoom) {
+                        log("Level file identified as Boss Room. Setting bossRoom to self:", levelFile);
+                        levelData.bossRoom = levelFile;
+                        // Also force NoRooms to 1? Or let generation handle it?
+                        // Usually boss levels are 1 room.
+                        if (levelData.NoRooms === undefined) levelData.NoRooms = 1;
+                    }
+
                     // Merge level data into game data (Level overrides Game)
                     gData = { ...gData, ...levelData };
                 } else {

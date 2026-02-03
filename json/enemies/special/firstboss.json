@@ -4,7 +4,7 @@
     "description": "He doesn't like it up him!",
     "hp": 2,
     "alwaysAngry": false,
-    "angryAfterHit": 1,
+    "angryAfterHit": 0.1,
     "angryTime": 5000,
     "damage": 1,
     "knockback": 100,
