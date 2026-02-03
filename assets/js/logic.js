@@ -1712,7 +1712,8 @@ function startGame() {
     // Force Audio Resume on User Interaction
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
-    if (gameState === STATES.PLAY || isGameStarting) return;
+    // Guard against starting while Initializing or Unlocking or already starting
+    if (gameState === STATES.PLAY || isGameStarting || isInitializing || isUnlocking) return;
     isGameStarting = true;
 
     // Check Lock
