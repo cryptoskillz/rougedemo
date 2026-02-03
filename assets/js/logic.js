@@ -248,6 +248,40 @@ const SFX = {
 
         osc.connect(gain); gain.connect(audioCtx.destination);
         osc.start(); osc.stop(audioCtx.currentTime + 1.5);
+    },
+
+    // Angry Scream
+    scream: (vol = 0.2) => {
+        if (gameData.soundEffects === false) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        // Screech: 800Hz to 200Hz rapid drop
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.3);
+
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+    },
+
+    // Citical Hit Yelp
+    yelp: (vol = 0.2) => {
+        if (gameData.soundEffects === false) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        // Short, sharp yelp: 600Hz to 400Hz quickly
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.4);
+
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.4);
     }
 };
 
@@ -1415,7 +1449,11 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
         const ePromises = enemyManifest.enemies.map(id =>
             fetch(`json/enemies/${id}.json?t=` + Date.now())
                 .then(res => res.json())
-                .then(data => enemyTemplates[id] = data)
+                .then(data => {
+                    // Use the last part of the path as the key (e.g. "special/firstboss" -> "firstboss")
+                    const key = id.split('/').pop();
+                    enemyTemplates[key] = data;
+                })
         );
         await Promise.all(ePromises);
 
@@ -1485,6 +1523,8 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
         }
     } finally {
         isInitializing = false;
+        const loadingEl = document.getElementById('loading');
+        if (loadingEl) loadingEl.style.display = 'none';
     }
 }
 // Initial Start
@@ -1508,21 +1548,43 @@ window.addEventListener('keydown', e => {
 
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if (gameState === STATES.START) {
-        // Allow Menu Navigation keys to pass through to handleGlobalInputs
+        // Modal Input Block
+        const modal = document.getElementById('newGameModal');
+        if (modal && modal.style.display !== 'none') {
+            if (e.code === 'Escape' || e.code === 'KeyN' || e.code === 'Enter') { // Allow Escape, N, or Enter to close
+                cancelNewGame();
+            }
+            if (e.code === 'KeyD') {
+                confirmNewGame();
+            }
+            return; // Block all other inputs
+        }
         if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyM') {
             log("Keydown Menu Key:", e.code);
             keys[e.code] = true;
             return;
         }
 
+        // Music Toggle (0) - Toggle Intro Music without starting game
+        if (e.code === 'Digit0' || e.code === 'Numpad0') {
+            if (introMusic.paused) {
+                introMusic.play();
+                musicMuted = false;
+                log("Intro Music Playing");
+            } else {
+                introMusic.pause();
+                musicMuted = true;
+                log("Intro Music Paused");
+            }
+            return;
+        }
+
         // Check for New Game (N)
         const hasSave = localStorage.getItem('game_unlocks') || localStorage.getItem('game_unlocked_ids');
         if (e.code === 'KeyN' && hasSave) {
-            if (confirm("START NEW GAME?\n\nThis will DELETE ALL UNLOCKS and progress.\nAre you sure?")) {
-                localStorage.removeItem('game_unlocks');
-                localStorage.removeItem('game_unlocked_ids');
-                log("Save data cleared. Starting fresh.");
-                restartGame();
+            const modal = document.getElementById('newGameModal');
+            if (modal) {
+                modal.style.display = 'flex';
             }
             return;
         }
@@ -1585,6 +1647,11 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     keys[e.code] = false;
+});
+
+// Clear keys on window blur to prevent sticky inputs
+window.addEventListener('blur', () => {
+    keys = {};
 });
 
 // --- HELPER: START GAME LOGIC ---
@@ -1701,6 +1768,93 @@ if (debugSelect) debugSelect.addEventListener('change', renderDebugForm);
 // Force initial render of the form
 setTimeout(renderDebugForm, 100);
 
+function applyEnemyConfig(inst, group) {
+    const config = gameData.enemyConfig || {
+        variants: ['speedy', 'small', 'large', 'massive', 'gunner', 'turret', 'medium'],
+        shapes: ['circle', 'square', 'triangle', 'hexagon', 'diamond', 'star'],
+        colors: ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#34495e'],
+        variantStats: {},
+        modeStats: {}
+    };
+
+    // 1. Randomise Variant
+    if (group.randomise || group.randomiseVariant) {
+        group.variant = config.variants[Math.floor(Math.random() * config.variants.length)];
+    }
+
+    // 1b. Randomise Shape
+    if (group.randomiseShape) {
+        inst.shape = config.shapes[Math.floor(Math.random() * config.shapes.length)];
+    }
+
+    // 1c. Randomise Colour
+    if (group.randomiseColour) {
+        inst.color = config.colors[Math.floor(Math.random() * config.colors.length)];
+    }
+
+    // 2. Apply Variant Stats
+    const stats = config.variantStats[group.variant];
+    if (stats) {
+        if (stats.size) inst.size = (inst.size || 25) * stats.size;
+        if (stats.speed) inst.speed = (inst.speed || 1) * stats.speed;
+        if (stats.hp) inst.hp = Math.max(1, (inst.hp || 10) * stats.hp);
+        if (stats.damage) inst.damage = (inst.damage || 1) * stats.damage;
+        if (stats.gun) inst.gun = stats.gun;
+
+        // Special case for turret moveType
+        if (group.variant === 'turret' && stats.moveType === 'static') {
+            if (!group.moveType) group.moveType = {};
+            if (!group.moveType.type) group.moveType.type = 'static';
+        }
+    }
+
+    // 3. Apply Shape (Only if NOT randomised)
+    if (group.shape && !group.randomiseShape) {
+        inst.shape = group.shape;
+    }
+
+    // Capture Base Stats (After Variant, Before Mode)
+    if (!inst.baseStats) {
+        inst.baseStats = {
+            speed: inst.speed,
+            hp: inst.hp,
+            damage: inst.damage,
+            color: inst.color,
+            size: inst.size
+        };
+    }
+
+    // 4. Apply Mode (Angry)
+    inst.mode = group.mode || 'normal'; // Store mode for rendering
+    if (group.mode === 'angry') {
+        const angryStats = config.modeStats.angry;
+        if (angryStats) {
+            if (angryStats.hp) inst.hp = (inst.hp || 10) * angryStats.hp;
+            if (angryStats.damage) inst.damage = (inst.damage || 1) * angryStats.damage;
+
+            // Special handling for speedy variant speed in angry mode
+            if (group.variant === 'speedy' && angryStats.speedySpeed) {
+                inst.speed = (inst.speed || 1) * angryStats.speedySpeed;
+            } else if (angryStats.speed) {
+                inst.speed = (inst.speed || 1) * angryStats.speed;
+            }
+
+            if (angryStats.color) inst.color = angryStats.color;
+
+            // Angry Timer
+            const duration = inst.angryTime || angryStats.angryTime;
+            if (duration) {
+                inst.angryUntil = Date.now() + duration;
+            }
+        }
+    }
+
+    // 5. Apply Modifiers (Overrides)
+    if (group.modifiers) {
+        Object.assign(inst, group.modifiers);
+    }
+}
+
 function spawnEnemies() {
     enemies = [];
     //add the invul timer to the freeze until so they invulnerable for the time in player json
@@ -1796,6 +1950,9 @@ function spawnEnemies() {
                 for (let i = 0; i < group.count; i++) {
                     const inst = JSON.parse(JSON.stringify(template));
                     inst.templateId = group.type; // Store ID for persistence lookup
+
+                    // NEW: Apply Variants, Modes, and Modifiers
+                    applyEnemyConfig(inst, group);
 
                     // MERGE moveType from Room Config (Override)
                     if (group.moveType) {
@@ -2640,6 +2797,7 @@ async function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawShake()
     drawDoors()
+    drawBossSwitch() // Draw switch underneath entities
     drawPlayer()
     drawBulletsAndShards()
     drawBombs(doors)
@@ -2658,6 +2816,9 @@ async function draw() {
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
+
+            if (p.vx) p.x += p.vx;
+            if (p.vy) p.y += p.vy;
 
             p.life -= 0.05; // Decay
             if (p.life <= 0) particles.splice(i, 1);
@@ -2697,6 +2858,25 @@ function drawPortal() {
     ctx.beginPath();
     ctx.ellipse(0, 0, 20 + Math.sin(time) * 5, 40 + Math.cos(time) * 5, time, 0, Math.PI * 2);
     ctx.stroke();
+
+    ctx.restore();
+}
+
+function drawBossSwitch() {
+    if (!roomData.isBoss) return;
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const size = 40; // Smaller to be hidden by portal
+
+    ctx.save();
+    ctx.fillStyle = "#9b59b6"; // Purple
+    ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
+
+    // Optional: Add a border or inner detail to look like a switch plate
+    ctx.strokeStyle = "#8e44ad";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(cx - size / 2, cy - size / 2, size, size);
 
     ctx.restore();
 }
@@ -3715,6 +3895,26 @@ function updateEnemies() {
             }
         }
 
+        // Angry Timer Revert
+        if (en.mode === 'angry' && en.angryUntil && now > en.angryUntil) {
+            en.mode = 'normal';
+            if (en.baseStats) {
+                // Revert Stats
+                en.speed = en.baseStats.speed;
+                en.damage = en.baseStats.damage;
+                // HP Handling: Maintain current HP percentage or just cap? 
+                // If we drop max HP (implied by baseStats.hp being lower), we should probably ensure current hp isn't > base.
+                // But en.hp is used as current HP. 
+                // Simple approach: If current HP > base HP, cap it.
+                if (en.hp > en.baseStats.hp) en.hp = en.baseStats.hp;
+
+                en.color = en.baseStats.color;
+
+                // Reset size if we changed it? (Angry doesn't usually change size but safe to have)
+                en.size = en.baseStats.size;
+            }
+        }
+
         // 2. Frozen/Movement Logic
         if (!en.frozen) {
             // --- STATIC MOVEMENT CHECK ---
@@ -3901,11 +4101,86 @@ function updateEnemies() {
                 if (gun.Bullet?.pierce && b.hitEnemies?.includes(ei)) return;
 
                 let finalDamage = b.damage || 1;
-                if (en.type !== 'ghost' && Math.random() < (gun.Bullet?.critChance || 0)) finalDamage *= (gun.Bullet?.critDamage || 2);
+                const isCrit = Math.random() < (gun.Bullet?.critChance || 0);
+                if (en.type !== 'ghost' && isCrit) {
+                    finalDamage *= (gun.Bullet?.critDamage || 2);
+                    en.lastHitCritical = true;
+                    log(`CRIT! Chance: ${gun.Bullet?.critChance}, Damage: ${finalDamage}`);
+                    SFX.yelp();
 
-                if (!en.indestructible && !en.invulnerable) { // Only damage if not invuln/indestructible
+                    // Critical Hit Particles (Red + 50% Larger)
+                    for (let i = 0; i < 8; i++) {
+                        particles.push({
+                            x: b.x,
+                            y: b.y,
+                            vx: (Math.random() - 0.5) * 5, // Explosion velocity
+                            vy: (Math.random() - 0.5) * 5,
+                            life: 1.0,
+                            maxLife: 0.6,
+                            size: (b.size || 5) * 0.75, // 50% larger than normal 0.5 mult
+                            color: "red"
+                        });
+                    }
+                } else {
+                    en.lastHitCritical = false;
+                }
+
+                if (!en.indestructible && !en.invulnerable && Date.now() >= bossIntroEndTime) { // Only damage if not invuln/indestructible AND intro finished
                     en.hp -= finalDamage;
                     en.hitTimer = 10;
+
+                    // Angry After Hit Logic
+                    if (en.angryAfterHit && Math.random() < en.angryAfterHit) {
+                        const config = gameData.enemyConfig || {};
+                        const angryStats = config.modeStats?.angry;
+                        if (angryStats) {
+                            // Ensure base stats are captured if they weren't already (e.g. if spawned without applyEnemyConfig or weird state)
+                            if (!en.baseStats) {
+                                en.baseStats = {
+                                    speed: en.speed,
+                                    hp: en.hp,
+                                    damage: en.damage,
+                                    color: en.color,
+                                    size: en.size
+                                };
+                            }
+
+                            // If already angry, just extend timer
+                            if (en.mode === 'angry') {
+                                const duration = en.angryTime || angryStats.angryTime;
+                                if (duration) {
+                                    en.angryUntil = Date.now() + duration;
+                                }
+                            } else {
+                                // Become Angry
+                                en.mode = 'angry';
+
+                                // Apply Angry Stats (similar to applyEnemyConfig)
+                                if (angryStats.damage) en.damage = (en.baseStats.damage || 1) * angryStats.damage;
+
+                                // Special handling for speedy variant speed in angry mode
+                                // We need to check variant. Assuming en.variant is set.
+                                if (en.variant === 'speedy' && angryStats.speedySpeed) {
+                                    en.speed = (en.baseStats.speed || 1) * angryStats.speedySpeed;
+                                } else if (angryStats.speed) {
+                                    // Use base speed * angry multiplier
+                                    en.speed = (en.baseStats.speed || 1) * angryStats.speed;
+                                }
+
+                                if (angryStats.color) en.color = angryStats.color;
+
+                                // Timer
+                                const duration = en.angryTime || angryStats.angryTime;
+                                if (duration) {
+                                    en.angryUntil = Date.now() + duration;
+                                }
+
+                                log(`${en.type} became ANGRY!`);
+                                SFX.scream();
+                                spawnFloatingText(en.x, en.y - 30, "RAAAGH!", "red");
+                            }
+                        }
+                    }
                 }
 
                 // Explode/Remove bullet if it hit something solid or took damage
@@ -4302,6 +4577,49 @@ function drawEnemies() {
         }
 
         ctx.fill();
+
+        // DRAW EYES
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.max(10, en.size * 0.8)}px sans-serif`;
+
+        // Ensure eye color contrasts with body
+        // Simple check: if body is white/very light, use black eyes? 
+        // For now, default white, but if body is white (invuln), use black?
+        if (en.hitTimer > 0 || en.frozen || en.invulnerable) {
+            ctx.fillStyle = "black";
+        }
+
+        let eyes = "- -";
+
+        if (en.frozen || (en.invulnerable && en.freezeEnd && Date.now() < en.freezeEnd)) {
+            eyes = "* *";
+        } else if (en.hitTimer > 0) {
+            if (en.lastHitCritical) {
+                eyes = "* !"; // Manga Style
+            } else {
+                eyes = "x x";
+            }
+        } else if (en.mode === 'angry') {
+            eyes = "> <";
+        }
+
+        // Calculate Eye Offset to look at player
+        const aimDx = player.x - en.x;
+        const aimDy = player.y - en.y;
+        const aimDist = Math.hypot(aimDx, aimDy);
+        const lookOffset = en.size * 0.3; // How far eyes move
+        let eyeX = en.x;
+        let eyeY = en.y + bounceY;
+
+        if (aimDist > 0) {
+            eyeX += (aimDx / aimDist) * lookOffset;
+            eyeY += (aimDy / aimDist) * lookOffset;
+        }
+
+        ctx.fillText(eyes, eyeX, eyeY);
+
         ctx.restore();
     });
 }
@@ -4419,6 +4737,8 @@ function drawBombs(doors) {
                 b.didDamage = true;
                 enemies.forEach(en => {
                     if (Math.hypot(b.x - en.x, b.y - en.y) < b.maxR) {
+                        // FIX: check invulnerability AND Boss Intro
+                        if (Date.now() < bossIntroEndTime) return;
                         en.hp -= b.damage;
                         en.hitTimer = 10; // Visual flash
                         // Death Logic
@@ -4684,6 +5004,20 @@ function goContinue() {
     }
 
     gameState = STATES.PLAY;
+}
+
+// --- NEW GAME MODAL HANDLING ---
+function confirmNewGame() {
+    localStorage.removeItem('game_unlocks');
+    localStorage.removeItem('game_unlocked_ids');
+    log("Save data cleared. Starting fresh.");
+
+    document.getElementById('newGameModal').style.display = 'none';
+    restartGame();
+}
+
+function cancelNewGame() {
+    document.getElementById('newGameModal').style.display = 'none';
 }
 
 function drawTutorial() {
@@ -5029,6 +5363,22 @@ function updateItems() {
         // Right Door Zone
         if (item.x > canvas.width - DOOR_ZONE && Math.abs(item.y - cy) < DOOR_ZONE) {
             item.vx -= PUSH_STRENGTH;
+        }
+
+        // Portal Repulsion
+        if (typeof portal !== 'undefined' && portal.active) {
+            const pdx = item.x - portal.x;
+            const pdy = item.y - portal.y;
+            const pdist = Math.hypot(pdx, pdy);
+            const PORTAL_ZONE = 60; // Slightly larger than portal visual
+
+            if (pdist < PORTAL_ZONE) {
+                // Push away from center
+                const angle = Math.atan2(pdy, pdx);
+                const force = 1.0;
+                item.vx += Math.cos(angle) * force;
+                item.vy += Math.sin(angle) * force;
+            }
         }
 
         // Player Collision (Push)

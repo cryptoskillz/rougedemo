@@ -1,18 +1,47 @@
 bugs
-    bombb blast pushing the player away not working (maybe can damage player has to be on) 
-    editor test roon is not working
-    run through a item with force acts a pick up 
-    the boss is not invul during intro
-    replace java script new game with something nice
 
+
+Balance
+    bomb blast should not go throug solid players it should be absorbed by them
+    
+    when you get a bonus (ie rare, uncommon etc trigger then you should only get the highest not multipile items spawned
+
+    the same item should not drop twice if it should never spaw or spawn a random number of coins (add coins)
+
+    drops should take into account the room hardness of the room and the player modifiers to incrase the pool chances of dropping to help with balancing 
+
+    rather than add the rooms to the json of level instead add a maxHardnes and maxRooms to decide the rooms that go into the level (you could even factor in the player modifiers)
+
+
+    Add a canPickUp flag to enemy Json to steal and use your spawned items and guns 
+
+    add a destroy for spawned items that turn it into a resources (and add resources)
+
+    Add angry flag to enemies which modify speed, hp & and damage as well as optional other modifiers such as size which can be done randomnly
+
+    using the follow mechanic, gun modifier, canhurtplayer (set to false) and canhurt enemies (set to true) we can create pets that follow you and shoot at enemies
+
+    Add a charisma stat / item that can be used to turn enemies into pets / friends useful for the pacacifer runs
+
+    add a mechanic for the passiver run the boss room to open the portal i am thinking of standing on tile(s) for a set amount of time and / or in a set sequence
+
+    A sucessful pacacfier run awards you the pacacfier gun that does no damage but could be used to turn enemies into pets / friends
+
+    
 
 next up 
-    bug fixss
-    ghost
+    bug fixes 6 and balance 
     ui updates
         inventory
         stats
         player with modifiers
+        unlocked items
+        unlocked enemies
+        unlocked players
+        unlocked rooms
+        unlocked guns
+        unlocked bombs
+    ghost
     rooms
     items
     balance
@@ -25,6 +54,12 @@ if you leave a room and come back the ghost should be the same place + closer to
 if you kill some of the enemeis and leave a room and back there should only be the remaining enemies left (with ghost or blowing doors)
     ghost timer is running when you are on the welcome screen
     ghpst wont enter a room with an indestrcutible eemies
+    if an enemy is nor sold (ie ghost) he should nor try to around enemies just go through them
+        solid enemies cant go through each other, player or objects
+        non solid enemies can go through each other, player or objects
+        non solid enemies can be shot by bullets
+        solid enemies can be shot by bullets
+        player can alos be solid or non solid    
 
 
 
