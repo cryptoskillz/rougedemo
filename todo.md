@@ -1,5 +1,5 @@
 bugs
-
+    0 should not start the game but toggle the music on the intro screen 
     
 
 
