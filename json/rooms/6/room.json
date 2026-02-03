@@ -1,6 +1,7 @@
 {
     "name": "Room 6",
     "description": "",
+    "hardness": 4,
     "keyBonus": 1.0,
     "speedGoal": 10000,
     "item": {
@@ -47,8 +48,14 @@
     "height": 500,
     "enemies": [
         {
-            "type": "tank_small",
-            "count": 2
+            "type": "tank",
+            "variant": "small",
+            "shape": "square",
+            "mode": "normal",
+            "randomise": false,
+            "modifiers": {},
+            "count": 2,
+            "moveType": {}
         }
     ]
 }

@@ -1732,9 +1732,15 @@ setTimeout(renderDebugForm, 100);
 
 function applyEnemyConfig(inst, group) {
     // 1. Randomise Variant if requested
-    if (group.randomise) {
+    if (group.randomise || group.randomiseVariant) {
         const variants = ['speedy', 'small', 'large', 'massive', 'gunner', 'turret', 'medium'];
         group.variant = variants[Math.floor(Math.random() * variants.length)];
+    }
+
+    // 1b. Randomise Shape if requested
+    if (group.randomiseShape) {
+        const shapes = ['circle', 'square', 'triangle', 'hexagon', 'diamond', 'star'];
+        inst.shape = shapes[Math.floor(Math.random() * shapes.length)];
     }
 
     // 2. Apply Variant Stats
@@ -1765,8 +1771,8 @@ function applyEnemyConfig(inst, group) {
         if (!group.moveType.type) group.moveType.type = 'static';
     }
 
-    // 3. Apply Shape
-    if (group.shape) {
+    // 3. Apply Shape (Only if NOT randomised)
+    if (group.shape && !group.randomiseShape) {
         inst.shape = group.shape;
     }
 

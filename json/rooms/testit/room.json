@@ -1,6 +1,7 @@
 {
     "name": "New Room",
     "description": "",
+    "hardness": 5,
     "keyBonus": 1,
     "speedGoal": 0,
     "allDoorsUnlocked": 0,
@@ -48,7 +49,12 @@
     },
     "enemies": [
         {
-            "type": "tank_small",
+            "type": "tank",
+            "variant": "small",
+            "shape": "square",
+            "mode": "normal",
+            "randomise": false,
+            "modifiers": {},
             "count": 1,
             "moveType": {
                 "type": "track",
@@ -57,7 +63,12 @@
             }
         },
         {
-            "type": "tank_small",
+            "type": "tank",
+            "variant": "small",
+            "shape": "square",
+            "mode": "normal",
+            "randomise": false,
+            "modifiers": {},
             "count": 1,
             "moveType": {
                 "type": "track",
@@ -66,7 +77,12 @@
             }
         },
         {
-            "type": "tank_small",
+            "type": "tank",
+            "variant": "small",
+            "shape": "square",
+            "mode": "normal",
+            "randomise": false,
+            "modifiers": {},
             "count": 1,
             "moveType": {
                 "type": "track",

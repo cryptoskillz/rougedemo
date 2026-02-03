@@ -1,6 +1,7 @@
 {
     "name": "Room 3",
     "description": "",
+    "hardness": 3,
     "keyBonus": 1.0,
     "speedGoal": 10000,
     "item": {

@@ -52,11 +52,9 @@
             "variant": "speedy",
             "shape": "square",
             "mode": "normal",
-            "randomise": false,
-            "modifiers": {
-                "stealth": true,
-                "solid": true
-            },
+            "randomiseVariant": false,
+            "randomiseShape": true,
+            "modifiers": {},
             "count": 5,
             "moveType": {}
         },
@@ -65,10 +63,7 @@
             "variant": "turret",
             "shape": "square",
             "mode": "normal",
-            "modifiers": {
-                "stealth": true,
-                "solid": false
-            },
+            "modifiers": {},
             "count": 1,
             "moveType": {
                 "type": "static",

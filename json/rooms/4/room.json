@@ -1,6 +1,7 @@
 {
     "name": "Room 4",
     "description": "",
+    "hardness": 3,
     "keyBonus": 1.0,
     "speedGoal": 10000,
     "item": {
@@ -47,11 +48,11 @@
     "height": 500,
     "enemies": [
         {
-            "type": "grunt_triangle",
+            "type": "grunt_square",
             "count": 2
         },
         {
-            "type": "speedy_triangle",
+            "type": "speedy_square",
             "count": 1
         }
     ]

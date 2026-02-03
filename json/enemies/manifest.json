@@ -1,19 +1,10 @@
 {
     "enemies": [
-        "grunt_circle",
-        "grunt_square",
-        "grunt_triangle",
-        "speedy_circle",
-        "speedy_square",
-        "speedy_triangle",
+        "grunt",
         "tank",
         "firstboss",
         "secondboss",
         "boss",
-        "ghost",
-        "grunt_star",
-        "grunt_hexagon",
-        "grunt_diamond",
-        "grunt_turret"
+        "ghost"
     ]
 }

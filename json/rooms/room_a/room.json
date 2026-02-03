@@ -1,5 +1,6 @@
 {
     "name": "Testing Grounds",
+    "hardness": 4,
     "speedGoal": 100,
     "item": {
         "common": {
@@ -43,8 +44,14 @@
             "count": 1
         },
         {
-            "type": "tank_small",
-            "count": 1
+            "type": "tank",
+            "variant": "small",
+            "shape": "square",
+            "mode": "normal",
+            "randomise": false,
+            "modifiers": {},
+            "count": 1,
+            "moveType": {}
         }
     ]
 }

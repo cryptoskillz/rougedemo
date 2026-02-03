@@ -1,6 +1,7 @@
 {
     "name": "Room 11",
     "description": "",
+    "hardness": 8,
     "keyBonus": 1.0,
     "speedGoal": 10000,
     "item": {
@@ -47,8 +48,14 @@
     "height": 600,
     "enemies": [
         {
-            "type": "grunt_star",
-            "count": 10
+            "type": "tank",
+            "variant": "small",
+            "shape": "square",
+            "mode": "normal",
+            "randomise": false,
+            "modifiers": {},
+            "count": 2,
+            "moveType": {}
         }
     ]
 }
