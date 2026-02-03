@@ -1,8 +1,33 @@
 bugs
-    when you get a bonus and rare, uncooming etc trigger then you should only get the highest not multipile
-    the same item should not drop twice if it should never spaw or spawn a random number of coins (when we add coins instead of items)
-    drops should take into account the room hardness and the player modifiers to incrase the pool chances of dropping to help with balancing 
-        
+
+
+Balance
+
+    when you get a bonus (ie rare, uncommon etc trigger then you should only get the highest not multipile items spawned
+
+    the same item should not drop twice if it should never spaw or spawn a random number of coins (add coins)
+
+    drops should take into account the room hardness of the room and the player modifiers to incrase the pool chances of dropping to help with balancing 
+
+    rather than add the rooms to the json of level instead add a maxHardnes and maxRooms to decide the rooms that go into the level (you could even factor in the player modifiers)
+
+    rather than have small, medium, large and speedy enemies ie small_tank we could just have a base enemy and then add modifiers to it to make tank_small, tank_medium, tank_large, tank_speedy the only exception to this I guess is bosses (thoguh you could boss_tank as a modifier but you want standalone special bosses distinct from the nornal grunts) and stealth, enemies with guns etc 
+
+    Add a canPickUp flag to enemy Json to steal and use your spawned items and guns 
+
+    add a destroy for spawned items that turn it into a resources (and add resources)
+
+    Add angry flag to enemies which modify speed, hp & and damage as well as optional other modifiers such as size which can be done randomnly
+
+    using the follow mechanic, gun modifier, canhurtplayer (set to false) and canhurt enemies (set to true) we can create pets that follow you and shoot at enemies
+
+    Add a charisma stat / item that can be used to turn enemies into pets / friends useful for the pacacifer runs
+
+    add a mechanic for the passiver run the boss room to open the portal i am thinking of standing on tile(s) for a set amount of time and / or in a set sequence
+
+    A sucessful pacacfier run awards you the pacacfier gun that does no damage but could be used to turn enemies into pets / friends
+
+    
 
 next up 
     bug fixes 6 and balance 

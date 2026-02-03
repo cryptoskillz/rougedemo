@@ -48,11 +48,27 @@
     "height": 600,
     "enemies": [
         {
-            "type": "tank_speedy",
-            "count": 2
+            "type": "tank",
+            "variant": "speedy",
+            "shape": "square",
+            "mode": "normal",
+            "randomise": false,
+            "modifiers": {
+                "stealth": true,
+                "solid": true
+            },
+            "count": 5,
+            "moveType": {}
         },
         {
-            "type": "grunt_turret",
+            "type": "tank",
+            "variant": "turret",
+            "shape": "square",
+            "mode": "normal",
+            "modifiers": {
+                "stealth": true,
+                "solid": false
+            },
             "count": 1,
             "moveType": {
                 "type": "static",

@@ -1730,6 +1730,65 @@ if (debugSelect) debugSelect.addEventListener('change', renderDebugForm);
 // Force initial render of the form
 setTimeout(renderDebugForm, 100);
 
+function applyEnemyConfig(inst, group) {
+    // 1. Randomise Variant if requested
+    if (group.randomise) {
+        const variants = ['speedy', 'small', 'large', 'massive', 'gunner', 'turret', 'medium'];
+        group.variant = variants[Math.floor(Math.random() * variants.length)];
+    }
+
+    // 2. Apply Variant Stats
+    // "medium" is default, no changes
+    if (group.variant === 'speedy') {
+        inst.size = (inst.size || 25) * 0.75;
+        inst.speed = (inst.speed || 1) * 1.5;
+        inst.hp = Math.max(1, (inst.hp || 10) * 0.5);
+    } else if (group.variant === 'small') {
+        inst.size = (inst.size || 25) * 0.5;
+        inst.hp = Math.max(1, (inst.hp || 10) * 0.5);
+    } else if (group.variant === 'large') {
+        inst.size = (inst.size || 25) * 1.5;
+        inst.speed = (inst.speed || 1) * 0.75;
+        inst.hp = (inst.hp || 10) * 1.5;
+        inst.damage = (inst.damage || 1) * 1.25;
+    } else if (group.variant === 'massive') {
+        inst.size = (inst.size || 25) * 2.0;
+        inst.speed = (inst.speed || 1) * 0.5;
+        inst.hp = (inst.hp || 10) * 2.0;
+        inst.damage = (inst.damage || 1) * 1.5;
+    } else if (group.variant === 'gunner') {
+        inst.gun = 'json/weapons/guns/enemy/peashooter.json';
+    } else if (group.variant === 'turret') {
+        inst.gun = 'json/weapons/guns/enemy/peashooter.json';
+
+        if (!group.moveType) group.moveType = {};
+        if (!group.moveType.type) group.moveType.type = 'static';
+    }
+
+    // 3. Apply Shape
+    if (group.shape) {
+        inst.shape = group.shape;
+    }
+
+    // 4. Apply Mode (Angry)
+    if (group.mode === 'angry') {
+        inst.hp = (inst.hp || 10) * 1.5;
+        inst.damage = (inst.damage || 1) * 1.5;
+
+        if (group.variant === 'speedy') {
+            inst.speed = (inst.speed || 1) * 1.25;
+        } else {
+            inst.speed = (inst.speed || 1) * 2.0;
+        }
+        inst.color = '#e74c3c'; // Visual cue for angry? Optional.
+    }
+
+    // 5. Apply Modifiers (Overrides)
+    if (group.modifiers) {
+        Object.assign(inst, group.modifiers);
+    }
+}
+
 function spawnEnemies() {
     enemies = [];
     //add the invul timer to the freeze until so they invulnerable for the time in player json
@@ -1825,6 +1884,9 @@ function spawnEnemies() {
                 for (let i = 0; i < group.count; i++) {
                     const inst = JSON.parse(JSON.stringify(template));
                     inst.templateId = group.type; // Store ID for persistence lookup
+
+                    // NEW: Apply Variants, Modes, and Modifiers
+                    applyEnemyConfig(inst, group);
 
                     // MERGE moveType from Room Config (Override)
                     if (group.moveType) {
