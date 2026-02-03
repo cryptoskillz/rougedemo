@@ -451,6 +451,31 @@ function updateDebugEditor() {
 function renderDebugForm() {
     if (!debugForm || !debugSelect) return;
     debugForm.innerHTML = '';
+
+    // Add Audio Test Button
+    const btn = document.createElement('button');
+    btn.innerText = "TEST AUDIO";
+    btn.onclick = () => {
+        console.log("TEST AUDIO CLICKED");
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+            console.log("Audio Resumed via Test Button");
+        }
+        // Force a raw sound test bypassing all game logic
+        const o = audioCtx.createOscillator();
+        o.frequency.value = 440;
+        o.connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + 0.5);
+
+        // Also try game SFX
+        SFX.shoot();
+        SFX.yelp();
+    };
+    btn.style.marginBottom = "10px";
+    btn.style.width = "100%";
+    debugForm.appendChild(btn);
+
     const type = debugSelect.value;
 
     // SPAWN LOGIC REFACTOR
