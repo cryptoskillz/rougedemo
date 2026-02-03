@@ -1,24 +1,24 @@
 {
-    "name": "Room 1",
-    "description": "",
-    "keyBonus": 1.0,
+    "name": "A crowded room",
+    "description": "There are a lot of enemies in this room.",
+    "keyBonus": 0.1,
     "speedGoal": 10000,
     "item": {
         "common": {
             "count": 1,
-            "dropChance": 0.1
+            "dropChance": 1
         },
         "uncommon": {
             "count": 1,
-            "dropChance": 0
+            "dropChance": 0.2
         },
         "rare": {
             "count": 1,
-            "dropChance": 0
+            "dropChance": 0.1
         },
         "legendary": {
             "count": 1,
-            "dropChance": 1
+            "dropChance": 0.01
         }
     },
     "doors": {

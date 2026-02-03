@@ -1521,10 +1521,23 @@ window.addEventListener('keydown', e => {
             }
             return; // Block all other inputs
         }
-        // Allow Menu Navigation keys to pass through to handleGlobalInputs
         if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyM') {
             log("Keydown Menu Key:", e.code);
             keys[e.code] = true;
+            return;
+        }
+
+        // Music Toggle (0) - Toggle Intro Music without starting game
+        if (e.code === 'Digit0' || e.code === 'Numpad0') {
+            if (introMusic.paused) {
+                introMusic.play();
+                musicMuted = false;
+                log("Intro Music Playing");
+            } else {
+                introMusic.pause();
+                musicMuted = true;
+                log("Intro Music Paused");
+            }
             return;
         }
 

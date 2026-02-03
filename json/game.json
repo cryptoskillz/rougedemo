@@ -1,12 +1,13 @@
 {
     "perfectGoal": 5,
     "startLevel": "json/levels/0.json",
+    "hardness": 8,
     "music": false,
     "pause": false,
     "items": true,
     "itemPickup": false,
     "soundEffects": false,
-    "showDebugWindow": false,
+    "showDebugWindow": true,
     "showDebugLog": false,
     "showMinimap": false,
     "showUI": false,
@@ -34,7 +35,7 @@
             "maxDrop": 1,
             "common": {
                 "count": 1,
-                "dropChance": 0.3
+                "dropChance": 1
             },
             "uncommon": {
                 "count": 1,
@@ -45,8 +46,8 @@
                 "dropChance": 0.1
             },
             "legendary": {
-                "count": 0,
-                "dropChance": 0
+                "count": 1,
+                "dropChance": 0.01
             },
             "special": {
                 "item": ""

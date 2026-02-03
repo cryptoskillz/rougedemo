@@ -47,7 +47,7 @@
     "height": 600,
     "enemies": [
         {
-            "type": "tank",
+            "type": "tank_small",
             "count": 2
         }
     ]

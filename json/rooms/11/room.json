@@ -47,8 +47,8 @@
     "height": 600,
     "enemies": [
         {
-            "type": "tank",
-            "count": 2
+            "type": "grunt_star",
+            "count": 10
         }
     ]
 }

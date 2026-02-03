@@ -48,7 +48,7 @@
     },
     "enemies": [
         {
-            "type": "tank",
+            "type": "tank_small",
             "count": 1,
             "moveType": {
                 "type": "track",
@@ -57,7 +57,7 @@
             }
         },
         {
-            "type": "tank",
+            "type": "tank_small",
             "count": 1,
             "moveType": {
                 "type": "track",
@@ -66,7 +66,7 @@
             }
         },
         {
-            "type": "tank",
+            "type": "tank_small",
             "count": 1,
             "moveType": {
                 "type": "track",

@@ -1,9 +1,8 @@
 bugs
-    0 should not start the game but toggle the music on the intro screen 
-    
-
-
-
+    when you get a bonus and rare, uncooming etc trigger then you should only get the highest not multipile
+    the same item should not drop twice if it should never spaw or spawn a random number of coins (when we add coins instead of items)
+    drops should take into account the room hardness and the player modifiers to incrase the pool chances of dropping to help with balancing 
+        
 
 next up 
     bug fixes 6 and balance 
