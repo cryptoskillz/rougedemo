@@ -24,7 +24,7 @@
         "radius": 100,
         "explosionDuration": 1000,
         "explosionColour": "#ff2a00",
-        "canDamagePlayer": false
+        "canDamagePlayer": true
     },
     "doors": {
         "openLockedDoors": true,

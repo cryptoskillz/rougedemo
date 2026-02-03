@@ -1,18 +1,24 @@
 bugs
-    bombb blast pushing the player away not working (maybe can damage player has to be on) 
-    editor test roon is not working
-    run through a item with force acts a pick up 
+    add a loading screen at the start and hide everything until the game is loaded and the apolication state has been set to game
+    bombb blast pushing the player away not working (maybe can damage player has to be on) *maybe only when door is being blown
     the boss is not invul during intro
     replace java script new game with something nice
+    room 1 shows the boss and the stasrt room intro text in room 1
+    if you push item into portal is should push it back out
+    we should show a loading bar at the start whilst it is loading and hide everthing else
+    sometimes you are pulled down and the up does not work but you can do left and right its like down is stuch, it may work in other directions 
+    
+
+
 
 
 next up 
-    bug fixss
-    ghost
+    bug fixes 6 and balance 
     ui updates
         inventory
         stats
         player with modifiers
+    ghost
     rooms
     items
     balance
@@ -25,6 +31,12 @@ if you leave a room and come back the ghost should be the same place + closer to
 if you kill some of the enemeis and leave a room and back there should only be the remaining enemies left (with ghost or blowing doors)
     ghost timer is running when you are on the welcome screen
     ghpst wont enter a room with an indestrcutible eemies
+    if an enemy is nor sold (ie ghost) he should nor try to around enemies just go through them
+        solid enemies cant go through each other, player or objects
+        non solid enemies can go through each other, player or objects
+        non solid enemies can be shot by bullets
+        solid enemies can be shot by bullets
+        player can alos be solid or non solid    
 
 
 

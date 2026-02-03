@@ -1485,6 +1485,8 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
         }
     } finally {
         isInitializing = false;
+        const loadingEl = document.getElementById('loading');
+        if (loadingEl) loadingEl.style.display = 'none';
     }
 }
 // Initial Start
