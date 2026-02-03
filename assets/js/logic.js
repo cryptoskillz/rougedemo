@@ -169,11 +169,34 @@ let ghostEntry = null;
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+// --- ROBUST AUDIO UNLOCKER ---
+const unlockAudio = () => {
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+            console.log("AudioContext Resumed Successfully!");
+            // Optional: Remove listeners if we only needed one interaction
+            // window.removeEventListener('click', unlockAudio);
+            // window.removeEventListener('keydown', unlockAudio);
+        }).catch(e => console.error("Audio Resume Failed:", e));
+    }
+};
+// Attach to all major interactions to ensure we catch one
+window.addEventListener('click', unlockAudio);
+window.addEventListener('keydown', unlockAudio);
+window.addEventListener('touchstart', unlockAudio);
+
+// Force unlock on init too
+unlockAudio();
+
 const SFX = {
     // A quick high-to-low "pew"
     shoot: (vol = 0.2) => {
+        // Debug Audio State
+        if (audioCtx.state === 'suspended') {
+            console.warn("SFX Attempted but AudioContext is SUSPENDED. Click to unlock.");
+        }
         if (gameData.soundEffects === false) return;
-        // console.log("SFX: Shoot triggered"); // Debug
+
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'square'; // Classic NES sound
