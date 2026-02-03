@@ -1,10 +1,15 @@
 bugs
+    alwasy angry mode   
+    no sfx online 
+    sound effect for portal
+    sound effect for bomb
+    sound effect for item pick up / spswn
 
     bomb blast should not go throug solid players it should be absorbed by them
     player can move around once they go through the portal
     on the server when you go past level 1 and it takes you back to welcome screen you have to reload to be able to play the next leve
-   dont hear sound effects on line
-    
+   dont hear sound effects on line (looks like you start the game to fast th welcome screen does not go awat)
+
 
 Balance
 
