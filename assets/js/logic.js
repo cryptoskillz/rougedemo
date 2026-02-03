@@ -2640,6 +2640,7 @@ async function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawShake()
     drawDoors()
+    drawBossSwitch() // Draw switch underneath entities
     drawPlayer()
     drawBulletsAndShards()
     drawBombs(doors)
@@ -2697,6 +2698,25 @@ function drawPortal() {
     ctx.beginPath();
     ctx.ellipse(0, 0, 20 + Math.sin(time) * 5, 40 + Math.cos(time) * 5, time, 0, Math.PI * 2);
     ctx.stroke();
+
+    ctx.restore();
+}
+
+function drawBossSwitch() {
+    if (!roomData.isBoss) return;
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const size = 40; // Smaller to be hidden by portal
+
+    ctx.save();
+    ctx.fillStyle = "#9b59b6"; // Purple
+    ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
+
+    // Optional: Add a border or inner detail to look like a switch plate
+    ctx.strokeStyle = "#8e44ad";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(cx - size / 2, cy - size / 2, size, size);
 
     ctx.restore();
 }
