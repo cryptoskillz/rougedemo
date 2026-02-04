@@ -46,6 +46,8 @@ function spawnFloatingText(x, y, text, color = "white") {
 }
 
 
+let pauseStartTime = 0;
+
 function updateFloatingTexts() {
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
         const ft = floatingTexts[i];
@@ -5457,6 +5459,7 @@ function gameWon() {
 
 function gameMenu() {
     gameState = STATES.GAMEMENU;
+    pauseStartTime = Date.now(); // Record Pause Start
     overlay.style.display = 'flex';
     overlayTitle.innerText = "Pause";
 
@@ -5482,6 +5485,14 @@ function goToWelcome() {
 
 function goContinue() {
     overlay.style.display = 'none';
+
+    // Adjust Timer for Pause Duration
+    if (pauseStartTime > 0) {
+        const pausedDuration = Date.now() - pauseStartTime;
+        roomStartTime += pausedDuration; // Shift room start time forward
+        pauseStartTime = 0;
+        log("Resumed. Paused for: " + (pausedDuration / 1000).toFixed(1) + "s. Ghost Timer Adjusted.");
+    }
 
     // If Continuing from Death (Game Over), Revive Player
     if (player.hp <= 0) {
