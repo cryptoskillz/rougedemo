@@ -183,6 +183,9 @@ function triggerSpeech(enemy, type, forceText = null) {
 function generateLore(enemy) {
     if (!loreData) return null;
 
+    // Skip Bosses - they have their own names defined in JSON
+    if (enemy.type === 'boss' || enemy.isBoss) return null;
+
     // 1. Name Parts
     const prefix = loreData.prefixes[Math.floor(Math.random() * loreData.prefixes.length)];
     const firstName = loreData.firstNames[Math.floor(Math.random() * loreData.firstNames.length)];

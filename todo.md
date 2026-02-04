@@ -1,6 +1,5 @@
 bugs
-    [x] when paused the ghost timer should not run
-    boss should not get name from names.json he already has a name
+  
     when ou leabe a room with a bomb and enter it should still be there / its effect seen it the timer ran out?
     pull the player still persissts seems to happen when you pick up an item / spawn an item 
     sometimes when you pick up an item they all despawn
@@ -208,8 +207,7 @@ editor
 
 enemies
     add enemy hit and enemy death sound  from json
-    boss hit boss death  from json
-    death shake from json
+    [x] boss should not get name from names.json he already has a name from json
     maybe if ghost is x rooms away we just spawn him in the new room
     add pyshics to the enemies json instead of having them hard coded in logic.js
     add more shapes
