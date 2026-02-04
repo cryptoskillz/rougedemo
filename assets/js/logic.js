@@ -2393,11 +2393,15 @@ function spawnPlayer(dx, dy, data) {
 
         // 2. Global Angry Mode (Boss Killed)
         if (bossKilled) {
+            // Ghosts do NOT get angry
+            if (en.type === 'ghost') return;
+
             en.mode = 'angry';
             en.alwaysAngry = true;
             en.angryUntil = Infinity;
 
             // Apply Angry Stats immediately
+            const angryStats = gameData.enemyConfig?.modeStats?.angry;
             if (angryStats) {
                 if (angryStats.damage) en.damage = (en.baseStats?.damage || en.damage || 1) * angryStats.damage;
                 if (angryStats.speed) en.speed = (en.baseStats?.speed || en.speed || 1) * angryStats.speed;
