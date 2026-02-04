@@ -6,17 +6,17 @@ bugs
   
 next up 
     balance3
-    sfx 
-    ui updates
-        inventory
-        stats
-        player with modifiers
-        unlocked items
-        unlocked enemies
-        unlocked players
-        unlocked rooms
-        unlocked guns
-        unlocked bombs
+    sfx & ui updates
+        game settings
+            nventory
+            stats
+            player with modifiers
+            unlocked items
+            unlocked enemies
+            unlocked players
+            unlocked rooms
+            unlocked guns
+            unlocked bombs
     ghost
     rooms
     items
@@ -132,12 +132,12 @@ enemies
 
 
 ghost
+ghost appears when you stay on th ewelcoem screen for 10 seconds stopping ghost from spawining in start room will fix this 
 ghost does not appear in boss rooms
 if you go through multiple room and back track you will see multiple ghosts
 if you leave a room and come back the ghost should be the same place + closer to you basedo on the speed the ghost moves. 
 if you kill some of the enemeis and leave a room and back there should only be the remaining enemies left (with ghost or blowing doors)
-    [x] when ou leabe a room with a bomb and enter it should still be there / its effect seen it the timer ran out?
-    [x] its impact should also be felft if you dorp a gold bomg near a gold door leave the room adn enter it after the timer runs out you see the door is gone
+  door is gone
     ghost timer is running when you are on the welcome screen
     ghpst wont enter a room with an indestrcutible eemies
     if an enemy is nor sold (ie ghost) he should nor try to around enemies just go through them

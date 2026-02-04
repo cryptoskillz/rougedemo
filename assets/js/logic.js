@@ -3165,6 +3165,7 @@ function update() {
 
     updateRoomLock();
     updateBombDropping();
+    checkRemoteExplosions(); // Check for off-screen booms
     updateBombsPhysics(); // Bomb Physics (Push/Slide)
     updateMovementAndDoors(doors, roomLocked);
 
@@ -4192,6 +4193,33 @@ function updateUse() {
     log(`${target.dir} door used (already unlocked)`);
 }
 
+function checkRemoteExplosions() {
+    const now = Date.now();
+    // Scan all visited rooms for saved bombs
+    Object.keys(levelMap).forEach(key => {
+        // Skip current room (handled by normal update)
+        if (key === `${player.roomX},${player.roomY}`) return;
+
+        const roomData = levelMap[key];
+        if (roomData && roomData.savedBombs) {
+            roomData.savedBombs.forEach(b => {
+                // Check if exploded remotely and hasn't triggered shake yet
+                if (b.explodeAt && now > b.explodeAt && !b.remoteShakeTriggered) {
+
+                    // Trigger Shake
+                    screenShake.power = 5;
+                    screenShake.endAt = now + 300; // Short shake
+
+                    // Mark as triggered so it doesn't loop forever
+                    b.remoteShakeTriggered = true;
+
+                    log(`Remote Explosion detected in room ${key}!`);
+                }
+            });
+        }
+    });
+}
+
 function updateRestart() {
     // --- 1. RESTART & UI CHECKS ---
     // Moved to handleGlobalInputs to cover all states
@@ -4780,6 +4808,8 @@ function handleLevelComplete() {
 }
 
 function updateGhost() {
+    if (gameState !== STATES.PLAY) return;
+
     // Check if Ghost should spawn
     const now = Date.now();
     // Use config from gameData, default if missing
@@ -4802,7 +4832,7 @@ function updateGhost() {
     // 2. Not already spawned in this room
     // 3. Time exceeded
     if (ghostConfig.spawn && !ghostSpawned && (now - roomStartTime > ghostConfig.roomGhostTimer)) {
-        // if (player.roomX === 0 && player.roomY === 0) return; // Allow ghost in start room if configured
+        if (player.roomX === 0 && player.roomY === 0) return; // Stop ghost in start room (Fixes welcome screen spawn)
 
         log("THE GHOST APPEARS!");
         ghostSpawned = true;
