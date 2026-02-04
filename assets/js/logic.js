@@ -2521,10 +2521,38 @@ function changeRoom(dx, dy) {
             // If the bomb exploded while we were away (now > explodeAt), do NOT restore it.
             // (Or restore it as exploding? Usually better to just assume it's gone)
             if (now > sb.explodeAt) {
-                // Bomb expired. Technically should trigger checks (doors etc) but that's complex without active room logic.
-                // For now, simpler is "it blew up and is gone".
-                // If user wants it to HAVE BLOWN UP DOORS, we'd need to simulate that. 
-                // Let's stick to "it's gone".
+                // SIMULATED EXPLOSION
+                // The bomb exploded while we were away. Check if it should have hit any doors.
+                // We need to access the doors of the room we are ABOUT to enter.
+                // Fortunately, we can access levelMap[nextCoord].roomData
+                const targetRoom = levelMap[nextCoord].roomData;
+                if (targetRoom && targetRoom.doors) {
+                    // Check Logic similar to drawBombs collision
+                    Object.entries(targetRoom.doors).forEach(([dir, door]) => {
+                        let dX = door.x ?? (targetRoom.width || 800) / 2;
+                        let dY = door.y ?? (targetRoom.height || 600) / 2;
+                        if (dir === 'top') dY = 0; if (dir === 'bottom') dY = (targetRoom.height || 600);
+                        if (dir === 'left') dX = 0; if (dir === 'right') dX = (targetRoom.width || 800);
+
+                        // Max Radius (approximate if stored, else default)
+                        const maxR = sb.maxR || 100;
+                        if (Math.hypot(sb.x - dX, sb.y - dY) < maxR + 30) {
+                            if (sb.openLockedDoors && door.locked) {
+                                door.locked = 0;
+                                log(`Simulated Explosion: Unlocked ${dir} door`);
+                            }
+                            if (sb.openRedDoors) {
+                                door.forcedOpen = true;
+                                log(`Simulated Explosion: Blew open ${dir} red door`);
+                            }
+                            if (sb.openSecretRooms && door.hidden) {
+                                door.hidden = false;
+                                door.active = true;
+                                log(`Simulated Explosion: Revealed ${dir} secret door`);
+                            }
+                        }
+                    });
+                }
                 return;
             }
 

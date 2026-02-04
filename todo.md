@@ -1,7 +1,5 @@
 bugs
     after portal does that level start screen ebfore going to the next one
-   
-    [x] when ou leabe a room with a bomb and enter it should still be there / its effect seen it the timer ran out?
     pull the player still persissts seems to happen when you pick up an item / spawn an item 
     sometimes when you pick up an item they all despawn
 
@@ -138,10 +136,10 @@ ghost does not appear in boss rooms
 if you go through multiple room and back track you will see multiple ghosts
 if you leave a room and come back the ghost should be the same place + closer to you basedo on the speed the ghost moves. 
 if you kill some of the enemeis and leave a room and back there should only be the remaining enemies left (with ghost or blowing doors)
+    [x] when ou leabe a room with a bomb and enter it should still be there / its effect seen it the timer ran out?
+    [x] its impact should also be felft if you dorp a gold bomg near a gold door leave the room adn enter it after the timer runs out you see the door is gone
     ghost timer is running when you are on the welcome screen
     ghpst wont enter a room with an indestrcutible eemies
-    [x] Boss/Heavy enemies kick bombs instead of being trapped
-    [x] player can move around once they go through the portal
     if an enemy is nor sold (ie ghost) he should nor try to around enemies just go through them
         solid enemies cant go through each other, player or objects
         non solid enemies can be shot by bullets
