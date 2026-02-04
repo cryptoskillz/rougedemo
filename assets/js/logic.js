@@ -2316,6 +2316,31 @@ function spawnEnemies() {
             enemies.push(inst);
         }
     }
+
+    // --- LATE BINDING: LORE & SPEECH & ANGRY MODE ---
+    enemies.forEach(en => {
+        // 1. Generate Lore if missing
+        if (!en.lore && loreData) {
+            en.lore = generateLore(en);
+        }
+
+        // 2. Global Angry Mode (Boss Killed)
+        if (bossKilled) {
+            en.mode = 'angry';
+            en.alwaysAngry = true;
+            en.angryUntil = Infinity;
+
+            // Apply Angry Stats immediately
+            const angryStats = (gameData.enemyConfig && gameData.enemyConfig.modeStats && gameData.enemyConfig.modeStats.angry) ? gameData.enemyConfig.modeStats.angry : null;
+
+            if (angryStats) {
+                if (angryStats.damage) en.damage = (en.baseStats?.damage || en.damage || 1) * angryStats.damage;
+                if (angryStats.speed) en.speed = (en.baseStats?.speed || en.speed || 1) * angryStats.speed;
+                if (angryStats.color) en.color = angryStats.color;
+            }
+        }
+    });
+
 }
 
 // --- Room Transition Helpers ---
@@ -2349,6 +2374,27 @@ function spawnPlayer(dx, dy, data) {
         player.y = (data.height || 600) - BOUNDARY - SAFE_OFFSET;
         player.x = door.x !== undefined ? door.x : (data.width || 800) / 2;
     }
+    // --- LATE BINDING: LORE & SPEECH & ANGRY MODE ---
+    enemies.forEach(en => {
+        // 1. Generate Lore if missing
+        if (!en.lore && loreData) {
+            en.lore = generateLore(en);
+        }
+
+        // 2. Global Angry Mode (Boss Killed)
+        if (bossKilled) {
+            en.mode = 'angry';
+            en.alwaysAngry = true;
+            en.angryUntil = Infinity;
+
+            // Apply Angry Stats immediately
+            if (angryStats) {
+                if (angryStats.damage) en.damage = (en.baseStats?.damage || en.damage || 1) * angryStats.damage;
+                if (angryStats.speed) en.speed = (en.baseStats?.speed || en.speed || 1) * angryStats.speed;
+                if (angryStats.color) en.color = angryStats.color;
+            }
+        }
+    });
 }
 
 function changeRoom(dx, dy) {
@@ -2574,6 +2620,8 @@ function changeRoom(dx, dy) {
                 perfectEl.style.color = '#e74c3c'; // Reset
             }, 4000);
         }
+
+
 
         if (!nextEntry.cleared) {
             spawnEnemies();
@@ -4405,11 +4453,14 @@ function updateEnemies() {
 
                             // If already angry, just extend timer
                             if (en.mode === 'angry') {
-                                if (!en.alwaysAngry) {
+                                if (!en.alwaysAngry && !bossKilled) {
                                     const duration = en.angryTime || angryStats.angryTime;
                                     if (duration) {
                                         en.angryUntil = Date.now() + duration;
                                     }
+                                } else if (bossKilled) {
+                                    en.alwaysAngry = true;
+                                    en.angryUntil = Infinity;
                                 }
                             } else {
                                 // Become Angry

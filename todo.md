@@ -1,5 +1,4 @@
 bugs
-    if you backtrack through all enemies angry mode is triggered as you killed their boss
     should never be a gloden door blocling the way to the boss room 
     bomb blast should not go throug solid enemies it should be absorbed by them
     player can move around once they go through the portal
@@ -12,6 +11,7 @@ bugs
     add polygon as the currency
     new shapes
     running into an enemy shoul dmake a sound
+    boss should not get name from names.json he already has a name
 
   
 next up 
