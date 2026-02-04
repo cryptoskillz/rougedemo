@@ -1,17 +1,10 @@
 bugs
-    [x] should never be a gloden door blocling the way to the boss room 
-    [x] bomb blast should not go throug solid enemies it should be absorbed by them
-    player can move around once they go through the portal
-    player can move around once they go through the portal
     angry mod increase fire rate if enemy has a gun 
-    [x] Boss/Heavy enemies kick bombs instead of being trapped
-    pull to the left keys still an isuse ive noticed its during item spawn / pick up
-    turret mode should be invul by default
+    pull the player still persissts seems to happen when you pick up an item / spawn an item 
     when paused the ghost timer should not run
     sometimes when you pick up an item they all despawn
     WHNE YOU CNT PIcK UP AN ITEM GIVE A fail SOUND
     add polygon as the currency
-    new shapes
     running into an enemy shoul dmake a sound
     boss should not get name from names.json he already has a name
     when ou leabe a room with a bomb and enter it should still be there / its effect seen it the timer ran out?
@@ -152,7 +145,6 @@ if you kill some of the enemeis and leave a room and back there should only be t
     ghpst wont enter a room with an indestrcutible eemies
     if an enemy is nor sold (ie ghost) he should nor try to around enemies just go through them
         solid enemies cant go through each other, player or objects
-        non solid enemies can go through each other, player or objects
         non solid enemies can be shot by bullets
         solid enemies can be shot by bullets
         player can alos be solid or non solid    
