@@ -9,6 +9,7 @@
         "startlevel1",
         "startlevel2",
         "startlevel3",
-        "itempickup"
+        "itempickup",
+        "shards"
     ]
 }

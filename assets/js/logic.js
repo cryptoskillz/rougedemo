@@ -12,6 +12,7 @@ const perfectEl = document.getElementById('perfect');
 const roomNameEl = document.getElementById('roomName');
 const bombsEl = document.getElementById('bombs');
 const ammoEl = document.getElementById('ammo');
+const gunEl = document.getElementById('gun');
 const mapCanvas = document.getElementById('minimapCanvas');
 const mctx = mapCanvas ? mapCanvas.getContext('2d') : null;
 const debugSelect = document.getElementById('debug-select');
@@ -124,13 +125,18 @@ let loreData = null;
 let speechData = null;
 
 // --- HELPER: SPEECH TRIGGER ---
-function triggerSpeech(enemy, type, forceText = null) {
+function triggerSpeech(enemy, type, forceText = null, bypassCooldown = false) {
     if ((!speechData && !forceText) || enemy.isDead) return;
 
+    const now = Date.now();
+    // Cooldown Check (5 seconds), ignored if forced text or bypass flag is set
+    if (!forceText && !bypassCooldown && enemy.lastSpeechTime && now - enemy.lastSpeechTime < 5000) {
+        return;
+    }
+
     // Probability Checks (unless forced)
-    if (!forceText) {
-        if (type === 'idle' && Math.random() > 0.001) return; // Low chance for idle (0.1% per frame, ~3.6s adj for 60fps but logic runs fast?)
-        // actually logic runs at 60fps? 0.001 is 1 in 1000 frames -> ~16 seconds per enemy. Reasonable.
+    if (!forceText && !bypassCooldown) {
+        if (type === 'idle' && Math.random() > 0.001) return; // Low chance for idle
         if (type === 'hit' && Math.random() > 0.3) return; // 30% chance on hit
     }
 
@@ -139,32 +145,54 @@ function triggerSpeech(enemy, type, forceText = null) {
     if (!text && speechData) {
         let pool = [];
 
-        // Select Pool based on Priority
-        // 1. Scripted/Events (handled by caller passing type='event'?)
+        // SPECIAL ENEMY OVERRIDE (Ghost, etc.)
+        // If special, ONLY use type-specific lines. Ignore general/events like "Ouch"
+        if (enemy.special) {
+            // 1. Check for Specific Event Type for this Special Enemy (e.g. 'ghost_doors_close')
+            // This fixes the issue where they just say generic ghost lines for specific events
+            // We construct a key like type + "_" + eventType? Or just look for the raw type passed?
+            // The caller passed 'ghost_doors_close' as the type?
+            // Wait, previous call was triggerSpeech(ghost, 'ghost_doors_close'). 
+            // So 'type' IS 'ghost_doors_close'.
 
-        // 2. Mood
-        if (type === 'angry' && speechData.moods && speechData.moods.angry) {
-            pool = speechData.moods.angry;
+            if (speechData.types && speechData.types[type]) {
+                pool = speechData.types[type];
+            }
+            // 2. Fallback to General Special Logic (e.g. idle ghost noises)
+            else if (speechData.types && speechData.types[enemy.type]) {
+                pool = speechData.types[enemy.type];
+            }
+            // If no specific lines, they stay silent.
         }
-        // 3. Event Type
-        else if (speechData.events && speechData.events[type]) {
-            pool = speechData.events[type];
-        }
-        // 4. Enemy Type Specific
-        else if (enemy.type && speechData.types && speechData.types[enemy.type]) {
-            // Mix type specific with general? Or override?
-            // Let's use type specific if available, otherwise general
-            // Actually, maybe 50/50?
-            if (Math.random() < 0.5) pool = speechData.types[enemy.type];
-        }
+        // STANDARD LOGIC
+        else {
+            // Select Pool based on Priority
+            // 1. Scripted/Events (handled by caller passing type='event'?)
 
-        // 5. General Fallback
-        if (!pool || pool.length === 0) {
-            pool = speechData.general || ["..."];
+            // 2. Mood
+            if (type === 'angry' && speechData.moods && speechData.moods.angry) {
+                pool = speechData.moods.angry;
+            }
+            // 3. Event Type
+            else if (speechData.events && speechData.events[type]) {
+                pool = speechData.events[type];
+            }
+            // 4. Enemy Type Specific
+            else if (enemy.type && speechData.types && speechData.types[enemy.type]) {
+                // Mix type specific with general? Or override?
+                // Let's use type specific if available, otherwise general
+                // Actually, maybe 50/50?
+                if (Math.random() < 0.5) pool = speechData.types[enemy.type];
+            }
+
+            // 5. General Fallback
+            if (!pool || pool.length === 0) {
+                pool = speechData.general || ["..."];
+            }
         }
 
         // Pick Random
-        if (pool.length > 0) {
+        if (pool && pool.length > 0) {
             text = pool[Math.floor(Math.random() * pool.length)];
         }
     }
@@ -176,7 +204,150 @@ function triggerSpeech(enemy, type, forceText = null) {
             maxTimer: 120,
             color: type === 'angry' ? '#e74c3c' : 'white'
         };
+        enemy.lastSpeechTime = now;
     }
+}
+
+// --- SHARD CURRENCY HELPERS ---
+function addRedShards(amount) {
+    if (!player) return;
+    if (!gameData.redShards) return;
+
+    // Use Inventory Field (primary) or legacy root property, or local storage fallback
+    // The user moved redShards to inventory, let's prioritize that but support legacy/fallback logic.
+    const current = player.inventory.redShards !== undefined ? player.inventory.redShards : (player.redShards || 0);
+    const max = player.maxRedShards || 500;
+
+    // Check Cap
+    if (current >= max) {
+        spawnFloatingText(player.x, player.y - 40, "MAX RED SHARDS", "gray");
+        return; // "Wasted"
+    }
+
+    // Apply Increment
+    let next = current + amount;
+    if (next > max) next = max;
+
+    player.inventory.redShards = next;
+    player.redShards = next; // Keep legacy sync for now just in case
+
+    localStorage.setItem('currency_red', next);
+    spawnFloatingText(player.x, player.y - 40, `+${amount} RED SHARDS`, "#e74c3c");
+    log(`Red Shards Added: ${amount}. Total: ${next}`);
+}
+
+function addGreenShards(amount) {
+    if (!player) return;
+    if (!gameData.greenShards) return;
+
+    const current = player.inventory.greenShards || 0;
+    const max = player.maxGreenShards || 100;
+
+    if (current >= max) {
+        spawnFloatingText(player.x, player.y - 40, "MAX GREEN SHARDS", "gray");
+        return; // Wasted
+    }
+
+    let next = current + amount;
+    if (next > max) next = max;
+
+    player.inventory.greenShards = next;
+    spawnFloatingText(player.x, player.y - 40, `+${amount} GREEN SHARDS`, "#2ecc71");
+    log(`Green Shards Added: ${amount}. Total: ${next}`);
+}
+
+// --- ITEM SCRAP LOGIC ---
+function convertItemsToScrap(targetX, targetY) {
+    let totalScrap = 0;
+
+    // Identify Scrappable Items
+    // Filter out shards themselves to prevent endless loops or double counting
+    const keptItems = [];
+    const itemsToScrap = [];
+
+    const currentCoord = `${player.roomX},${player.roomY}`;
+
+    groundItems.forEach(item => {
+        // 1. Must be in current room
+        if (`${item.roomX},${item.roomY}` !== currentCoord) {
+            keptItems.push(item);
+            return;
+        }
+
+        // 2. Must not be a shard (Visual or Real)
+        if (item.data.type === 'shard' || item.data.type === 'visual_shard') {
+            keptItems.push(item);
+            return;
+        }
+
+        // Scrap everything else (Guns, bombs, health, keys)
+        // Calc Value
+        const val = 1 + Math.floor(Math.random() * 3); // 1-3 Shards
+        totalScrap += val;
+        itemsToScrap.push({ x: item.x, y: item.y, val: val });
+    });
+
+    // Update Ground Items (Remove scrapped)
+    // IMPORTANT: Reassigning global variable
+    groundItems = keptItems;
+
+    // Removed Log
+
+    if (totalScrap > 0) {
+        // Add to Player
+        addRedShards(totalScrap);
+
+        // Visuals for each scrapped item
+        itemsToScrap.forEach(it => {
+            spawnFloatingText(it.x, it.y, `SCRAP!`, "#e74c3c");
+            // Optional: Spawn temporary visual shard moving to target
+            groundItems.push({
+                x: it.x, y: it.y,
+                vx: (targetX - it.x) * 0.05,
+                vy: (targetY - it.y) * 0.05,
+                life: 30, // Short life
+                data: { type: 'visual_shard' } // New type to just render and die
+            });
+        });
+
+        log(`Scrapped ${itemsToScrap.length} items for ${totalScrap} Red Shards.`);
+    }
+
+    return totalScrap;
+}
+
+function spawnShard(x, y, type, amount) {
+    if (!gameData.redShards && type === 'red') return;
+    if (!gameData.greenShards && type === 'green') return;
+
+    // Push towards center slightly if near edges? 
+    // Nah, just simple physics.
+
+    // SPAWN OFFSET: Don't spawn exactly on top of player/source
+    const angle = Math.random() * Math.PI * 2;
+    const offset = 30 + Math.random() * 20; // 30-50px away
+    const spawnX = x + Math.cos(angle) * offset;
+    const spawnY = y + Math.sin(angle) * offset;
+
+    groundItems.push({
+        x: spawnX, y: spawnY,
+        roomX: player.roomX, roomY: player.roomY,
+        vx: (Math.random() - 0.5) * 10, // Stronger Pop
+        vy: (Math.random() - 0.5) * 10,
+        friction: 0.92, // Slide a bit more
+        solid: true,
+        moveable: true,
+        size: 10,
+        floatOffset: Math.random() * 100,
+        pickupCooldown: 60, // 1 Second Cooldown
+        data: {
+            type: 'shard',
+            shardType: type, // 'red' or 'green'
+            amount: amount,
+            name: type === 'red' ? "Red Shard" : "Green Shard",
+            rarity: 'common' // for glow color fallback
+        }
+    });
 }
 
 // --- HELPER: LORE GENERATION ---
@@ -298,6 +469,7 @@ let isInitializing = false;
 let ghostSpawned = false;
 let roomFreezeUntil = 0; // Timestamp for room freeze expiration
 let ghostEntry = null;
+let wasRoomLocked = false; // Track previous lock state for events
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -528,14 +700,40 @@ async function updateUI() {
         hpEl.innerText = Math.floor(player.hp);
     }
     hpEl.innerText += ` / ${player.maxHp}`;
-    keysEl.innerText = player.inventory.keys;
-    //check if bomb type is golden and if so set the count colour to gold 
-    if (player.bombType === "golden") {
-        bombsEl.style.color = "gold";
-    } else {
-        bombsEl.style.color = "white";
+
+    // SHARD UI
+    const redEl = document.getElementById('red-shards');
+    const greenEl = document.getElementById('green-shards');
+
+    if (redEl) {
+        // Use persisted value immediately if available to fix "undefined" start
+        const rVal = (typeof player.inventory.redShards !== 'undefined') ? player.inventory.redShards : (player.redShards || (localStorage.getItem('currency_red') || 0));
+        const rMax = player.maxRedShards || 500;
+        redEl.innerText = `♦ ${rVal} / ${rMax}`;
+        redEl.style.display = gameData.redShards ? 'inline' : 'none';
     }
-    bombsEl.innerText = player.inventory.bombs;
+    if (greenEl) {
+        const gVal = player.inventory.greenShards || 0;
+        const gMax = player.maxGreenShards || 100;
+        greenEl.innerText = `◊ ${gVal} / ${gMax}`;
+        greenEl.style.display = gameData.greenShards ? 'inline' : 'none';
+    }
+
+    // Keys (Restore original clean display)
+    keysEl.innerText = player.inventory.keys;
+
+    // check if bomb type is golden and if so set the count colour to gold 
+    if (player.bombType) {
+        if (player.bombType === "golden") {
+            bombsEl.style.color = "gold";
+        } else {
+            bombsEl.style.color = "white";
+        }
+        bombsEl.innerText = player.inventory.bombs;
+    } else {
+        bombsEl.style.color = "gray";
+        bombsEl.innerText = "--";
+    }
 
     // Ammo Display
     //console.log(gun);
@@ -561,12 +759,19 @@ async function updateUI() {
         ammoEl.style.color = "gray";
     }
 
-
-
-    //update cords only if debug mode is enabled otherwise hide this
-    if (DEBUG_WINDOW_ENABLED) {
-        roomEl.innerText = `Coords: ${player.roomX},${player.roomY}`;
+    // Gun Name Display
+    if (player.gunType) {
+        let name = "PEASHOOTER";
+        if (gun && gun.name) name = gun.name;
+        // Clean name
+        if (name.startsWith("gun_")) name = name.replace("gun_", "");
+        gunEl.innerText = name.toUpperCase();
+    } else {
+        gunEl.innerText = "UNARMED";
     }
+
+
+
     roomNameEl.innerText = roomData.name || "Unknown Room";
     updateDebugEditor();
 }
@@ -1182,7 +1387,11 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
     bombs = [];
     particles = [];
     enemies = [];
-    if (typeof portal !== 'undefined') portal.active = false;
+    if (typeof portal !== 'undefined') {
+        portal.active = false;
+        portal.finished = false;
+        portal.scrapping = false;
+    }
 
     // ... [Previous debug and player reset logic remains the same] ...
     // Room debug display setup moved after config load
@@ -1223,7 +1432,24 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
     player.roomX = 0;
     player.roomY = 0;
     bulletsInRoom = 0;
+    player.roomY = 0;
+    bulletsInRoom = 0;
     hitsInRoom = 0;
+
+    // SHARD CURRENCY INIT
+    // Red Shards (Permanent)
+    const storedRed = localStorage.getItem('currency_red');
+    const redVal = storedRed ? parseInt(storedRed) : 0;
+    player.redShards = redVal;
+
+    // KEY FIX: Sync to inventory if it exists (which controls UI now)
+    if (player.inventory) {
+        player.inventory.redShards = redVal;
+    }
+
+    // Green Shards (Run-based)
+    player.inventory.greenShards = 0; // Always reset on run start
+
     // perfectStreak = 0; // REMOVED: Managed above
     perfectEl.style.display = 'none';
     roomStartTime = Date.now();
@@ -1509,7 +1735,7 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
             }
         } catch (e) { console.error("Gun fetch error:", e); }
 
-        if (!fetchedGun) {
+        if (!fetchedGun && !savedPlayerStats) {
             log("Attempting fallback to 'peashooter'...");
             try {
                 const res = await fetch(`/json/weapons/guns/player/peashooter.json?t=` + Date.now());
@@ -1913,17 +2139,31 @@ function startGame(keepState = false) {
         // RE-APPLY GameOverrides (Fixed: startGame was wiping initGame overrides)
         if (gameData.gunType) player.gunType = gameData.gunType;
         if (gameData.bombType) player.bombType = gameData.bombType;
+
+        // RESTORE RED SHARDS (Fix: startGame wiped initGame sync)
+        const storedRed = localStorage.getItem('currency_red');
+        if (storedRed && player.inventory) {
+            player.inventory.redShards = parseInt(storedRed);
+            player.redShards = parseInt(storedRed); // Sync legacy too
+        }
     }
 
     // Async Load Assets then Start
+    // Async Load Assets then Start
     (async () => {
         try {
-            const [gData, bData] = await Promise.all([
-                (player.gunType ? fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({ Bullet: { NoBullets: true } })),
-                (player.bombType ? fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({}))
-            ]);
-            gun = gData;
-            bomb = bData;
+            // FIXED: Only fetch weapons if NOT preserving state. 
+            // If keepState is true, 'gun' and 'bomb' globals retain their runtime modifications (upgrades).
+            if (!keepState) {
+                const [gData, bData] = await Promise.all([
+                    (player.gunType ? fetch(`/json/weapons/guns/player/${player.gunType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({ Bullet: { NoBullets: true } })),
+                    (player.bombType ? fetch(`/json/weapons/bombs/${player.bombType}.json?t=` + Date.now()).then(res => res.json()) : Promise.resolve({}))
+                ]);
+                gun = gData;
+                bomb = bData;
+            } else {
+                log("Keeping existing Weapon State (Gun/Bomb globals preserved)");
+            }
 
             if (loadingEl) loadingEl.style.display = 'none'; // Hide loading when done
 
@@ -2137,6 +2377,7 @@ function spawnEnemies() {
             inst.x = saved.x;
             inst.y = saved.y;
             inst.hp = saved.hp;
+            inst.maxHp = saved.maxHp || inst.hp; // Restore Max HP
             if (saved.moveType) inst.moveType = saved.moveType;
             if (saved.solid !== undefined) inst.solid = saved.solid;
             if (saved.indestructible !== undefined) inst.indestructible = saved.indestructible;
@@ -2177,6 +2418,7 @@ function spawnEnemies() {
 
         const template = enemyTemplates["ghost"] || { hp: 2000, speed: 1.2, size: 50, type: "ghost" };
         const inst = JSON.parse(JSON.stringify(template));
+        inst.maxHp = inst.hp; // Ensure Max HP for health bar
         // Inst config
         if (loreData) {
             // inst.lore = generateLore(inst);
@@ -2329,6 +2571,9 @@ function spawnEnemies() {
 
     // --- LATE BINDING: LORE & SPEECH & ANGRY MODE ---
     enemies.forEach(en => {
+        // 0. Ensure MaxHP (for health bars)
+        if (!en.maxHp) en.maxHp = en.hp;
+
         // 1. Generate Lore if missing
         if (!en.lore && loreData) {
             en.lore = generateLore(en);
@@ -2488,7 +2733,6 @@ function changeRoom(dx, dy) {
     player.roomX += dx;
     player.roomY += dy;
     const nextCoord = `${player.roomX},${player.roomY}`;
-    roomEl.innerText = nextCoord;
 
     // --- GOLDEN PATH LOGIC ---
     if (nextCoord === "0,0") {
@@ -3141,10 +3385,28 @@ function update() {
 
     //const now = Date.now(); // Check for item pickups
 
-    //const now = Date.now();
-    // const aliveEnemies = enemies.filter(en => !en.isDead);
     // const roomLocked = aliveEnemies.length > 0;
     const roomLocked = isRoomLocked();
+
+    // DETAIL: Trigger Ghost Speech on Door Close (Transition Unlocked -> Locked)
+    if (roomLocked && !wasRoomLocked) {
+        // Find active Ghost
+        const ghost = enemies.find(en => en.type === 'ghost' && !en.isDead);
+        if (ghost) {
+            triggerSpeech(ghost, 'ghost_doors_close', null, true);
+        }
+    }
+    // DETAIL: Green Shards on Room Clear (Locked -> Unlocked)
+    else if (!roomLocked && wasRoomLocked) {
+        // Award Green Shards
+        // Amount = Hardness + Random(0-Hardness)
+        const base = gameData.hardness || 1;
+        const reward = Math.ceil(base + Math.random() * base);
+        // addGreenShards(reward); // OLD INTANT ADD
+        spawnShard(player.x, player.y, 'green', reward); // Drop at player feet? Or center? Player feet is rewarding.
+    }
+    wasRoomLocked = roomLocked;
+
     const aliveEnemies = enemies.filter(en => !en.isDead); // Keep for homing logic
     const doors = roomData.doors || {};
 
@@ -3212,6 +3474,12 @@ function updateReload() {
 
 //draw loop
 async function draw() {
+    if (isInitializing) {
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(() => { draw(); });
+        return;
+    }
     const aliveEnemies = enemies.filter(en => !en.isDead);
     const roomLocked = isRoomLocked();
     const doors = roomData.doors || {};
@@ -3565,6 +3833,31 @@ function spawnRoomRewards(dropConfig, label = null) {
     // 3. Spawn the final list
     pendingDrops.forEach(drop => {
         const item = drop.item;
+
+        // CHECK DUPLICATE (Red Shard Conversion)
+        // If an item with this name already exists in the room, convert to Red Shards
+        const isDuplicate = groundItems.some(g =>
+            g.roomX === player.roomX && g.roomY === player.roomY &&
+            g.data && g.data.name === item.name
+        );
+
+        if (isDuplicate) {
+            const shardReward = 5; // Small amount
+            spawnFloatingText(player.x, player.y - 60, "DUPLICATE ITEM", "#e74c3c");
+            // addRedShards(shardReward); // OLD
+            // Spawn at the location the item WOULD have dropped
+            // We don't have exact drop coords yet in the loop for the pending drops, 
+            // but we calcuated them inside the loop? 
+            // Wait, the loop calculates dropX/dropY AFTER this check?
+            // No, the check is inside the loop? 
+            // Ah, I added the check at the start of the loop item block.
+            // I need to decide where to spawn it.
+            // I'll spawn it near the player for now, or calculate a safe spot.
+            // Let's spawn near player to be safe.
+            spawnShard(player.x, player.y - 20, 'red', shardReward);
+            return; // Skip spawn
+        }
+
         log(`Room Clear Reward: Dropping ${drop.rarity} item: ${item.name}`);
 
         // Drop Logic (Clamp to Safe Zone & Prevent Overlap)
@@ -3582,11 +3875,9 @@ function spawnRoomRewards(dropConfig, label = null) {
             dropY = marginY + Math.random() * safeH;
 
             // Check collision with existing items in this room
-            const overlap = groundItems.some(existing => {
-                if (existing.roomX !== player.roomX || existing.roomY !== player.roomY) return false;
-                const dx = dropX - existing.x;
-                const dy = dropY - existing.y;
-                return Math.hypot(dx, dy) < minDist;
+            const overlap = groundItems.some(i => {
+                if (i.roomX !== player.roomX || i.roomY !== player.roomY) return false;
+                return Math.hypot(i.x - dropX, i.y - dropY) < minDist;
             });
 
             // Check collision with Portal (if active)
@@ -4326,6 +4617,9 @@ function updateEnemies() {
             return;
         }
 
+        // GHOST SPEECH - Idle Chatter
+        if (en.type === 'ghost') triggerSpeech(en, 'idle');
+
         // ROOM FREEZE OVERRIDE
         if (isRoomFrozen) {
             en.frozen = true;
@@ -4701,9 +4995,33 @@ function updateEnemies() {
             en.deathTimer = 30;
             log(`Enemy died: ${en.type}`);
 
+            // DROP GREEN SHARDS (Difficulty Based)
+            if (en.type !== 'boss') { // Bosses drop Red Shards separately
+                // Calculate amount based on MaxHP (proxy for difficulty)
+                // e.g. 1 shard per 1 HP? Or 1 shard per 0.5 HP?
+                // Small enemies (0.5hp) -> 1 shard
+                // Large enemies (1.5hp) -> 2-3 shards
+                // Massive (2.0hp) -> 2-4 shards
+                const hp = en.maxHp || 1;
+                const min = Math.ceil(hp);
+                const max = Math.ceil(hp * 2);
+                const amount = Math.floor(min + Math.random() * (max - min + 1));
+
+                if (amount > 0) {
+                    spawnShard(en.x, en.y, 'green', amount);
+                }
+            }
+
             if (en.type === 'boss') {
                 log("BOSS DEFEATED! The Curse Strengthens... Resetting Rooms!");
                 SFX.explode(0.5);
+
+                // RED SHARD REWARD
+                const base = gameData.hardness || 1;
+                const reward = Math.ceil((base * 5) + Math.random() * base * 2); // Big reward for boss
+                // addRedShards(reward); // OLD
+                spawnShard(en.x, en.y, 'red', reward);
+
                 bossKilled = true;
 
                 // Clear Rooms
@@ -4758,6 +5076,8 @@ function updateEnemies() {
 
     if (roomData.isBoss && activeThreats.length === 0 && !portal.active) {
         portal.active = true;
+        portal.scrapping = false; // Reset flags
+        portal.finished = false;
         portal.x = canvas.width / 2;
         portal.y = canvas.height / 2;
         log("Room Clear! Spawning Portal.");
@@ -4772,6 +5092,34 @@ function updatePortal() {
 
     const dist = Math.hypot(player.x - portal.x, player.y - portal.y);
     if (dist < 30) {
+
+        // SCRAP MECHANIC
+        if (!portal.scrapping && !portal.finished) {
+            portal.scrapping = true;
+            const scrapped = convertItemsToScrap(portal.x, portal.y);
+
+            if (scrapped > 0) {
+                // Wait for visual effect
+                setTimeout(() => {
+                    portal.scrapping = false;
+                    portal.finished = true; // Prevent re-scrap
+
+                    // EXPLICITLY TRIGGER COMPLETION (Don't wait for re-collision)
+                    if (roomData.unlocks && roomData.unlocks.length > 0) {
+                        handleUnlocks(roomData.unlocks);
+                    } else {
+                        handleLevelComplete();
+                    }
+                }, 1500);
+                return;
+            } else {
+                portal.scrapping = false;
+                portal.finished = true;
+            }
+        }
+
+        if (portal.scrapping) return; // Wait
+
         // WIN GAME
         if (roomData.unlocks && roomData.unlocks.length > 0) {
             handleUnlocks(roomData.unlocks);
@@ -4853,6 +5201,7 @@ function updateGhost() {
         };
 
         const inst = JSON.parse(JSON.stringify(template));
+        inst.maxHp = inst.hp; // Ensure Max HP for health bar
 
         // Assign Name
         inst.lore = {
@@ -5095,6 +5444,22 @@ function drawEnemies() {
             ctx.font = "10px monospace";
             ctx.fillText(en.lore.displayName, en.x, en.y - en.size - 5);
             ctx.restore();
+            ctx.restore();
+        }
+
+        // DRAW HEALTH BAR
+        if (gameData.ShowEnemyHealth !== false && !en.isDead && en.maxHp > 0 && en.hp < en.maxHp) {
+            const barWidth = 30;
+            const barHeight = 4;
+            const yOffset = en.size + 10; // Below enemy
+            const pct = Math.max(0, en.hp / en.maxHp);
+
+            ctx.save();
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(en.x - barWidth / 2, en.y + yOffset, barWidth, barHeight);
+
+            ctx.fillStyle = pct > 0.5 ? "#2ecc71" : (pct > 0.25 ? "#f1c40f" : "#e74c3c");
+            ctx.fillRect(en.x - barWidth / 2, en.y + yOffset, barWidth * pct, barHeight);
             ctx.restore();
         }
 
@@ -5442,7 +5807,17 @@ function updateBombDropping() {
 
 
 
+// function updateMovementAndDoors(doors, roomLocked) {
 function updateMovementAndDoors(doors, roomLocked) {
+    // 0. FREEZE if in Portal Scrap Logic
+    if (typeof portal !== 'undefined' && portal.active && portal.scrapping) {
+        // Optional: Pull player to center?
+        const dx = portal.x - player.x;
+        const dy = portal.y - player.y;
+        player.x += dx * 0.1;
+        player.y += dy * 0.1;
+        return;
+    }
     // --- 4. MOVEMENT & DOOR COLLISION ---
     const moveKeys = { "KeyW": [0, -1, 'top'], "KeyS": [0, 1, 'bottom'], "KeyA": [-1, 0, 'left'], "KeyD": [1, 0, 'right'] };
 
@@ -5916,6 +6291,21 @@ function drawItems() {
             ctx.lineTo(15, 10);
             ctx.lineTo(-15, 10);
             ctx.closePath();
+        } else if (item.data.type === 'shard' || item.data.type === 'visual_shard') {
+            // Shard Visuals
+            if (item.data.shardType === 'red' || item.data.type === 'visual_shard') {
+                ctx.fillStyle = "#e74c3c";
+                ctx.shadowColor = "#e74c3c";
+                // Diamond
+                ctx.rotate(Math.PI / 4);
+                ctx.rect(-7, -7, 14, 14);
+                ctx.rotate(-Math.PI / 4); // Restore
+            } else {
+                ctx.fillStyle = "#2ecc71";
+                ctx.shadowColor = "#2ecc71";
+                // Small Square / Gem
+                ctx.rect(-6, -6, 12, 12);
+            }
         } else {
             // Bomb / Default (Circle)
             ctx.arc(0, 0, 15, 0, Math.PI * 2);
@@ -5926,6 +6316,15 @@ function drawItems() {
         ctx.fillStyle = "white";
         ctx.font = "10px monospace";
         ctx.textAlign = "center";
+
+        // SKIP TEXT FOR SHARDS (too cluttery?) or just show amount?
+        // SKIP TEXT FOR SHARDS (too cluttery?) or just show amount?
+        if (item.data.type === 'shard' || item.data.type === 'visual_shard') {
+            // Optional: Show amount
+            // ctx.fillText(item.data.amount, 0, -15);
+            ctx.restore(); // Exit early for shards (no name/space prompt)
+            return;
+        }
 
         // Clean name (remove 'gun_' prefix for display)
         let name = item.data.name || "Item";
@@ -5954,6 +6353,19 @@ function updateItems() {
     for (let i = groundItems.length - 1; i >= 0; i--) {
         const item = groundItems[i];
         if (`${item.roomX},${item.roomY}` !== currentCoord) continue;
+
+        // --- SPECIAL LOGIC FOR VISUAL SHARDS ---
+        if (item.data.type === 'visual_shard') {
+            item.x += item.vx;
+            item.y += item.vy;
+            if (item.life) {
+                item.life--;
+                if (item.life <= 0) {
+                    groundItems.splice(i, 1);
+                }
+            }
+            continue; // Skip normal physics/collision
+        }
 
         // --- PHYSICS ---
         // Lazy Init
@@ -6063,6 +6475,26 @@ function updateItems() {
             }
 
             // ALLOW MANUAL OVERRIDE (Space) OR HEAT TRIGGER
+            // EXCEPTION: Shards are auto-pickup
+            if (item.data.type === 'shard') {
+                // Check Cooldown
+                if (item.pickupCooldown && item.pickupCooldown > 0) continue;
+
+                // Auto Pickup Logic
+                if (item.data.shardType === 'red') {
+                    addRedShards(item.data.amount);
+                } else {
+                    addGreenShards(item.data.amount);
+                }
+                // Remove sound/effect? addRedShards has floating text/log.
+                // Maybe add a small sound here?
+                SFX.click(0.4);
+
+                // Remove item
+                groundItems.splice(i, 1);
+                continue;
+            }
+
             if (keys['Space'] || item.collisionHeat >= HEAT_MAX) {
                 keys['Space'] = false; // Consume input
                 pickupItem(item, i);
@@ -6445,7 +6877,7 @@ async function showNextUnlock() {
     try {
         // Handle "victory" specially or just ignore if file missing (user deleted it)
         // If file is missing, fetch throws or returns 404
-        const res = await fetch(`json/unlocks/${key}.json?t=${Date.now()}`);
+        const res = await fetch(`json/rewards/unlocks/${key}.json?t=${Date.now()}`);
         if (res.ok) {
             const data = await res.json();
 
