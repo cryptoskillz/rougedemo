@@ -5094,6 +5094,13 @@ function updatePortal() {
                 setTimeout(() => {
                     portal.scrapping = false;
                     portal.finished = true; // Prevent re-scrap
+
+                    // EXPLICITLY TRIGGER COMPLETION (Don't wait for re-collision)
+                    if (roomData.unlocks && roomData.unlocks.length > 0) {
+                        handleUnlocks(roomData.unlocks);
+                    } else {
+                        handleLevelComplete();
+                    }
                 }, 1500);
                 return;
             } else {
@@ -5792,7 +5799,17 @@ function updateBombDropping() {
 
 
 
+// function updateMovementAndDoors(doors, roomLocked) {
 function updateMovementAndDoors(doors, roomLocked) {
+    // 0. FREEZE if in Portal Scrap Logic
+    if (typeof portal !== 'undefined' && portal.active && portal.scrapping) {
+        // Optional: Pull player to center?
+        const dx = portal.x - player.x;
+        const dy = portal.y - player.y;
+        player.x += dx * 0.1;
+        player.y += dy * 0.1;
+        return;
+    }
     // --- 4. MOVEMENT & DOOR COLLISION ---
     const moveKeys = { "KeyW": [0, -1, 'top'], "KeyS": [0, 1, 'bottom'], "KeyA": [-1, 0, 'left'], "KeyD": [1, 0, 'right'] };
 

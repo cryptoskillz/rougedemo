@@ -32,6 +32,7 @@ achivements
 
 
 Balance
+    show redshards on welcome screen
     max bombs in player json
     have to go into the portal twice
     make most items locked at the start and you can unlock x items at random everytime you beat a level, 
