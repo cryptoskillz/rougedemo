@@ -207,6 +207,26 @@ function triggerSpeech(enemy, type, forceText = null, bypassCooldown = false) {
     }
 }
 
+// --- SHARD CURRENCY HELPERS ---
+function addRedShards(amount) {
+    if (!player) return;
+    if (!gameData.redShards) return;
+
+    player.redShards = (player.redShards || 0) + amount;
+    localStorage.setItem('currency_red', player.redShards);
+    spawnFloatingText(player.x, player.y - 40, `+${amount} RED SHARDS`, "#e74c3c");
+    log(`Red Shards Added: ${amount}. Total: ${player.redShards}`);
+}
+
+function addGreenShards(amount) {
+    if (!player) return;
+    if (!gameData.greenShards) return;
+
+    player.inventory.greenShards = (player.inventory.greenShards || 0) + amount;
+    spawnFloatingText(player.x, player.y - 40, `+${amount} GREEN SHARDS`, "#2ecc71");
+    log(`Green Shards Added: ${amount}. Total: ${player.inventory.greenShards}`);
+}
+
 // --- HELPER: LORE GENERATION ---
 function generateLore(enemy) {
     if (!loreData) return null;
@@ -557,8 +577,45 @@ async function updateUI() {
         hpEl.innerText = Math.floor(player.hp);
     }
     hpEl.innerText += ` / ${player.maxHp}`;
-    keysEl.innerText = player.inventory.keys;
-    //check if bomb type is golden and if so set the count colour to gold 
+    hpEl.innerText += ` / ${player.maxHp}`;
+
+    // SHARD UI
+    if (gameData.redShards) {
+        // Create element if missing or assume existing structure? 
+        // User didn't ask for new DOM elements, but "inventory should update".
+        // I will assume I need to hijack an existing element or just append? 
+        // Actually, existing UI has keysEl, bombsEl, ammoEl.
+        // I should probably add them to the stats panel or create new elements if I could.
+        // For now, let's append to keysEl or just assume there are elements?
+        // Wait, I can't assume elements exist. I should probably inject them into the stats panel if they don't exist.
+        // But `updateUI` runs every frame. Creating elements here is bad.
+        // I'll check if elements exist, if not, I might need to create them in init or just append text to an existing container.
+        // Let's look at `index.html`? No, I am restricted to logic.js/inventory.
+        // I will append to the top stats panel text or similar.
+        // Keys element is id='keys'.
+        // Let's try to find if there are other slots.
+        // I will just add text to the existing keys element for now as a quick hack? No, that's ugly.
+        // I'll assume I can render them. 
+        // Actually, looking at the code, keysEl is simple. 
+        // Let's stick to adding them to the keys display for now: "Keys: 0 | R: 10 | G: 5"
+        let shardText = "";
+        if (gameData.redShards) shardText += ` R:${player.redShards}`;
+        if (gameData.greenShards) shardText += ` G:${player.inventory.greenShards}`;
+
+        // Find or create shard container? 
+        // Let's just append to keys for visibility as requested "inventory should update".
+        // keysEl.innerText = `${player.inventory.keys} ${shardText}`;
+    }
+
+    // BETTER APPROACH: Check for `shards-display` element. If not, create it once? 
+    // But I can't easily modify HTML. 
+    // I can modify innerText of keysEl to include shards.
+    let keysText = `${player.inventory.keys}`;
+    if (gameData.redShards) keysText += ` | ♦${player.redShards}`;
+    if (gameData.greenShards) keysText += ` | ◊${player.inventory.greenShards}`;
+    keysEl.innerText = keysText;
+
+    // check if bomb type is golden and if so set the count colour to gold 
     if (player.bombType === "golden") {
         bombsEl.style.color = "gold";
     } else {
@@ -1252,7 +1309,18 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
     player.roomX = 0;
     player.roomY = 0;
     bulletsInRoom = 0;
+    player.roomY = 0;
+    bulletsInRoom = 0;
     hitsInRoom = 0;
+
+    // SHARD CURRENCY INIT
+    // Red Shards (Permanent)
+    const storedRed = localStorage.getItem('currency_red');
+    player.redShards = storedRed ? parseInt(storedRed) : 0;
+
+    // Green Shards (Run-based)
+    player.inventory.greenShards = 0; // Always reset on run start
+
     // perfectStreak = 0; // REMOVED: Managed above
     perfectEl.style.display = 'none';
     roomStartTime = Date.now();
@@ -3186,6 +3254,14 @@ function update() {
             triggerSpeech(ghost, 'ghost_doors_close', null, true);
         }
     }
+    // DETAIL: Green Shards on Room Clear (Locked -> Unlocked)
+    else if (!roomLocked && wasRoomLocked) {
+        // Award Green Shards
+        // Amount = Hardness + Random(0-Hardness)
+        const base = gameData.hardness || 1;
+        const reward = Math.ceil(base + Math.random() * base);
+        addGreenShards(reward);
+    }
     wasRoomLocked = roomLocked;
 
     const aliveEnemies = enemies.filter(en => !en.isDead); // Keep for homing logic
@@ -3614,6 +3690,21 @@ function spawnRoomRewards(dropConfig, label = null) {
     // 3. Spawn the final list
     pendingDrops.forEach(drop => {
         const item = drop.item;
+
+        // CHECK DUPLICATE (Red Shard Conversion)
+        // If an item with this name already exists in the room, convert to Red Shards
+        const isDuplicate = groundItems.some(g =>
+            g.roomX === player.roomX && g.roomY === player.roomY &&
+            g.data && g.data.name === item.name
+        );
+
+        if (isDuplicate) {
+            const shardReward = 5; // Small amount
+            spawnFloatingText(player.x, player.y - 60, "DUPLICATE ITEM", "#e74c3c");
+            addRedShards(shardReward);
+            return; // Skip spawn
+        }
+
         log(`Room Clear Reward: Dropping ${drop.rarity} item: ${item.name}`);
 
         // Drop Logic (Clamp to Safe Zone & Prevent Overlap)
@@ -3631,11 +3722,9 @@ function spawnRoomRewards(dropConfig, label = null) {
             dropY = marginY + Math.random() * safeH;
 
             // Check collision with existing items in this room
-            const overlap = groundItems.some(existing => {
-                if (existing.roomX !== player.roomX || existing.roomY !== player.roomY) return false;
-                const dx = dropX - existing.x;
-                const dy = dropY - existing.y;
-                return Math.hypot(dx, dy) < minDist;
+            const overlap = groundItems.some(i => {
+                if (i.roomX !== player.roomX || i.roomY !== player.roomY) return false;
+                return Math.hypot(i.x - dropX, i.y - dropY) < minDist;
             });
 
             // Check collision with Portal (if active)
@@ -4756,6 +4845,12 @@ function updateEnemies() {
             if (en.type === 'boss') {
                 log("BOSS DEFEATED! The Curse Strengthens... Resetting Rooms!");
                 SFX.explode(0.5);
+
+                // RED SHARD REWARD
+                const base = gameData.hardness || 1;
+                const reward = Math.ceil((base * 5) + Math.random() * base * 2); // Big reward for boss
+                addRedShards(reward);
+
                 bossKilled = true;
 
                 // Clear Rooms

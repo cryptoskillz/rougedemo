@@ -95,6 +95,8 @@
     "showOverlay": false,
     "ShowEnemyNames": true,
     "ShowEnemyHealth": true,
+    "redShards": true,
+    "greenShards": true,
     "ghost": {
         "spawn": false,
         "roomGhostTimer": 10000,
