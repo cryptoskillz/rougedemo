@@ -139,32 +139,43 @@ function triggerSpeech(enemy, type, forceText = null) {
     if (!text && speechData) {
         let pool = [];
 
-        // Select Pool based on Priority
-        // 1. Scripted/Events (handled by caller passing type='event'?)
+        // SPECIAL ENEMY OVERRIDE (Ghost, etc.)
+        // If special, ONLY use type-specific lines. Ignore general/events like "Ouch"
+        if (enemy.special) {
+            if (speechData.types && speechData.types[enemy.type]) {
+                pool = speechData.types[enemy.type];
+            }
+            // If no specific lines, they stay silent.
+        }
+        // STANDARD LOGIC
+        else {
+            // Select Pool based on Priority
+            // 1. Scripted/Events (handled by caller passing type='event'?)
 
-        // 2. Mood
-        if (type === 'angry' && speechData.moods && speechData.moods.angry) {
-            pool = speechData.moods.angry;
-        }
-        // 3. Event Type
-        else if (speechData.events && speechData.events[type]) {
-            pool = speechData.events[type];
-        }
-        // 4. Enemy Type Specific
-        else if (enemy.type && speechData.types && speechData.types[enemy.type]) {
-            // Mix type specific with general? Or override?
-            // Let's use type specific if available, otherwise general
-            // Actually, maybe 50/50?
-            if (Math.random() < 0.5) pool = speechData.types[enemy.type];
-        }
+            // 2. Mood
+            if (type === 'angry' && speechData.moods && speechData.moods.angry) {
+                pool = speechData.moods.angry;
+            }
+            // 3. Event Type
+            else if (speechData.events && speechData.events[type]) {
+                pool = speechData.events[type];
+            }
+            // 4. Enemy Type Specific
+            else if (enemy.type && speechData.types && speechData.types[enemy.type]) {
+                // Mix type specific with general? Or override?
+                // Let's use type specific if available, otherwise general
+                // Actually, maybe 50/50?
+                if (Math.random() < 0.5) pool = speechData.types[enemy.type];
+            }
 
-        // 5. General Fallback
-        if (!pool || pool.length === 0) {
-            pool = speechData.general || ["..."];
+            // 5. General Fallback
+            if (!pool || pool.length === 0) {
+                pool = speechData.general || ["..."];
+            }
         }
 
         // Pick Random
-        if (pool.length > 0) {
+        if (pool && pool.length > 0) {
             text = pool[Math.floor(Math.random() * pool.length)];
         }
     }
@@ -4336,6 +4347,9 @@ function updateEnemies() {
             if (en.deathTimer <= 0) enemies.splice(ei, 1);
             return;
         }
+
+        // GHOST SPEECH - Idle Chatter
+        if (en.type === 'ghost') triggerSpeech(en, 'idle');
 
         // ROOM FREEZE OVERRIDE
         if (isRoomFrozen) {
