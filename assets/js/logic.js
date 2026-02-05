@@ -1435,7 +1435,13 @@ async function initGame(isRestart = false, nextLevel = null, keepStats = false) 
     // SHARD CURRENCY INIT
     // Red Shards (Permanent)
     const storedRed = localStorage.getItem('currency_red');
-    player.redShards = storedRed ? parseInt(storedRed) : 0;
+    const redVal = storedRed ? parseInt(storedRed) : 0;
+    player.redShards = redVal;
+
+    // KEY FIX: Sync to inventory if it exists (which controls UI now)
+    if (player.inventory) {
+        player.inventory.redShards = redVal;
+    }
 
     // Green Shards (Run-based)
     player.inventory.greenShards = 0; // Always reset on run start
@@ -2129,6 +2135,13 @@ function startGame(keepState = false) {
         // RE-APPLY GameOverrides (Fixed: startGame was wiping initGame overrides)
         if (gameData.gunType) player.gunType = gameData.gunType;
         if (gameData.bombType) player.bombType = gameData.bombType;
+
+        // RESTORE RED SHARDS (Fix: startGame wiped initGame sync)
+        const storedRed = localStorage.getItem('currency_red');
+        if (storedRed && player.inventory) {
+            player.inventory.redShards = parseInt(storedRed);
+            player.redShards = parseInt(storedRed); // Sync legacy too
+        }
     }
 
     // Async Load Assets then Start

@@ -29,11 +29,11 @@ next up
 achivements
     enemies killed
     feed the portal
-    
+
 
 Balance
-
-
+    max bombs in player json
+    have to go into the portal twice
     make most items locked at the start and you can unlock x items at random everytime you beat a level, 
     add correct enemies to each room
     tweak speech.json
