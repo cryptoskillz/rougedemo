@@ -54,6 +54,28 @@
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <!-- <div id="overlay">PRESS ANY KEY TO START GAME</div> -->
 
+    <style>
+        #pre-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            color: #0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            z-index: 1000;
+            cursor: pointer;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        }
+    </style>
+    <div id="pre-overlay">[ PRESS ANY KEY TO INITIALIZE ]</div>
+
     <!-- Cracktro Loader Harness -->
     <script>
         // MOCK LOGIC GLOBALS Required by credits.js
@@ -71,8 +93,18 @@
 
         // Resume Audio on interaction
         function unlockAudio() {
-            if (window.gameAudio.state === 'suspended') {
+            // 1. Web Audio API Context
+            if (window.gameAudio && window.gameAudio.state === 'suspended') {
                 window.gameAudio.resume();
+            }
+            // 2. HTML5 Music Track (If blocked)
+            if (window.cracktroAudio && window.cracktroAudio.paused) {
+                // Only play if we have actually started the music phase (volume > 0 or intended)
+                // Just calling play() is safe, the logic in cracktro.js manages volume fade-in.
+                // However, directly playing might jump to full volume if we aren't careful?
+                // Actually cracktro.js sets volume to 0.6 initially, then 0 for fade in.
+                // If we are late, volume might be 0.6.
+                window.cracktroAudio.play().catch(e => { });
             }
         }
 
@@ -115,14 +147,46 @@
         }
 
         // Start
-        window.onload = function () {
+        // Start Logic
+        let hasStarted = false;
+
+        function startExperience() {
+            if (hasStarted) return;
+            hasStarted = true;
+
+            // Hide Pre-Overlay
+            const preOv = document.getElementById('pre-overlay');
+            if (preOv) preOv.style.display = 'none';
+
+            // Resume/Start Audio Context
+            if (window.gameAudio) {
+                window.gameAudio.resume().then(() => {
+                    console.log("Audio Context Resumed");
+                }).catch(e => console.error(e));
+            }
+            // 2. HTML5 Music Track (Try to start if context failed or as backup)
+            if (window.cracktroAudio) {
+                window.cracktroAudio.play().catch(e => { });
+            }
+
+            // Start Cracktro
             if (window.showCredits) window.showCredits();
             loop();
+        }
+
+        window.onload = function () {
+            // Show "Click to Start" if not auto-started
+            const preOv = document.getElementById('pre-overlay');
+            if (preOv) preOv.style.display = 'flex';
+
+            // Listen for start
+            window.addEventListener('keydown', startExperience);
+            window.addEventListener('click', startExperience);
         };
     </script>
 
     <!-- Load Cracktro Logic -->
-    <script src="assets/js/cracktro.js?v=62"></script>
+    <script src="assets/js/cracktro.js?v=67"></script>
 </body>
 
 </html>

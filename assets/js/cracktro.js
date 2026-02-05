@@ -91,6 +91,7 @@ window.showCredits = function () {
     cracktroAudio = new Audio('assets/music/cracktro.mp3');
     cracktroAudio.loop = true;
     cracktroAudio.volume = 0.6;
+    window.cracktroAudio = cracktroAudio; // Expose for unlock
 
     // Fetch Scroller Text externally
     fetch('json/cracktro.json?t=' + Date.now())
