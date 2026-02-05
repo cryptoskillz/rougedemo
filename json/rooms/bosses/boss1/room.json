@@ -36,5 +36,6 @@
         "shards"
     ],
     "nextLevel": "",
-    "endGame": true
+    "welcomeScreen": true,
+    "completedItMate": false
 }

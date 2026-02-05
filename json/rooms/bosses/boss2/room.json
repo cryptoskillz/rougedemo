@@ -41,5 +41,6 @@
         "startlevel3"
     ],
     "nextLevel": "",
-    "endGame": true
+    "welcomeScreen": true,
+    "completedItMate": false
 }

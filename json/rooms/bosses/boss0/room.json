@@ -56,5 +56,6 @@
         "startlevel1"
     ],
     "nextLevel": "",
-    "endGame": true
+    "welcomeScreen": true,
+    "completedItMate": false
 }

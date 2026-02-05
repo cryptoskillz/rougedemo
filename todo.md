@@ -1,7 +1,20 @@
 bugs
+
+    bomb goes blue when you leave the room and go back in
+    going to main menu and starting a new game keeps gun modifiers once you pick up a new gun, you correctly start with the peashooter or unarmed
+    golden bomb statys on level relaod but not red 
+    goldent bomb dodnt not stay on the next level went back to -- if you equip bomb at start it stays if you pick it up it doesnt
+    i took golden bomb from first boss fight (lucky drop) but ti wentback to normal bomb on restart
+    bombs are blue when you leave and reenter a room 
+    is death speech working?
+    add player enter room speech for enemies
+    add event to boss speech (entry and death)
+    max bukket+1 didnt stay on next level same with pierce , modify etc
+    you lose the gun modifies on coplete level but if you pock another gun up the coem abck pn player restart
+    you pick up 360 gun and drop 360 (the name)
     pull the player still persissts seems to happen when you pick up an item / spawn an item 
     sometimes when you pick up an item they all despawn
-    bomb goes blue when you leave the room and go back in
+    dont use the same enmy name in a room
   
 next up 
     balance 4 + room enemies
@@ -32,24 +45,20 @@ achivements
 
 
 Balance
+    ui should be a fixed height
+    mini map should under ui and bigger
     implement seed system to regenerate exact level so we can debug whilst the boss room does not always spawn
-    goldent bomb dodnt not stay on the next level went back to -- if you equip bomb at start it stays if you pick it up it doesnt
-    max bukket+1 didnt stay on next level same with pierce , modify etc
-    it says peashooter even if you dont pick it up
-    show redshards on welcome screen
-    max bombs in player json
-    have to go into the portal twice
     make most items locked at the start and you can unlock x items at random everytime you beat a level, 
     add correct enemies to each room
-    tweak speech.json
-    add event to boss speech (entry and death)
+    show redshards on welcome screen
+    max keys in player json
+    max bombs in player json
+    
+
+
 
 
     balance 4  ^ 
-
-
-
-    add a scrap item item 
 
         drops should take into account the room hardness of the room and the player modifiers to incrase the pool chances of dropping to help with balancing 
 
@@ -141,6 +150,10 @@ enemies
 
 
 ghost
+    when you drop a bomb inside the ghost when it eats you as its not solid it never explodes (maybe kick mechanic is firing)
+
+ another ghost spawens every 10 seconds if you dont kill the first ghost ghost timer should stop when the ghost spawns (only ever spawns max 2 ghosts)
+ghost non solid enmeies should be able to pass through bombs (they dont explode)
 ghost appears when you stay on th ewelcoem screen for 10 seconds stopping ghost from spawining in start room will fix this 
 ghost does not appear in boss rooms
 if you go through multiple room and back track you will see multiple ghosts
