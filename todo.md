@@ -18,7 +18,8 @@ bugs
     dont use the same enmy name in a room
   
 next up 
-    balance 4 + room enemies
+    refactor
+    balance 5 + room enemies
     sfx & ui updates
         game settings
             inventory
@@ -35,7 +36,21 @@ next up
     items
     balance
     unlocks / permance
-    server     
+    server    
+
+
+refactor 
+    0 to toggle music 
+    add r to restart not bound to debug
+    ui show correct
+    bombs drop 
+    red and gree shards should update in UI and store in localstorage
+    red shards for dup items etc as in logic js
+    modifiers not working 
+    items dont keep spawning in next room 
+    god mode not working
+    debug not working 
+    
 
 narartor
     add narrator speech 

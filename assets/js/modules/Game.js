@@ -23,6 +23,7 @@ export async function initGame(isRestart = false, nextLevel = null, keepStats = 
 
     if (Globals.isInitializing) return;
     Globals.isInitializing = true;
+    console.log("TRACER: initGame Start. isRestart=", isRestart);
 
     // KILL ZOMBIE AUDIO (Fix for duplicate music glitch)
     // If a legacy window.introMusic exists and is playing, stop it.
@@ -675,10 +676,22 @@ export async function initGame(isRestart = false, nextLevel = null, keepStats = 
 
         // AUTO START IF CONFIGURED (After everything is ready)
         // Moved here to ensure isInitializing is false before starting
+        // AUTO START IF CONFIGURED (After everything is ready)
+        // Moved here to ensure isInitializing is false before starting
         const params = new URLSearchParams(window.location.search);
-        if (Globals.gameData.showWelcome === false || isRestart || params.get('autostart') === 'true') {
+        const shouldAutoStart = Globals.gameData.showWelcome === false || isRestart || params.get('autostart') === 'true';
+
+        console.log("TRACER: initGame End. shouldAutoStart=", shouldAutoStart);
+
+        if (shouldAutoStart) {
             // Pass savedPlayerStats existence as keepState flag
             startGame((savedPlayerStats && Object.keys(savedPlayerStats).length > 0) ? true : false);
+        } else {
+            // Manual Start (Show Welcome)
+            log("Waiting for user input (Welcome Screen)...");
+            Globals.gameState = STATES.START;
+            Globals.elements.welcome.style.display = 'flex';
+            updateWelcomeScreen();
         }
         window.startGame = startGame;
     }
@@ -688,6 +701,7 @@ export function startGame(keepState = false) {
     if (Globals.audioCtx.state === 'suspended') Globals.audioCtx.resume();
 
     // Guard against starting while Initializing or Unlocking or already starting
+    console.log("TRACER: startGame Called");
     if (Globals.gameState === STATES.PLAY || Globals.isGameStarting || Globals.isInitializing || Globals.isUnlocking) return;
     Globals.isGameStarting = true;
 
@@ -788,36 +802,21 @@ export function startGame(keepState = false) {
                 Globals.player.reloadTime = Globals.gun.Bullet?.ammo?.resetTimer !== undefined ? Globals.gun.Bullet?.ammo?.resetTimer : (Globals.gun.Bullet?.ammo?.reload || 1000);
                 Globals.player.ammo = Globals.player.maxMag;
                 Globals.player.reloading = false;
-                Globals.player.reserveAmmo = (Globals.player.ammoMode === 'reload') ? ((Globals.gun.Bullet?.ammo?.maxAmount || 0) - Globals.player.maxMag) : (Globals.player.ammoMode === 'recharge' ? Infinity : 0);
+                Globals.player.reserveAmmo = (Globals.player.ammoMode === 'reload') ? ((Globals.gun.Bullet?.ammo?.maxAmount || 0) - Globals.player.maxMag) : (Globals.gun.Bullet?.ammo?.recharge ? Infinity : 0);
                 if (Globals.player.reserveAmmo < 0) Globals.player.reserveAmmo = 0;
             }
 
             // Start Game
-            // Start Game Logic
-            const showWelcome = Globals.gameData.showWelcome && !isRestart && !nextLevel;
+            console.log("TRACER: startGame Async End -> PLAY");
+            Globals.gameState = STATES.PLAY;
+            Globals.elements.welcome.style.display = 'none';
 
-            log("InitGame Decision:", {
-                showWelcomeFlag: Globals.gameData.showWelcome,
-                isRestart: isRestart,
-                nextLevel: nextLevel,
-                finalDecision: showWelcome,
-                unlocks: localStorage.getItem('game_unlocked_ids')
-            });
-
-            if (showWelcome) {
-                // Show Welcome Screen and wait
-                Globals.gameState = STATES.START;
-                Globals.elements.welcome.style.display = 'flex';
-                updateWelcomeScreen();
-            } else {
-                // Determine ammo first? (Already done above)
-                // Start Immediately
-                beginPlay();
-            }
-
-            if (Globals.elements.uiEl) {
+            if (Globals.elements.ui) {
                 // Manage UI Components Independently
-                Globals.elements.overlay.style.display = 'flex'; // Enable container
+                Globals.elements.overlay.style.display = 'none'; // Ensure Game Over screen is hidden
+
+                // Show Parent UI Container
+                Globals.elements.ui.style.display = 'block';
 
                 const statsPanel = document.getElementById('stats-panel');
                 if (statsPanel) statsPanel.style.display = (Globals.gameData.showUI !== false) ? 'block' : 'none';
@@ -851,8 +850,7 @@ export function startGame(keepState = false) {
             console.error("Error starting game assets:", err);
             // Re-show welcome if failed so user can try again
             Globals.elements.welcome.style.display = 'flex';
-            const loadingEl = document.getElementById('loading');
-            if (loadingEl) loadingEl.style.display = 'none';
+            Globals.isGameStarting = false;
         } finally {
             Globals.isGameStarting = false;
         }
@@ -1774,9 +1772,11 @@ export function goToWelcome() {
 Globals.goToWelcome = goToWelcome;
 
 export function beginPlay() {
-    Globals.gameState = STATES.PLAY;
-    if (Globals.elements.welcome) Globals.elements.welcome.style.display = 'none';
-    Globals.roomStartTime = Date.now();
+    console.log("TRACER: beginPlay Called. GameState=", Globals.gameState);
+    // Check if we are in START state, then call startGame
+    if (Globals.gameState === STATES.START) {
+        startGame(false); // Fresh start from welcome screen
+    }
 }
 Globals.beginPlay = beginPlay;
 

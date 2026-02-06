@@ -1737,6 +1737,30 @@ function convertItemsToScrap(cx, cy) {
 }
 
 export function handleLevelComplete() {
+    // GUARD: Prevent multiple triggers
+    if (Globals.portal && !Globals.portal.active) return;
+    if (Globals.portal) Globals.portal.active = false;
+
+    // 0. Handle Unlocks (First!)
+    if (Globals.roomData.unlocks && Globals.roomData.unlocks.length > 0) {
+        if (Globals.handleUnlocks) {
+            // We await it? handleUnlocks is async (UI overlay). 
+            // If we await, we pause the transition. That's desirable.
+            // But handleLevelComplete is not async. 
+            // We should make it async or handle the promise?
+            // Existing handleUnlocks returns a promise that resolves when UI closes.
+            Globals.handleUnlocks(Globals.roomData.unlocks).then(() => {
+                // Recursively call to proceed after unlock UI used (clearing unlocks to prevent loop?)
+                // OR just proceed logic here.
+                proceedLevelComplete();
+            });
+            return;
+        }
+    }
+    proceedLevelComplete();
+}
+
+function proceedLevelComplete() {
     // 1. Next Level?
     if (Globals.roomData.nextLevel && Globals.roomData.nextLevel.trim() !== "") {
         log("Proceeding to Next Level:", Globals.roomData.nextLevel);
@@ -1745,7 +1769,7 @@ export function handleLevelComplete() {
         localStorage.setItem('rogue_transition', 'true');
         // Ensure we save a clean copy without circular refs or huge data if any
         // But player object is simple enough.
-        localStorage.setItem('rogue_player_state', JSON.stringify(player));
+        localStorage.setItem('rogue_player_state', JSON.stringify(Globals.player));
 
         // Load next level, Keep Stats
         initGame(true, Globals.roomData.nextLevel, true);
