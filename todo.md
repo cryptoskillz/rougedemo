@@ -57,6 +57,9 @@ achivements
 
 
 Balance
+    only drop items that ulocked / active / true
+    add unlock rarity to game json and give a unlock if nextlevel is set and the unlock url in room is blank
+    add to the unlock and update the unlock state of the item
     add a idele state for player
     msui fade in / fade out 
     check gun unified
