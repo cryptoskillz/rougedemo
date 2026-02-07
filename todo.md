@@ -40,8 +40,18 @@ next up
 
 
 refactor 
+
+  
+          0 to toggle music 
+      9 to toggle sfx
+      r to restart (keep items if in debug mode)
+      end gane
+      remove bump to pick up items
+    guns and bombs working
+
+remove mpm space tp pick up items shards are fine
     remove autostart = true from index call
-    0 to toggle music 
+  
     add r to restart not bound to debug
     ui show correct
     bombs drop 

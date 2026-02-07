@@ -836,8 +836,8 @@ export function startGame(keepState = false) {
             spawnEnemies();
 
             // Check for Start Room Bonus (First Start)
-            if (Globals.gameData.bonuses && Globals.gameData.bonuses.startroom) {
-                const dropped = spawnRoomRewards(Globals.gameData.bonuses.startroom);
+            if (Globals.gameData.rewards && Globals.gameData.rewards.startroom) {
+                const dropped = spawnRoomRewards(Globals.gameData.rewards.startroom);
                 if (dropped) {
                     perfectEl.innerText = "START BONUS!";
                     triggerPerfectText();
@@ -1302,7 +1302,7 @@ export function update() {
         const base = Globals.gameData.hardness || 1;
         const reward = Math.ceil(base + Math.random() * base);
         // addGreenShards(reward); // OLD INTANT ADD
-        spawnShard(Globals.player.x, Globals.player.y, 'green', reward); // Drop at player feet? Or center? Player feet is rewarding.
+        // spawnShard(Globals.player.x, Globals.player.y, 'green', reward); // DISABLED: Now handled by Enemy Drops (rewards.shards.green)
     }
     Globals.wasRoomLocked = roomLocked;
 
@@ -1591,8 +1591,8 @@ export function updateRoomLock() {
         const speedyLimitMs = (Globals.roomData.speedGoal !== undefined) ? Globals.roomData.speedGoal : 5000;
 
         if (speedyLimitMs > 0 && timeTakenMs <= speedyLimitMs) {
-            if (Globals.gameData.bonuses && Globals.gameData.bonuses.speedy) {
-                const dropped = spawnRoomRewards(Globals.gameData.bonuses.speedy);
+            if (Globals.gameData.rewards && Globals.gameData.rewards.speedy) {
+                const dropped = spawnRoomRewards(Globals.gameData.rewards.speedy);
                 if (dropped) {
                     Globals.elements.perfect.innerText = "SPEEDY BONUS!";
                     triggerPerfectText();

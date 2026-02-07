@@ -1390,7 +1390,7 @@ export function updateEnemies() {
 
                     // Apply Angry Fire Rate Modifier
                     if (en.mode === 'angry') {
-                        const config = gameData.enemyConfig || {};
+                        const config = Globals.gameData.enemyConfig || {};
                         const angryStats = config.modeStats?.angry;
                         if (angryStats && angryStats.fireRate) {
                             fireRate *= angryStats.fireRate;
@@ -1578,16 +1578,7 @@ export function updateEnemies() {
 
             // DROP GREEN SHARDS (Difficulty Based)
             if (en.type !== 'boss') { // Bosses drop Red Shards separately
-                // Calculate amount based on MaxHP (proxy for difficulty)
-                // e.g. 1 shard per 1 HP? Or 1 shard per 0.5 HP?
-                // Small enemies (0.5hp) -> 1 shard
-                // Large enemies (1.5hp) -> 2-3 shards
-                // Massive (2.0hp) -> 2-4 shards
-                const hp = en.maxHp || 1;
-                const min = Math.ceil(hp);
-                const max = Math.ceil(hp * 2);
-                const amount = Math.floor(min + Math.random() * (max - min + 1));
-
+                const amount = calculateShardDrop('green', 'killEnemy', en);
                 if (amount > 0) {
                     spawnShard(en.x, en.y, 'green', amount);
                 }
@@ -1598,10 +1589,8 @@ export function updateEnemies() {
                 SFX.explode(0.5);
 
                 // RED SHARD REWARD
-                const base = Globals.gameData.hardness || 1;
-                const reward = Math.ceil((base * 5) + Math.random() * base * 2); // Big reward for boss
-                // addRedShards(reward); // OLD
-                spawnShard(en.x, en.y, 'red', reward);
+                const amount = calculateShardDrop('red', 'killBoss', en);
+                spawnShard(en.x, en.y, 'red', amount);
 
                 Globals.bossKilled = true;
 
@@ -1618,12 +1607,12 @@ export function updateEnemies() {
                 });
             } else if (en.type === 'ghost') {
                 log("Ghost Defeated!");
-                if (gameData.bonuses && gameData.bonuses.ghost) {
-                    spawnRoomRewards(gameData.bonuses.ghost, "GHOST BONUS");
+                if (Globals.gameData.rewards && Globals.gameData.rewards.ghost) {
+                    spawnRoomRewards(Globals.gameData.rewards.ghost, "GHOST BONUS");
                     perfectEl.innerText = "GHOST BONUS!";
                     triggerPerfectText();
 
-                    const specialPath = gameData.bonuses.ghost.special?.item;
+                    const specialPath = Globals.gameData.rewards.ghost.special?.item;
                     if (specialPath) {
                         (async () => {
                             try {
@@ -1710,23 +1699,38 @@ export function updatePortal() {
     }
 }
 
-// Helper to scrap items
+// Helper to scrap items -> Now converts to Red Shards if configured
 function convertItemsToScrap(cx, cy) {
     let scrappedCount = 0;
     const scrapRange = 100; // Pixel radius to suck in items
 
-    // Filter items in range
-    // NOTE: Looping backwards if we were splicing, but here we just mark used?
-    // Actually typically we remove them.
+    // Check Config
+    const usePortalReward = Globals.gameData.rewards?.shards?.red?.enterPortal?.custom === true;
+
     for (let i = Globals.groundItems.length - 1; i >= 0; i--) {
         const item = Globals.groundItems[i];
         const dist = Math.hypot(item.x - cx, item.y - cy);
 
         if (dist < scrapRange) {
-            // Convert to scrap value
-            // e.g. 10 scrap per item
-            Globals.player.scrap = (Globals.player.scrap || 0) + 10;
-            spawnFloatingText(item.x, item.y, "+10 Scrap", "#f1c40f");
+
+            if (usePortalReward) {
+                // Convert to Red Shards - DIRECT AWARD (Auto-Pickup)
+                const amount = calculateShardDrop('red', 'enterPortal', null);
+
+                // Add to inventory directly
+                Globals.player.inventory.redShards = (Globals.player.inventory.redShards || 0) + amount;
+                Globals.player.redShards = Globals.player.inventory.redShards; // Sync legacy property if used
+
+                // Visual Feedback
+                spawnFloatingText(item.x, item.y, `+${amount} Shards`, "#e74c3c");
+
+                // Optional: Spawn a particle effect or "ghost" shard flying to UI?
+                // For now, text confirms it.
+            } else {
+                // Legacy Scrap Logic
+                Globals.player.scrap = (Globals.player.scrap || 0) + 10;
+                spawnFloatingText(item.x, item.y, "+10 Scrap", "#f1c40f");
+            }
 
             // Remove item
             Globals.groundItems.splice(i, 1);
@@ -3431,4 +3435,40 @@ export function drawItems() {
 
         Globals.ctx.restore();
     });
+}
+
+function calculateShardDrop(type, sourceKey, entity) {
+    const rewards = Globals.gameData.rewards;
+    if (!rewards || !rewards.shards) return 1; // Default fallback
+
+    const config = rewards.shards[type];
+    if (!config) return 1;
+
+    let dropConfig = null;
+    let bonus = 0;
+
+    // sourceKey matches the JSON key (killEnemy, killBoss, enterPortal)
+    if (config[sourceKey]) {
+        dropConfig = config[sourceKey];
+
+        if (sourceKey === 'killEnemy' && entity) {
+            // Logic: Bonus based on HP (Hardness)
+            const hp = entity.maxHp || 1;
+            bonus = Math.floor(hp / 2);
+        } else if (sourceKey === 'killBoss') {
+            // Logic: Bonus based on Game Hardness
+            const hardness = Globals.gameData.hardness || 1;
+            bonus = hardness * 2;
+        }
+        // enterPortal has no bonus logic yet (just min/max)
+    }
+
+    if (!dropConfig) return 1;
+
+    const min = dropConfig.minCount || 1;
+    const max = dropConfig.maxCount || 1;
+
+    // Random between min and max, plus bonus
+    const base = Math.floor(min + Math.random() * (max - min + 1));
+    return base + bonus;
 }
