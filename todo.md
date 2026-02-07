@@ -51,7 +51,6 @@ next up
 
 balance 6
     speech bubbles
-    dont let hp be higer than max hp
     count the number of dead enemies and show on dead complete screen, scroll the dead enemy types up
     fix debug logs
     fix debug window

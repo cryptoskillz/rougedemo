@@ -2647,6 +2647,8 @@ export function updateMovementAndDoors(doors, roomLocked) {
 
 }
 export async function pickupItem(item, index) {
+
+
     if (item.pickingUp) return; // Debounce
     item.pickingUp = true;
 
@@ -2685,11 +2687,11 @@ export async function pickupItem(item, index) {
         return;
     }
 
-    //note: the type is modifer mayer we haeve to extend the JSON.
     if (type === 'modifier' && data.modifiers && data.modifiers.hp) {
-        console.log("Picking up health..." + Globals.player.hp + "/" + Globals.player.maxHp);
         if (Globals.player.hp >= Globals.player.maxHp) {
             item.pickingUp = false;
+            //play cant pick up sound
+            if (SFX && SFX.cantPickup) SFX.cantPickup();
             return; // Full HP
         }
         Globals.player.hp = Math.min(Globals.player.maxHp, Globals.player.hp + (data.modifiers?.hp ? parseInt(data.modifiers.hp) : (data.value || 1)));
