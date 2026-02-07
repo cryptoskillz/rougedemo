@@ -265,7 +265,29 @@ export function drawMinimap() {
 }
 
 export function drawDebugLogs() {
-    // Deprecated: Logs are now drawn to DOM via log() function
+    if (!Globals.gameData.showDebugLog) return;
+
+    const ctx = Globals.ctx;
+    ctx.save();
+    ctx.font = "12px monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+
+    let y = 60; // Start below FPS/Stats
+    const lineHeight = 14;
+    const maxLines = 20;
+
+    // Filter out old logs? No, just show last N
+    const logsToShow = Globals.debugLog.slice(-maxLines);
+
+    logsToShow.forEach((msg, i) => {
+        // Fade out older logs?
+        const alpha = 1.0;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fillText(msg, 10, y + (i * lineHeight));
+    });
+
+    ctx.restore();
 }
 
 export function drawBossIntro() {

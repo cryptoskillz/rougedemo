@@ -1,5 +1,6 @@
 bugs
-chained explosion should bliw in sequence not all at the same time
+    debug not working 
+    chained explosion should bliw in sequence not all at the same time
     if you leave the room with a remote bomb it wont detonate with space bar
     add const paths to the json files so we dont require absolute urls as this can lead to errors
     shield shows when you go into the portal
@@ -47,8 +48,7 @@ refactor
     red and gree shards should update in UI and store in localstorage
     red shards for dup items etc as in logic js
     god mode not working
-    debug not working 
-    debug log not working 
+   
     
 
 narartor

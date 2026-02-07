@@ -338,7 +338,7 @@ export function spawnEnemies() {
             en.angryUntil = Infinity;
 
             // Apply Angry Stats immediately
-            const angryStats = (gameData.enemyConfig && gameData.enemyConfig.modeStats && gameData.enemyConfig.modeStats.angry) ? gameData.enemyConfig.modeStats.angry : null;
+            const angryStats = (Globals.gameData.enemyConfig && Globals.gameData.enemyConfig.modeStats && Globals.gameData.enemyConfig.modeStats.angry) ? Globals.gameData.enemyConfig.modeStats.angry : null;
 
             if (angryStats) {
                 if (angryStats.damage) en.damage = (en.baseStats?.damage || en.damage || 1) * angryStats.damage;
@@ -2875,9 +2875,64 @@ export async function pickupItem(item, index) {
             else if (target === 'gun') {
                 if (applyModifierToGun(Globals.gun, data)) {
                     spawnFloatingText(Globals.player.x, Globals.player.y - 40, "+MOD", "#9b59b6");
+                    // PERSIST CHANGE
+                    localStorage.setItem('current_gun_config', JSON.stringify(Globals.gun));
                 }
             }
-            // Add Player/Other handlers here if needed
+            else if (target === 'player') {
+                // Apply to Globals.player
+                if (data.modifiers) {
+                    let applied = false;
+                    for (const key in data.modifiers) {
+                        let val = data.modifiers[key];
+                        // Map 'bombs' shorthand to 'inventory.bombs'
+                        let targetKey = key;
+                        if (targetKey === 'bombs') targetKey = 'inventory.bombs';
+
+                        let isRelative = false;
+                        if (typeof val === 'string' && (val.startsWith('+') || val.startsWith('-'))) {
+                            isRelative = true;
+                        }
+
+                        // Type Coercion
+                        if (val === "true") val = true;
+                        else if (val === "false") val = false;
+                        else if (!isNaN(val) && typeof val !== 'boolean') val = parseFloat(val);
+
+                        // Handle Dot Notation (e.g. shield.active or inventory.bombs)
+                        if (targetKey.includes('.')) {
+                            const parts = targetKey.split('.');
+                            let current = Globals.player;
+                            let valid = true;
+                            for (let i = 0; i < parts.length - 1; i++) {
+                                if (current[parts[i]] === undefined) { valid = false; break; }
+                                current = current[parts[i]];
+                            }
+                            if (valid) {
+                                const leaf = parts[parts.length - 1];
+                                if (isRelative && typeof current[leaf] === 'number') {
+                                    current[leaf] += val;
+                                } else {
+                                    current[leaf] = val;
+                                }
+                                applied = true;
+                                log(`Player Mod: Set ${targetKey} to ${current[leaf]}`);
+                            }
+                        } else {
+                            if (Globals.player[targetKey] !== undefined) {
+                                if (isRelative && typeof Globals.player[targetKey] === 'number') {
+                                    Globals.player[targetKey] += val;
+                                } else {
+                                    Globals.player[targetKey] = val;
+                                }
+                                applied = true;
+                                log(`Player Mod: Set ${targetKey} to ${Globals.player[targetKey]}`);
+                            }
+                        }
+                    }
+                    if (applied) spawnFloatingText(Globals.player.x, Globals.player.y - 40, "+PLAYER MOD", "#3498db");
+                }
+            }
         }
 
         if (SFX && SFX.pickup) SFX.pickup();
@@ -2952,6 +3007,12 @@ export function applyModifierToGun(gunObj, modConfig) {
                 }
                 return true;
             }
+            // ALLOW CREATION on Bullet object (for curve, homing, etc)
+            if (obj === gunObj.Bullet) {
+                obj[prop] = value;
+                log(`Created/Set ${prop} on Bullet: ${value}`);
+                return true;
+            }
             return false;
         };
 
@@ -2960,6 +3021,10 @@ export function applyModifierToGun(gunObj, modConfig) {
 
         // Check Bullet
         if (gunObj.Bullet) {
+            applyTo(gunObj.Bullet, key, val, isRelative);
+        } else {
+            // If no Bullet object, create one?
+            gunObj.Bullet = {};
             applyTo(gunObj.Bullet, key, val, isRelative);
         }
 
