@@ -390,11 +390,17 @@ export function showCredits() {
         creditsEl.style.display = 'none';
 
         // Return to Welcome
-        // We need access to goToWelcome callback or logic.
-        // Globals.gameCallbacks usually holds it? Input.js sets it up.
-        // But UI.js doesn't have direct access.
-        // We can reload the page as a safe fallback for "End of Game".
-        location.reload();
+        // Clear Persistence to ensure fresh start
+        localStorage.removeItem('rogue_player_state');
+        localStorage.removeItem('rogue_transition');
+
+        // Use Global Helper to Reset State & Go to Welcome
+        if (Globals.goToWelcome) {
+            Globals.goToWelcome();
+        } else {
+            // Fallback
+            location.reload();
+        }
     };
 
     Globals.creditsListener = closeCredits;

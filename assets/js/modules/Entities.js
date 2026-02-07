@@ -3353,11 +3353,12 @@ export function updateItems() {
 
         if (dist < PICKUP_THRESHOLD) {
             // Player is touching/close
-            if (!item.pickupCooldown || item.pickupCooldown <= 0) {
-                // Increase Heat (Sustained contact or rapid bumps)
-                item.collisionHeat += 5;
-                if (item.collisionHeat > HEAT_MAX) item.collisionHeat = HEAT_MAX;
-            }
+            // Player is touching/close
+            // if (!item.pickupCooldown || item.pickupCooldown <= 0) {
+            //     // Increase Heat (Sustained contact or rapid bumps) -- DISABLED BY USER REQUEST
+            //     item.collisionHeat += 5;
+            //     if (item.collisionHeat > HEAT_MAX) item.collisionHeat = HEAT_MAX;
+            // }
 
             // ALLOW MANUAL OVERRIDE (Space) OR HEAT TRIGGER
             // EXCEPTION: Shards are auto-pickup
@@ -3373,9 +3374,9 @@ export function updateItems() {
                 continue;
             }
 
-            // WEAPONS REQUIRE SPACE OR HEAT
+            // WEAPONS REQUIRE SPACE ONLY (No Heat/Bump)
             // Use Globals.keys safely
-            if ((Globals.keys && Globals.keys['Space']) || item.collisionHeat >= HEAT_MAX) {
+            if ((Globals.keys && Globals.keys['Space'])) {
                 if (Globals.keys) Globals.keys['Space'] = false; // Consume input
                 pickupItem(item, i);
             }
