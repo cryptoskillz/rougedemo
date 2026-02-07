@@ -1953,8 +1953,8 @@ export function takeDamage(amount) {
     const now = Date.now();
     const until = Globals.player.invulnUntil || 0;
 
-    if (Globals.player.invuln || now < until) {
-        log(`BLOCKED DAMAGE! (Shield/HP Safe). Rem Invul: ${until - now}ms`);
+    if (Globals.player.invuln || now < until || Globals.gameData.debug?.godMode) {
+        log(`BLOCKED DAMAGE! (Shield/HP Safe/GodMode). Rem Invul: ${until - now}ms`);
         return;
     }
 
