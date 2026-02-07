@@ -472,11 +472,16 @@ export async function initGame(isRestart = false, nextLevel = null, keepStats = 
         Globals.bomb = fetchedBomb || {};
 
         // SAVE BASE LOADOUT (For Resets/Deaths)
+        // Only save if NOT already saved, to preserve the true "starting" weapon
         if (!savedPlayerStats && !isRestart) {
-            if (Globals.player.gunType) localStorage.setItem('base_gun', Globals.player.gunType);
-            if (Globals.player.bombType) localStorage.setItem('base_bomb', Globals.player.bombType);
-            // Also save configs if needed, but type is usually enough to reload default
-            log("Saved Base Loadout:", Globals.player.gunType, Globals.player.bombType);
+            if (!localStorage.getItem('base_gun') && Globals.player.gunType) {
+                localStorage.setItem('base_gun', Globals.player.gunType);
+                log("Saved Base Gun:", Globals.player.gunType);
+            }
+            if (!localStorage.getItem('base_bomb') && Globals.player.bombType) {
+                localStorage.setItem('base_bomb', Globals.player.bombType);
+                log("Saved Base Bomb:", Globals.player.bombType);
+            }
         }
 
         if (Globals.gameData.music) {

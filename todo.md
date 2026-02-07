@@ -42,11 +42,8 @@ next up
 refactor 
 
   
-       
-    remove bump to pick up items
+    music fade in and out
     guns and bombs working
-
-    remove autostart = true from index call
   
     ui show correct
     bombs drop 

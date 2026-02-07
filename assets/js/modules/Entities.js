@@ -3413,7 +3413,7 @@ export function drawItems() {
             Globals.ctx.fillStyle = 'white';
             Globals.ctx.font = '10px monospace';
             Globals.ctx.textAlign = 'center';
-            Globals.ctx.fillText("GUN", 0, 4);
+            Globals.ctx.fillText("G", 0, 4);
         } else if (itemType === 'bomb') {
             Globals.ctx.fillStyle = '#f1c40f'; // Yellow
             Globals.ctx.beginPath();
