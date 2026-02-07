@@ -1,4 +1,5 @@
 bugs
+    speech used to be speech bubbles now it is text on screen
     if you drop a gun with modifers such as homing if you pick it back up it should have those modifiers still
     at end of level / game when you go to the next one you see the room previous room after any key it should go back to the loading screen
     debug not working 
@@ -138,6 +139,8 @@ sound
     sound effect when you go past secret room (add seret room)
     WHNE YOU CNT PIcK UP AN ITEM GIVE A fail SOUND
     different guns have different sounds
+    when the enemies speak give them a speech sound (different for each enemy)
+
 
 enemies
 
