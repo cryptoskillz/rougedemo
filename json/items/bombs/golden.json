@@ -4,11 +4,11 @@
     "size": 30,
     "colour": "#ffff00",
     "range": 70,
-    "damage": 2,
+    "damage": 5,
     "fireRate": 0.1,
-    "canShoot": true,
+    "canShoot": false,
     "timer": {
-        "active": false,
+        "active": true,
         "show": true,
         "time": 3000
     },
@@ -37,7 +37,7 @@
         "key": "space"
     },
     "canInteract": {
-        "active": true,
+        "active": false,
         "type": "kick",
         "distance": 100,
         "explodeOnImpact": true

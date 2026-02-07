@@ -25,6 +25,12 @@ export async function initGame(isRestart = false, nextLevel = null, keepStats = 
     Globals.isInitializing = true;
     console.log("TRACER: initGame Start. isRestart=", isRestart);
 
+    // FIX: Enforce Base State on Fresh Run (Reload/Restart)
+    const isDebug = Globals.gameData && Globals.gameData.debug;
+    if (!keepStats && !isDebug) {
+        resetWeaponState();
+    }
+
     // KILL ZOMBIE AUDIO (Fix for duplicate music glitch)
     // If a legacy window.introMusic exists and is playing, stop it.
     if (window.introMusic && typeof window.introMusic.pause === 'function') {
@@ -1813,7 +1819,8 @@ export function updateSFXToggle() {
 }
 
 export function restartGame(keepItems = false) {
-    if (!keepItems) resetWeaponState();
+    const isDebug = Globals.gameData && Globals.gameData.debug;
+    if (!keepItems && !isDebug) resetWeaponState();
     initGame(true, null, keepItems);
 }
 Globals.restartGame = restartGame;

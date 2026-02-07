@@ -42,18 +42,14 @@ next up
 
 
 refactor 
-
-  
-    reset health,bombs, hp, keys on reset 
+    keys dont open doors
+    modifiers not working 
     hard relaod / first run should reset to base gun and base bomb
     when you hit r is is copying peashooter to base gun in app storage but you still have th current gun (with debug om ut sould not copy only with debug off)
   
     ui show correct
-    bombs drop 
     red and gree shards should update in UI and store in localstorage
     red shards for dup items etc as in logic js
-    modifiers not working 
-    items dont keep spawning in next room 
     god mode not working
     debug not working 
     debug log not working 
