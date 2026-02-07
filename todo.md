@@ -1,4 +1,6 @@
 bugs
+    if you drop a gun with modifers such as homing if you pick it back up it should have those modifiers still
+    at end of level / game when you go to the next one you see the room previous room after any key it should go back to the loading screen
     debug not working 
     chained explosion should bliw in sequence not all at the same time
     if you leave the room with a remote bomb it wont detonate with space bar
@@ -48,6 +50,7 @@ next up
 
 balance 6
 
+    dont let hp be higer than max hp
     count the number of dead enemies and show on dead complete screen, scroll the dead enemy types up
     fix debug logs
     fix debug window
@@ -192,7 +195,7 @@ ghost
 
 
 
-NPCs
+NPCsds
     shop keeper 
 
 rooms
