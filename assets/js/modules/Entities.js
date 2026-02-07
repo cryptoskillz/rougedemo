@@ -2859,6 +2859,26 @@ export async function pickupItem(item, index) {
             log(`Equipped Bomb: ${config.name}`);
             spawnFloatingText(Globals.player.x, Globals.player.y - 30, config.name.toUpperCase(), config.colour || "white");
         }
+        else if (type === 'modifier' || data.modify) {
+            // GENERIC MODIFIER HANDLER
+            // Check target: modify="gun" or "key" or "player"
+            const target = data.modify || (type === 'modifier' ? 'gun' : 'gun'); // Default?
+
+            if (target === 'key' || (data.modifiers && data.modifiers.keys)) {
+                // Key Pickup
+                const amountProp = (data.modifiers && data.modifiers.keys) ? data.modifiers.keys : "+1";
+                const amount = parseInt(amountProp) || 1;
+                Globals.player.inventory.keys = (Globals.player.inventory.keys || 0) + amount;
+                spawnFloatingText(Globals.player.x, Globals.player.y - 40, `+${amount} KEY`, "#f1c40f");
+                if (Globals.elements.keys) Globals.elements.keys.innerText = Globals.player.inventory.keys;
+            }
+            else if (target === 'gun') {
+                if (applyModifierToGun(Globals.gun, data)) {
+                    spawnFloatingText(Globals.player.x, Globals.player.y - 40, "+MOD", "#9b59b6");
+                }
+            }
+            // Add Player/Other handlers here if needed
+        }
 
         if (SFX && SFX.pickup) SFX.pickup();
         removeItem();
