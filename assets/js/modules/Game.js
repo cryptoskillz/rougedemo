@@ -26,7 +26,11 @@ export async function initGame(isRestart = false, nextLevel = null, keepStats = 
     console.log("TRACER: initGame Start. isRestart=", isRestart);
 
     // FIX: Enforce Base State on Fresh Run (Reload/Restart)
-    const isDebug = Globals.gameData && Globals.gameData.debug;
+    const isDebug = Globals.gameData && (
+        Globals.gameData.showDebugWindow !== undefined
+            ? Globals.gameData.showDebugWindow
+            : (Globals.gameData.debug && Globals.gameData.debug.windowEnabled === true)
+    );
     if (!keepStats && !isDebug) {
         resetWeaponState();
     }
@@ -1790,10 +1794,16 @@ export function gameMenu() {
 function resetWeaponState() {
     const baseGun = localStorage.getItem('base_gun');
     const baseGunConfig = localStorage.getItem('base_gun_config');
+
     if (baseGun) {
         localStorage.setItem('current_gun', baseGun);
         if (baseGunConfig) localStorage.setItem('current_gun_config', baseGunConfig);
         log(`Reset Gun to Base: ${baseGun}`);
+    } else {
+        // Fallback: If no base saved, CLEAR current so initGame uses player default
+        localStorage.removeItem('current_gun');
+        localStorage.removeItem('current_gun_config');
+        log("No Base Gun found. Cleared Current Gun to force default.");
     }
 
     const baseBomb = localStorage.getItem('base_bomb');
@@ -1801,7 +1811,9 @@ function resetWeaponState() {
     if (baseBomb) {
         localStorage.setItem('current_bomb', baseBomb);
         if (baseBombConfig) localStorage.setItem('current_bomb_config', baseBombConfig);
-        log(`Reset Bomb to Base: ${baseBomb}`);
+    } else {
+        localStorage.removeItem('current_bomb');
+        localStorage.removeItem('current_bomb_config');
     }
 }
 
@@ -1819,7 +1831,11 @@ export function updateSFXToggle() {
 }
 
 export function restartGame(keepItems = false) {
-    const isDebug = Globals.gameData && Globals.gameData.debug;
+    const isDebug = Globals.gameData && (
+        Globals.gameData.showDebugWindow !== undefined
+            ? Globals.gameData.showDebugWindow
+            : (Globals.gameData.debug && Globals.gameData.debug.windowEnabled === true)
+    );
     if (!keepItems && !isDebug) resetWeaponState();
     initGame(true, null, keepItems);
 }

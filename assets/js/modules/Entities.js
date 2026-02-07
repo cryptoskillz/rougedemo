@@ -1126,16 +1126,11 @@ export function updateRestart() {
         // We can check Globals.gameData.debug?.windowEnabled or use the DOM check
         const isDebug = (window.DEBUG_WINDOW_ENABLED === true) || (Globals.elements.debugPanel && Globals.elements.debugPanel.style.display === 'flex');
 
-        // Pass keepItems = isDebug
-        // We need to call initGame, but we only have Globals.restartGame (which calls initGame(true))
-        // We might need to access initGame directly or update restartGame signature?
-        // Globals.restartGame is assigned in Game.js: restartGame() -> initGame(true)
-        // Let's rely on importing initGame or updating restartGame in Game.js?
-        // Game.js 1765: export function restartGame() { resetWeaponState(); initGame(true); }
-        // We can't pass scale args to that.
-        // But we can call initGame directly if we import it? Circular dependecy risk.
-        // Better: Update Game.js restartGame to accept keepItems.
-        if (Globals.restartGame) Globals.restartGame(isDebug);
+        // User requested 'r' -> Restart Run.
+        // We want to reset HP/Keys/Bombs (initGame(false))
+        // BUT if Debug is ON, we want to Keep Weapon (handled in Game.js via resetWeaponState check)
+
+        if (Globals.restartGame) Globals.restartGame(false);
 
         Globals.keys['KeyR'] = false; // consume key
     }
