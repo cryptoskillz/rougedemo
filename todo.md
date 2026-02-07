@@ -51,25 +51,25 @@ next up
     server    
 
 balance 6
-    update credits with the session and global stats
-    add restarts to the session and global stats
-    speech bubbles
-    count the number of dead enemies and show on dead complete screen, scroll the dead enemy types up
-    fix debug logs
-    fix debug window
-    restart to draw on intro screen remove the debug required
-=    red shards for dup items etc as in logic js 
-    add level 5
-    only spaw itesm that have unlocked / active = true in the item josn or it has been unlocked as is in localstorage. 
-    If it modifyType session then it is not a persistent upgrade so it only activates when you it pick it up during a game 
-    add unlock rarity to game json and give a unlock if nextlevel is set and the unlocks array in room is blank
-    add to the unlock and update the unlock state of the item
-    upddate readme 
-    implement seed system to regenerate exact level so we can debug whilst the boss room does not always spawn
+    restart should start you on the level you on not the unlocked start level (add restart level to localstorage)
+    check 360 modifier it seems to have different stats to the 360 gun
+    check the max hp+1 modifier add 1 hp as it maybe blocked as and working the same as addhp+1
     make most items locked at the start and you can unlock x items at random everytime you beat a level, 
+    only spaw itesm that have unlocked / active = true in the item josn or it has been unlocked as is in localstorage. 
+    add unlock rarity to game json and give a unlock if nextlevel is set and the unlocks array in room is blank
+    speech bubbles
     add correct enemies to each room
     max keys in player json
     max bombs in player json
+    red shards for dup items etc as in logic js 
+    add to the unlock and update the unlock state of the item
+    update credits with the session and global stats
+    add restarts to the session and global stats
+    fix debug logs
+    fix debug window
+
+    upddate readme 
+
     
 Levels
     Level 5 harder boss (with gun)
@@ -104,6 +104,8 @@ achivements
 
 
 Balance
+    implement seed system to regenerate exact level so we can debug whilst the boss room does not always spawn
+    count the number of dead enemies and show on dead complete screen, scroll the dead enemy types up
     add a timer (as unlock and store time for each level)
         This will be the first thing we store on the server we will store the players name, level and time and have a speed run leaderboard
     drops should take into account the room hardness of the room and the player modifiers to incrase the pool chances of dropping to help with balancing 

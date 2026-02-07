@@ -1,5 +1,5 @@
 {
-    "name": "Boss Room 4",
+    "name": "Boss Room 5",
     "description": "",
     "keyBonus": 1.0,
     "speedGoal": 10000,
@@ -41,7 +41,7 @@
     "width": 800,
     "height": 600,
     "unlocks": [],
-    "nextLevel": "json/levels/5.json",
+    "nextLevel": "",
     "welcomeScreen": false,
-    "completedItMate": false
+    "completedItMate": true
 }
