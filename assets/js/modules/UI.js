@@ -348,15 +348,15 @@ export function showCredits() {
         <div id="credits-scroll" style="height: 60%; width: 100%; overflow: hidden; position: relative; mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);">
             <div id="credits-content" style="position: absolute; width: 100%; text-align: center; top: 100%;">
                 <p style="font-size: 1.5em; margin: 20px 0; color: #3498db;">Design & Code</p>
-                <p style="color: #ccc;">Chris McCreadie</p>
+                <p style="color: #ccc;">Cryptoskillz</p>
                 <br>
                 <p style="font-size: 1.5em; margin: 20px 0; color: #e74c3c;">Art & Assets</p>
-                <p style="color: #ccc;">Generated with AI</p>
+                <p style="color: #ccc;">Generated with AI (thanks Antigravity!)</p>
                 <br>
                 <p style="font-size: 1.5em; margin: 20px 0; color: #2ecc71;">Special Thanks</p>
-                <p style="color: #ccc;">Cryptoskillz</p>
+                <p style="color: #ccc;">To you for playing!</p>
                 <br><br><br>
-                <p style="font-size: 1.2em; color: #f1c40f;">Thanks for playing!</p>
+                <p style="font-size: 1.2em; color: #f1c40f;">Goodbye, friend :]</p>
                 <br><br><br><br>
                 <p style="font-size: 0.8em; color: #555;">Press any key to return to menu</p>
             </div>

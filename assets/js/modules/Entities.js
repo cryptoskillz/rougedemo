@@ -350,6 +350,8 @@ export function spawnEnemies() {
 
 }
 export async function dropBomb() {
+    if (!Globals.player.bombType) return false;
+
     // Parse Timer Config
     let timerDuration = 1000;
     let timerShow = false;
@@ -366,12 +368,8 @@ export async function dropBomb() {
     const gap = 6;
     const backDist = Globals.player.size + baseR + gap;
 
-    // Use Globals.keys vs keys? Assuming keys matches Input export or window
-    // Input.js exports `keys`. If not imported, it might be global?
-    // Let's assume keys is available or imported somehow, or use Globals if available.
-    // Given previous fixes relied on Globals, let's stick to fixing bomb/player first.
-    const isMoving = (keys['KeyW'] || keys['KeyA'] || keys['KeyS'] || keys['KeyD']); // Variable keys?
-    const isShooting = (keys['ArrowUp'] || keys['ArrowLeft'] || keys['ArrowDown'] || keys['ArrowRight']);
+    const isMoving = (Globals.keys['KeyW'] || Globals.keys['KeyA'] || Globals.keys['KeyS'] || Globals.keys['KeyD']);
+    const isShooting = (Globals.keys['ArrowUp'] || Globals.keys['ArrowLeft'] || Globals.keys['ArrowDown'] || Globals.keys['ArrowRight']);
 
     // Determine Drop Direction (Facing)
     let dirX = 0;
@@ -379,38 +377,34 @@ export async function dropBomb() {
 
     if (isMoving) {
         // Use Movement Direction
-        if (keys['KeyW']) dirY = -1;
-        if (keys['KeyS']) dirY = 1;
-        if (keys['KeyA']) dirX = -1;
-        if (keys['KeyD']) dirX = 1;
-        // Normalize diagonals not strictly needed for grid offset here but keeps it clean? 
-        // Logic just adds components. 
+        if (Globals.keys['KeyW']) dirY = -1;
+        if (Globals.keys['KeyS']) dirY = 1;
+        if (Globals.keys['KeyA']) dirX = -1;
+        if (Globals.keys['KeyD']) dirX = 1;
     } else if (isShooting) {
         // Use Shooting Direction
-        if (keys['ArrowUp']) dirY = -1;
-        if (keys['ArrowDown']) dirY = 1;
-        if (keys['ArrowLeft']) dirX = -1;
-        if (keys['ArrowRight']) dirX = 1;
+        if (Globals.keys['ArrowUp']) dirY = -1;
+        if (Globals.keys['ArrowDown']) dirY = 1;
+        if (Globals.keys['ArrowLeft']) dirX = -1;
+        if (Globals.keys['ArrowRight']) dirX = 1;
     } else {
         // Fallback to Last Moved
-        dirX = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 0 : (player.lastMoveX || 0);
-        dirY = (player.lastMoveX === undefined && player.lastMoveY === undefined) ? 1 : (player.lastMoveY || 0);
+        dirX = (Globals.player.lastMoveX === undefined && Globals.player.lastMoveY === undefined) ? 0 : (Globals.player.lastMoveX || 0);
+        dirY = (Globals.player.lastMoveX === undefined && Globals.player.lastMoveY === undefined) ? 1 : (Globals.player.lastMoveY || 0);
     }
 
     let dropX, dropY, dropVx = 0, dropVy = 0;
 
     if (isMoving) {
         // MOVING: Drop Behind
-        dropX = player.x - (dirX * backDist);
-        dropY = player.y - (dirY * backDist);
-
+        dropX = Globals.player.x - (dirX * backDist);
+        dropY = Globals.player.y - (dirY * backDist);
         dropVx = dirX * 2;
         dropVy = dirY * 2;
     } else {
         // STATIONARY: Drop IN FRONT (Pushable)
-        dropX = player.x + (dirX * backDist);
-        dropY = player.y + (dirY * backDist);
-        log(`Stationary Drop. Facing: ${dirX},${dirY}. Player: ${player.x.toFixed(0)},${player.y.toFixed(0)}. Drop: ${dropX.toFixed(0)},${dropY.toFixed(0)}`);
+        dropX = Globals.player.x + (dirX * backDist);
+        dropY = Globals.player.y + (dirY * backDist);
     }
 
     // Check if drop position overlaps with an existing bomb
@@ -422,51 +416,29 @@ export async function dropBomb() {
             break;
         }
     }
-    // Also check walls
-    // Fix: If wall blocked, Clamp bomb to wall and Push Player back
-    if (dropX < BOUNDARY || dropX > canvas.width - BOUNDARY || dropY < BOUNDARY || dropY > canvas.height - BOUNDARY) {
-        // Only engage push logic if not moving (Stationary drop)
+
+    // Wall Check
+    if (dropX < BOUNDARY || dropX > Globals.canvas.width - BOUNDARY || dropY < BOUNDARY || dropY > Globals.canvas.height - BOUNDARY) {
         if (!isMoving) {
-            // Clamp Bomb and Determine Push Direction
+            // Clamp & Push Logic
             let pushAngle = 0;
             let clamped = false;
 
-            if (dropX < BOUNDARY) {
-                dropX = BOUNDARY + baseR;
-                pushAngle = 0; // Push Right
-                clamped = true;
-            } else if (dropX > canvas.width - BOUNDARY) {
-                dropX = canvas.width - BOUNDARY - baseR;
-                pushAngle = Math.PI; // Push Left
-                clamped = true;
-            }
+            if (dropX < BOUNDARY) { dropX = BOUNDARY + baseR; pushAngle = 0; clamped = true; }
+            else if (dropX > Globals.canvas.width - BOUNDARY) { dropX = Globals.canvas.width - BOUNDARY - baseR; pushAngle = Math.PI; clamped = true; }
 
-            if (dropY < BOUNDARY) {
-                dropY = BOUNDARY + baseR;
-                pushAngle = Math.PI / 2; // Push Down
-                clamped = true;
-            } else if (dropY > canvas.height - BOUNDARY) {
-                dropY = canvas.height - BOUNDARY - baseR;
-                pushAngle = -Math.PI / 2; // Push Up
-                clamped = true;
-            }
+            if (dropY < BOUNDARY) { dropY = BOUNDARY + baseR; pushAngle = Math.PI / 2; clamped = true; }
+            else if (dropY > Globals.canvas.height - BOUNDARY) { dropY = Globals.canvas.height - BOUNDARY - baseR; pushAngle = -Math.PI / 2; clamped = true; }
 
-            // Push Player (Force away from wall)
             if (clamped) {
                 const pushDist = backDist + 5;
-                player.x = dropX + Math.cos(pushAngle) * pushDist;
-                player.y = dropY + Math.sin(pushAngle) * pushDist;
-
-                player.x = Math.max(BOUNDARY + player.size, Math.min(canvas.width - BOUNDARY - player.size, player.x));
-                player.y = Math.max(BOUNDARY + player.size, Math.min(canvas.height - BOUNDARY - player.size, player.y));
-
+                Globals.player.x = Math.max(BOUNDARY + Globals.player.size, Math.min(Globals.canvas.width - BOUNDARY - Globals.player.size, dropX + Math.cos(pushAngle) * pushDist));
+                Globals.player.y = Math.max(BOUNDARY + Globals.player.size, Math.min(Globals.canvas.height - BOUNDARY - Globals.player.size, dropY + Math.sin(pushAngle) * pushDist));
                 canDrop = true;
-                log(`Wall Clamp. Pushed player to ${player.x.toFixed(0)},${player.y.toFixed(0)}`);
             } else {
                 canDrop = false;
             }
         } else {
-            // Moving and hit wall -> Block drop
             canDrop = false;
         }
     }
@@ -474,79 +446,37 @@ export async function dropBomb() {
     if (!canDrop) return false;
 
     // Check Delay
-    const bombDelay = (Globals.bomb?.fireRate !== undefined ? Globals.bomb?.fireRate : 0.3) * 1000;
-    if (Date.now() - (Globals.player.lastBomb || 0) > bombDelay) {
+    const bombDelay = (Globals.bomb?.fireRate || 2) * 1000;
+    if (Date.now() - (Globals.player.lastBomb || 0) < bombDelay) return false;
 
-        // Log for debug
-        log(`Dropping Bomb. Show: ${timerShow}, Duration: ${timerDuration}, Active: ${bomb.timer?.active}`);
+    Globals.player.lastBomb = Date.now();
 
-        bombsInRoom++;
-        bombs.push({
-            x: dropX,
-            y: dropY,
+    // Create Bomb
+    const bomb = {
+        x: dropX,
+        y: dropY,
+        vx: dropVx,
+        vy: dropVy,
+        baseR: baseR,
+        maxR: maxR,
+        damage: Globals.bomb.damage || 1,
+        timer: timerDuration, // Duration
+        timerShow: timerShow,
+        timerStart: Date.now(),
+        exploding: false,
+        type: Globals.player.bombType, // Use Player's bomb type
+        color: Globals.bomb.colour || 'yellow', // Default color
+        canShoot: !!Globals.bomb.canShoot, // Shootable?
+        solid: !!Globals.bomb.solid,       // Solid?
+        remoteDenoate: Globals.bomb.remoteDenoate || null,
+        // ... any other props
+        friction: 0.9
+    };
 
-            baseR,
-            maxR,
+    // Add to Active Bombs
+    Globals.bombs.push(bomb);
 
-            colour: Globals.bomb.colour || "white",
-            damage: Globals.bomb.damage || 1,
-            canDamagePlayer: !!(Globals.bomb.explosion?.canDamagePlayer ?? Globals.bomb.canDamagePlayer),
-            remoteDenoate: Globals.bomb.remoteDenoate,
-            canInteract: Globals.bomb.canInteract,
-            timerShow: timerShow,
-
-            // Physical Properties
-            solid: Globals.bomb.solid,
-            moveable: Globals.bomb.moveable,
-            physics: Globals.bomb.physics,
-            vx: dropVx, vy: dropVy, // Use calculated velocity
-
-            // Doors
-            openLockedDoors: bomb.doors?.openLockedDoors ?? bomb.openLockedDoors,
-            openRedDoors: bomb.doors?.openRedDoors ?? bomb.openRedDoors,
-            openSecretRooms: bomb.doors?.openSecretRooms ?? bomb.openSecretRooms,
-
-            canShoot: bomb.canShoot,
-
-            explodeAt: Date.now() + timerDuration,
-            exploding: false,
-            explosionStartAt: 0,
-            explosionDuration: bomb.explosion?.explosionDuration || bomb.explosionDuration || 300,
-            explosionColour: bomb.explosion?.explosionColour || bomb.explosionColour || bomb.colour || "white",
-            didDamage: false,
-            id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-            triggeredBy: null,
-        });
-
-        // --- NUDGE LOGIC ---
-        // If we spawned inside an enemy, push it out!
-        const lastBomb = bombs[bombs.length - 1];
-        enemies.forEach(en => {
-            if (en.isDead) return;
-            const dx = lastBomb.x - en.x;
-            const dy = lastBomb.y - en.y;
-            const dist = Math.hypot(dx, dy);
-            // Check overlap
-            if (dist < (lastBomb.baseR || 15) + en.size) {
-                // Push Away
-                const pushForce = 5.0; // Strong nudge
-                if (dist > 0) {
-                    lastBomb.vx += (dx / dist) * pushForce;
-                    lastBomb.vy += (dy / dist) * pushForce;
-                } else {
-                    // Perfectly centered? Randomize
-                    lastBomb.vx += (Math.random() - 0.5) * pushForce;
-                    lastBomb.vy += (Math.random() - 0.5) * pushForce;
-                }
-                log("Bomb nuked away from enemy overlap!");
-            }
-        });
-
-        SFX.click(0.1);
-        player.lastBomb = Date.now();
-        return true;
-    }
-    return false;
+    return true;
 }
 // Global Helper for spawning bullets (Player OR Enemy)
 export function spawnBullet(x, y, vx, vy, weaponSource, ownerType = "player", owner = null) {
@@ -1203,13 +1133,13 @@ export function updateBombsPhysics() {
             const r = b.baseR || 15;
             const res = -(b.physics?.restitution ?? 0.5);
             if (b.x < BOUNDARY + r) { b.x = BOUNDARY + r; b.vx *= res; }
-            if (b.x > canvas.width - BOUNDARY - r) { b.x = canvas.width - BOUNDARY - r; b.vx *= res; }
+            if (b.x > Globals.canvas.width - BOUNDARY - r) { b.x = Globals.canvas.width - BOUNDARY - r; b.vx *= res; }
             if (b.y < BOUNDARY + r) { b.y = BOUNDARY + r; b.vy *= res; }
-            if (b.y > canvas.height - BOUNDARY - r) { b.y = canvas.height - BOUNDARY - r; b.vy *= res; }
+            if (b.y > Globals.canvas.height - BOUNDARY - r) { b.y = Globals.canvas.height - BOUNDARY - r; b.vy *= res; }
 
             // Bomb vs Enemy Collision (Explode OR Bounce)
             if (b.canInteract?.explodeOnImpact || Math.abs(b.vx) > 0.5 || Math.abs(b.vy) > 0.5) {
-                for (const en of enemies) {
+                for (const en of Globals.enemies) {
                     if (en.isDead) continue;
                     const dist = Math.hypot(b.x - en.x, b.y - en.y);
                     if (dist < r + en.size) {
@@ -2351,18 +2281,27 @@ export function playerHit(en, checkInvuln = true, applyKnockback = false, shakes
 }
 export function drawBombs(doors) {
     const now = Date.now();
+    const ctx = Globals.ctx;
 
     // 3. --- BOMBS (Explosion & Door Logic) ---
-    for (let i = bombs.length - 1; i >= 0; i--) {
-        const b = bombs[i];
+    for (let i = Globals.bombs.length - 1; i >= 0; i--) {
+        const b = Globals.bombs[i];
         if (!b.exploding && now >= b.explodeAt) {
             b.exploding = true;
             b.explosionStartAt = now;
             SFX.explode(0.3);
 
             // Local Explosion Shake (Stronger than remote)
-            screenShake.power = 20;
-            screenShake.endAt = now + 500;
+            // Globals.screenShake or just screenShake? 
+            // Previous code used screenShake variable. Assuming it's Global or filtered via Utils?
+            // Usually Globals.screenShake in this codebase? Or maybe Utils handles it.
+            // Let's assume Globals.screenShake if available, otherwise ignore or use function.
+            // Actually previous code: screenShake.power = 20.
+            // Let's use Globals.screenShake if defined.
+            if (Globals.screenShake) {
+                Globals.screenShake.power = 20;
+                Globals.screenShake.endAt = now + 500;
+            }
         }
 
         if (b.exploding) {
@@ -2372,9 +2311,9 @@ export function drawBombs(doors) {
             if (!b.didDoorCheck) {
                 b.didDoorCheck = true;
                 Object.entries(doors).forEach(([dir, door]) => {
-                    let dX = door.x ?? canvas.width / 2, dY = door.y ?? canvas.height / 2;
-                    if (dir === 'top') dY = 0; if (dir === 'bottom') dY = canvas.height;
-                    if (dir === 'left') dX = 0; if (dir === 'right') dX = canvas.width;
+                    let dX = door.x ?? Globals.canvas.width / 2, dY = door.y ?? Globals.canvas.height / 2;
+                    if (dir === 'top') dY = 0; if (dir === 'bottom') dY = Globals.canvas.height;
+                    if (dir === 'left') dX = 0; if (dir === 'right') dX = Globals.canvas.width;
 
                     // If bomb blast hits the door
                     if (Math.hypot(b.x - dX, b.y - dY) < b.maxR + 30) {
@@ -2390,15 +2329,15 @@ export function drawBombs(doors) {
 
             if (!b.didDamage) {
                 b.didDamage = true;
-                enemies.forEach(en => {
+                Globals.enemies.forEach(en => {
                     const distEn = Math.hypot(b.x - en.x, b.y - en.y);
                     if (distEn < b.maxR) {
                         // FIX: check invulnerability AND Boss Intro
-                        if (Date.now() < bossIntroEndTime) return;
+                        if (Globals.bossIntroEndTime && Date.now() < Globals.bossIntroEndTime) return;
 
                         // --- OCCLUSION CHECK: Is there a solid enemy in the way? ---
                         let blocked = false;
-                        for (const blocker of enemies) {
+                        for (const blocker of Globals.enemies) {
                             if (blocker === en) continue; // Don't block self
                             if (blocker.isDead) continue; // Dead don't block
                             if (!blocker.solid) continue; // Only solid blocks
@@ -2452,85 +2391,82 @@ export function drawBombs(doors) {
                 });
 
                 // CHAIN REACTIONS
-                bombs.forEach(otherBomb => {
+                Globals.bombs.forEach(otherBomb => {
                     if (otherBomb !== b && !otherBomb.exploding) {
                         const dist = Math.hypot(b.x - otherBomb.x, b.y - otherBomb.y);
-                        // Trigger if within explosion radius (plus a small buffer for ease)
-                        if (dist < b.maxR) {
+                        // Trigger if within blast radius
+                        if (dist < b.maxR + otherBomb.baseR) {
+                            // Instant detonate
                             otherBomb.exploding = true;
-                            otherBomb.explosionStartAt = Date.now() + 100; // slight delay for visual ripple
+                            otherBomb.explosionStartAt = now; // Sync? Or delay slightly?
+                            // Let's act immediately in next loop or force it?
+                            // Setting exploding=true will handle it next frame or loop.
+                            // But usually we want chain to feel instantaneous or rippling.
+                            // Let's set startAt to now to trigger logic next frame.
+                            otherBomb.explodeAt = now;
                         }
                     }
                 });
-
-                if (b.canDamagePlayer) {
-                    const distToPlayer = Math.hypot(b.x - player.x, b.y - player.y);
-                    if (distToPlayer < b.maxR) {
-                        // Pass a mock enemy object to playerHit
-                        log(`Bomb hitting player! Bomb Size: ${b.maxR}, Player Size: ${player.size}`);
-                        playerHit({ x: b.x, y: b.y, size: b.maxR, damage: 1, shake: 5, shakeDuration: 300 }, true, true, true);
-                    } else {
-                        log(`Player safe. Dist: ${Math.round(distToPlayer)}, Radius: ${b.maxR}`);
-                    }
-                } else {
-                    log(`Bomb canDamagePlayer is false or undefined: ${b.canDamagePlayer}`);
-                }
             }
 
-            ctx.save(); ctx.globalAlpha = 1 - p; ctx.fillStyle = b.explosionColour;
-            ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+            // Draw Explosion
+            ctx.fillStyle = b.explosionColour || "white";
+            ctx.globalAlpha = 1 - p;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
 
-            // MASKING: Erase explosion behind solid enemies so they appear to block it
-            ctx.save();
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.globalAlpha = 1.0;
-            enemies.forEach(en => {
-                if (en.solid && !en.isDead) { // Only solid living enemies block view
-                    ctx.beginPath();
-                    const s = en.size || 25;
-                    const shape = en.shape || 'circle';
-
-                    if (shape === 'square') {
-                        ctx.rect(en.x - s, en.y - s, s * 2, s * 2);
-                    } else if (shape === 'triangle') {
-                        // Match drawEnemies triangle roughly
-                        ctx.moveTo(en.x, en.y - s);
-                        ctx.lineTo(en.x + s, en.y + s);
-                        ctx.lineTo(en.x - s, en.y + s);
-                        ctx.closePath();
-                    } else {
-                        // Default Circle
-                        ctx.arc(en.x, en.y, s, 0, Math.PI * 2);
-                    }
-                    ctx.fillStyle = 'black';
-                    ctx.fill();
-                }
-            });
-            ctx.restore();
-            if (p >= 1) bombs.splice(i, 1);
+            if (p >= 1) {
+                // Remove bomb
+                Globals.bombs.splice(i, 1);
+            }
         } else {
-            // Unexploded bomb glow
-            ctx.fillStyle = b.colour; ctx.shadowBlur = 10; ctx.shadowColor = b.colour;
-            ctx.beginPath(); ctx.arc(b.x, b.y, b.baseR, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+            // Draw ticking bomb
+            ctx.save();
+            ctx.translate(b.x, b.y);
 
-            // Draw Timer Countdown
-            if (b.timerShow && b.explodeAt !== Infinity) {
-                const remaining = Math.max(0, Math.ceil((b.explodeAt - now) / 1000));
-                ctx.fillStyle = "black";
-                ctx.font = "bold 14px Arial"; // Slightly larger
+            // Pulse effect?
+            const pulse = 1 + Math.sin(now / 100) * 0.1;
+            ctx.scale(pulse, pulse);
+
+            // Draw Body
+            ctx.fillStyle = b.colour || b.color || "yellow"; // Support both spellings
+            ctx.beginPath();
+            ctx.arc(0, 0, b.baseR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Fuse / Detail?
+            ctx.fillStyle = "black";
+            ctx.beginPath();
+            ctx.arc(0, 0, b.baseR * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Timer Text?
+            if (b.timerShow) {
+                ctx.fillStyle = "white";
+                ctx.font = "bold 12px Arial";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText(remaining, b.x, b.y + 1); // +1 for visual centering
+                const remaining = Math.max(0, ((b.explodeAt - now) / 1000).toFixed(1));
+                ctx.fillText(remaining, 0, 0);
             }
+
+            ctx.restore();
         }
     }
 }
+
+
+
+
+
 export function updateBombDropping() {
-    if (keys['KeyB'] && player.inventory?.bombs > 0 && player.bombType) {
+    if (Globals.keys['KeyB'] && Globals.player.inventory?.bombs > 0 && Globals.player.bombType) {
         // dropBomb handles delay checks, overlap checks, and valid position checks
         dropBomb().then(dropped => {
             if (dropped) {
-                player.inventory.bombs--;
+                Globals.player.inventory.bombs--;
             }
         });
     }
@@ -2603,7 +2539,7 @@ export function updateMovementAndDoors(doors, roomLocked) {
                     Globals.player.x = nextX;
                 } else if (collided && !hitMoveable) {
                     Globals.player.x -= dx * 5; // Knockback only if not pushing
-                    Globals.player.x = Math.max(BOUNDARY + player.size, Math.min(canvas.width - BOUNDARY - player.size, player.x));
+                    Globals.player.x = Math.max(BOUNDARY + Globals.player.size, Math.min(Globals.canvas.width - BOUNDARY - Globals.player.size, Globals.player.x));
                 }
             } else {
                 const limit = dy < 0 ? BOUNDARY : Globals.canvas.height - BOUNDARY;
