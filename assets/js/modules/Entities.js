@@ -1828,6 +1828,9 @@ function proceedLevelComplete() {
 
         // Save State to LocalStorage (Robust Persistence)
         localStorage.setItem('rogue_transition', 'true');
+        // Save Next Level as the "Current" level for restarts
+        localStorage.setItem('rogue_current_level', Globals.roomData.nextLevel);
+
         // Ensure we save a clean copy without circular refs or huge data if any
         // But player object is simple enough.
         localStorage.setItem('rogue_player_state', JSON.stringify(Globals.player));

@@ -5,18 +5,11 @@ export const DOOR_SIZE = 50;
 export const DOOR_THICKNESS = 15;
 
 //json constants
-export const JSON_PATH = "/json/";
 
-export const JSON_PATH_GAME = "game.json";
-export const JSON_PATH_LEVELS = "levels.json";
-export const JSON_PATH_PLAYER = "player.json";
-export const JSON_PATH_REWARDS = "rewards/";
-export const JSON_PATH_ENEMIES = "enemies/";
-export const JSON_PATH_ITEMS = "items/";
-export const JSON_PATH_BOSSES = "bosses/";
-export const JSON_PATH_UNLOCKS = "unlocks/";
-export const JSON_PATH_LORE = "lore/";
-export const JSON_PATH_SPEECH = "speech/";
+export const JSON_PATH = "/json/";
+export const JSON_ENEMIES = `${JSON_PATH}enemies.json`;
+export const JSON_ENEMIES_SPECIAL = `${JSON_PATH}enemies/special/`;
+
 
 export const CONFIG = {
     MAX_DEBUG_LOGS: 1000,

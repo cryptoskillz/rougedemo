@@ -212,8 +212,9 @@ export async function initGame(isRestart = false, nextLevel = null, keepStats = 
         }
 
         // 3. Load Level Specific Data
-        // Use nextLevel if provided, else config startLevel
-        const levelFile = nextLevel || gData.startLevel;
+        // Use nextLevel if provided, else check stored level (Restart/Continue), else defaults
+        const storedLevel = localStorage.getItem('rogue_current_level');
+        const levelFile = nextLevel || storedLevel || gData.startLevel;
         if (levelFile) {
             try {
                 log("Loading Level:", levelFile);
@@ -2029,6 +2030,8 @@ export function confirmNewGame() {
     localStorage.removeItem('current_gun_config');
     localStorage.removeItem('current_bomb_config');
     localStorage.removeItem('base_gun');
+    localStorage.removeItem('rogue_current_level');
+
     location.reload();
 }
 
