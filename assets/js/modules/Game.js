@@ -1902,14 +1902,17 @@ export function updateSFXToggle() {
     }
 }
 
-export function restartGame(keepItems = false) {
+export async function restartGame(keepItems = false) {
     const isDebug = Globals.gameData && (
         Globals.gameData.showDebugWindow !== undefined
             ? Globals.gameData.showDebugWindow
             : (Globals.gameData.debug && Globals.gameData.debug.windowEnabled === true)
     );
     if (!keepItems && !isDebug) resetWeaponState();
-    initGame(true, null, keepItems);
+
+    // Wait for init to complete, then auto-start
+    await initGame(true, null, keepItems);
+    startGame(true);
 }
 Globals.restartGame = restartGame;
 
@@ -2130,5 +2133,4 @@ export function cancelNewGame() {
 
 
 
-Globals.restartGame = initGame;
 Globals.loadRoom = initGame; // Alias for clarity
