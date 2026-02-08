@@ -721,6 +721,10 @@ export async function initGame(isRestart = false, nextLevel = null, keepStats = 
                 const startX = 100;
                 const startY = 100;
 
+                // Prevent overlap: Clear existing items in this room 0,0 first? 
+                // Or just clear all ground items if this is a "Matrix Mode" load
+                Globals.groundItems = Globals.groundItems.filter(i => i.roomX !== (Globals.roomData.x || 0) || i.roomY !== (Globals.roomData.y || 0));
+
                 items.forEach((itemTemplate, idx) => {
                     if (!itemTemplate) return;
 
@@ -739,6 +743,13 @@ export async function initGame(isRestart = false, nextLevel = null, keepStats = 
                     });
                 });
                 console.log(`Spawned ${items.length} items for Matrix Room.`);
+
+                // Move Player to Safe Spot (Bottom Center)
+                if (Globals.player) {
+                    Globals.player.x = 400;
+                    Globals.player.y = 500;
+                    console.log("Moved player to safe spot (400, 500) for Matrix Mode.");
+                }
             }
         }
 
