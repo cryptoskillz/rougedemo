@@ -51,8 +51,8 @@ next up
     server    
 
 balance 6
+    drawtutoiral in load roomd
     add back old ghost gun
-    fix music sfx and save game toggle
     fix debug logs
     Game.js:1356 Critical: Room not found in levelMap at 0,-1
     rename rooms
