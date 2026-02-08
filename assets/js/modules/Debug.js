@@ -359,7 +359,7 @@ export function renderDebugForm() {
         const bosses = ['boss0', 'boss1', 'boss2', 'boss3', 'boss4', 'boss5'];
         bosses.forEach(b => {
             const opt = document.createElement('option');
-            opt.value = "boss:" + b;
+            opt.value = "bosses/" + b;
             opt.innerText = b.toUpperCase();
             select.appendChild(opt);
         });
